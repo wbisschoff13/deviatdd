@@ -6,10 +6,21 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-_VALID_PHASES = frozenset({
-    "IDLE", "EXPLORE", "RESEARCH", "PRD", "SHARD",
-    "SPECIFY", "TASKS", "RED", "GREEN", "REFACTOR", "E2E",
-})
+_VALID_PHASES = frozenset(
+    {
+        "IDLE",
+        "EXPLORE",
+        "RESEARCH",
+        "PRD",
+        "SHARD",
+        "SPECIFY",
+        "TASKS",
+        "RED",
+        "GREEN",
+        "REFACTOR",
+        "E2E",
+    }
+)
 
 
 class DeviateConfig(BaseModel):
@@ -32,7 +43,5 @@ class SessionState(BaseModel):
     def _validate_phase(cls, v: str) -> str:
         if v not in _VALID_PHASES:
             valid = ", ".join(sorted(_VALID_PHASES))
-            raise ValueError(
-                f"Invalid phase '{v}'. Must be one of: {valid}"
-            )
+            raise ValueError(f"Invalid phase '{v}'. Must be one of: {valid}")
         return v

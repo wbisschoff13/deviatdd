@@ -37,7 +37,7 @@ def _dict_to_toml(data: dict) -> str:
         if value is None:
             continue
         if isinstance(value, bool):
-            lines.append(f'{key} = {"true" if value else "false"}')
+            lines.append(f"{key} = {'true' if value else 'false'}")
         elif isinstance(value, int):
             lines.append(f"{key} = {value}")
         elif isinstance(value, float):

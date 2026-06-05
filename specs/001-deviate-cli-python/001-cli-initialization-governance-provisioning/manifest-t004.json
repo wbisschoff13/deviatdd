@@ -1,0 +1,41 @@
+{
+  "task_id": "T004",
+  "files_modified": [
+    {
+      "path": "tests/test_integration/__init__.py",
+      "action": "created",
+      "purpose": "Package marker for integration test directory"
+    },
+    {
+      "path": "tests/test_integration/test_init_export_cycle.py",
+      "action": "created",
+      "purpose": "Integration tests for full init cycle, performance gates, and idempotency"
+    }
+  ],
+  "commit_subject": "test(T004): add integration tests for init cycle and performance",
+  "commit_body": "Add 6 integration tests across 4 scenarios: full init cycle structural validation (config.toml TOML parsing, session.json schema, constitution marker resolution, CLAUDE.md governance block), wall-clock performance under 500ms for both first-run and idempotent second-run, and pre-scaffolded directory idempotency verification. All 6 tests enforce the L_max <= 500ms performance constraint from US-006-PERF.",
+  "validation": {
+    "lint": "PASS",
+    "typecheck": "SKIP",
+    "tests": "PASS",
+    "command": "pytest tests/test_integration/test_init_export_cycle.py -v",
+    "summary": "6/6 integration tests passed, ruff lint clean, ruff format clean, 22/22 all-tests pass (448ms)"
+  },
+  "reasoning": {
+    "approach": "Created integration test package with 6 tests across 4 scenarios: full cycle validation, TOML/JSON structural checks, first-run and idempotent performance gates, and pre-scaffolded directory idempotency",
+    "key_decisions": [
+      {
+        "decision": "Split structural validation into 3 separate tests (full cycle, TOML, JSON)",
+        "rationale": "Keeps each assertion focused: one test for file existence + governance, one for TOML deserialization content, one for JSON schema. Easier to diagnose failures."
+      },
+      {
+        "decision": "Used time.perf_counter() for performance tests per spec",
+        "rationale": "perf_counter() provides monotonic high-resolution wall-clock timing suitable for sub-second measurements per US-006-PERF"
+      },
+      {
+        "decision": "Pre-scaffolded test uses CLAUDE.md with existing governance block",
+        "rationale": "Aligns with _upsert_governance_block behavior: file without the block gets appended, file with the block gets section-replaced. The test verifies content-aware idempotency."
+      }
+    ]
+  }
+}
