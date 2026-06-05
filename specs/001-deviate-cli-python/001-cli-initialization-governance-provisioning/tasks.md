@@ -5,7 +5,7 @@
 
 ### Tasks
 
-- [ ] T001: Package Structure & Pydantic State Models
+- [x] T001: Package Structure & Pydantic State Models
   - **Type**: Infra_Batch
   - **Mode**: IMMEDIATE
   - **Verification**: `pytest tests/test_state/test_config.py -v`
