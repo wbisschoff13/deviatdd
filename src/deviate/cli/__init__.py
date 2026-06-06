@@ -26,7 +26,7 @@ def _write_if_missing(path: Path, content: str) -> bool:
     if path.exists():
         console.print(f"  [yellow]SKIP[/] {path.name} already exists")
         return False
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     console.print(f"  [green]CREATE[/] {path.name}")
     return True
 
@@ -43,9 +43,11 @@ def _dict_to_toml(data: dict) -> str:
         elif isinstance(value, float):
             lines.append(f"{key} = {value}")
         elif isinstance(value, str):
-            lines.append(f'{key} = "{value}"')
+            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f'{key} = "{escaped}"')
         else:
-            lines.append(f'{key} = "{value}"')
+            escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f'{key} = "{escaped}"')
     lines.append("")
     return "\n".join(lines)
 
@@ -88,22 +90,21 @@ def _read_seed(module: str, filename: str) -> str | None:
 
 def _upsert_governance_block(target_path: Path, seed_content: str) -> None:
     if not target_path.exists():
-        target_path.write_text(seed_content)
+        target_path.write_text(seed_content, encoding="utf-8")
         console.print(f"  [green]CREATE[/] {target_path.name}")
         return
 
-    existing = target_path.read_text()
+    existing = target_path.read_text(encoding="utf-8")
 
     if not existing.strip():
-        target_path.write_text(seed_content)
+        target_path.write_text(seed_content, encoding="utf-8")
         console.print(f"  [green]CREATE[/] {target_path.name}")
         return
 
     section_header = "## DeviaTDD Orchestration Rules"
 
     if section_header not in existing:
-        with open(target_path, "a") as f:
-            f.write("\n\n" + seed_content)
+        target_path.write_text(existing + "\n\n" + seed_content, encoding="utf-8")
         console.print(f"  [green]APPEND[/] {target_path.name}")
         return
 
@@ -111,16 +112,16 @@ def _upsert_governance_block(target_path: Path, seed_content: str) -> None:
         r"^## DeviaTDD Orchestration Rules.*?(?=^## |\Z)",
         re.MULTILINE | re.DOTALL,
     )
-    existing = pattern.sub(seed_content.strip(), existing)
-    target_path.write_text(existing)
+    existing = pattern.sub(lambda _: seed_content.strip(), existing)
+    target_path.write_text(existing, encoding="utf-8")
     console.print(f"  [green]UPDATE[/] {target_path.name} block replaced")
 
 
-def _scaffold_dotfiles(workdir: Path) -> None:
+def _scaffold_dotfiles(workdir: Path, agent_export_mode: str) -> None:
     dot_dir = workdir / ".deviate"
     _ensure_dir(dot_dir)
 
-    config = DeviateConfig()
+    config = DeviateConfig(agent_export_mode=agent_export_mode)
     config_path = dot_dir / "config.toml"
     _write_if_missing(config_path, _dict_to_toml(config.model_dump()))
 
@@ -143,7 +144,7 @@ def _provision_constitution(workdir: Path) -> None:
         return
 
     resolved = _resolve_seed(content)
-    constitution_path.write_text(resolved)
+    constitution_path.write_text(resolved, encoding="utf-8")
     console.print("  [green]CREATE[/] specs/constitution.md")
 
 
@@ -176,9 +177,8 @@ def init(
 
     console.print("[bold]Initializing deviate workspace...[/bold]")
 
-    _scaffold_dotfiles(workdir)
+    _scaffold_dotfiles(workdir, agent_export_mode)
 
     _apply_governance(workdir)
 
-    if generate_constitution:
-        _provision_constitution(workdir)
+    _provision_constitution(workdir)
