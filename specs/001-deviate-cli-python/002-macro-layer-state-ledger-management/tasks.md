@@ -83,7 +83,7 @@
 
 ### Tasks
 
-- [/] T004: Full-cycle integration test
+- [x] T004: Full-cycle integration test
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 import typer
 from rich.console import Console
 
 from deviate.state.config import SessionState, TransitionViolationError
+from deviate.state.ledger import IssueRecord, append_issue_record
 
 console = Console()
 
@@ -76,4 +78,41 @@ def prd(
 def shard(
     epic_slug: str = typer.Argument(..., help="Epic slug for the feature scope"),
 ) -> None:
-    _run_command("SHARD", epic_slug, ["prd.md"])
+    dot_dir = Path(".deviate")
+    if not dot_dir.exists():
+        _handle_missing_dot_dir("SHARD")
+
+    session_path = dot_dir / "session.json"
+    session = SessionState.load(session_path)
+
+    try:
+        session = session.transition_to("SHARD")
+    except TransitionViolationError as e:
+        _handle_transition_error("SHARD", e)
+
+    spec_dir = Path("specs") / epic_slug
+    missing = _validate_artifacts([spec_dir / "prd.md"])
+    if missing:
+        _handle_missing_artifacts("SHARD", missing)
+
+    ledger_path = Path("specs") / "issues.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    record = IssueRecord(
+        id=str(uuid.uuid4()),
+        title=f"Shard output for {epic_slug}",
+        status="SHARDED",
+        epic_slug=epic_slug,
+        issue_slug=epic_slug,
+    )
+    appended = append_issue_record(record, ledger_path)
+    if appended:
+        console.print(f"[green]LEDGER_APPENDED[/] {record.issue_slug}")
+    else:
+        console.print(
+            f"[yellow]LEDGER_IDEMPOTENT[/] record for "
+            f"{record.issue_slug} already exists"
+        )
+
+    session = session.transition_to("IDLE")
+    session.save(session_path)
+    console.print("[green]SHARD[/] session reset to IDLE")
