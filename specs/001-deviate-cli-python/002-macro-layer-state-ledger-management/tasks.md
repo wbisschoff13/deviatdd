@@ -5,7 +5,7 @@
 
 ### Tasks
 
-- [ ] T001: IssueRecord model and JSONL ledger operations with idempotency
+- [x] T001: IssueRecord model and JSONL ledger operations with idempotency
   - **Type**: Domain_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
@@ -24,7 +24,7 @@
     - **Edge Cases**: Handle empty/missing ledger file gracefully (treat as empty list). Handle malformed JSON lines by skipping with warning rather than crashing. Validate UUID4 format on id field via Pydantic validator.
     - **Acceptance**: `IssueRecord` model passes all Pydantic validation tests. `append_issue_record` correctly handles first-write, duplicate-skip, and file-creation scenarios with deterministic return values.
 
-- [ ] T002: Session state machine transition enforcement
+- [x] T002: Session state machine transition enforcement
   - **Type**: Domain_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
