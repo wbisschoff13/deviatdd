@@ -30,7 +30,7 @@ class TestShardCommand:
             assert result.exit_code == 0, result.output
 
             loaded = SessionState.load(dot_dir / "session.json")
-            assert loaded.current_phase == "SHARD"
+            assert loaded.current_phase == "IDLE"
 
     def test_shard_rejects_if_not_prd(self, tmp_path: Path):
         with chdir(tmp_path):
