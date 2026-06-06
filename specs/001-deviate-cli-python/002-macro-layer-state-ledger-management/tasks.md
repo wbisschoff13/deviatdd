@@ -102,7 +102,7 @@
     - **Edge Cases**: Test with missing `.deviate/` directory (should be created by first command). Test with empty `specs/issues.jsonl` (ledger creation). Test idempotent re-run of shard (skip ledger append on second invocation).
     - **Acceptance**: Full cycle passes with correct state progression. Ledger contains exactly one record after first cycle. Second shard invocation idempotently skips. Mid-cycle failure preserves session state at the correct phase.
 
-- [ ] T005: E2E bats workflow verification
+- [x] T005: E2E bats workflow verification
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration
