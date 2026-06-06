@@ -17,24 +17,33 @@ class TestIssueRecord:
             status="SHARDED",
             epic_slug="epic-001",
             issue_slug="iss-001",
-            timestamp=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
         )
         assert record.id is not None
         assert record.title == "Test Issue"
         assert record.status == "SHARDED"
         assert record.epic_slug == "epic-001"
         assert record.issue_slug == "iss-001"
-        assert record.timestamp.tzinfo is not None
+        assert record.created_at.tzinfo is not None
+
+    def test_issue_record_default_status(self):
+        record = IssueRecord(
+            id=str(uuid4()),
+            title="Default Status",
+            epic_slug="epic-001",
+            issue_slug="iss-default",
+        )
+        assert record.status == "DRAFT"
 
     def test_issue_record_invalid_status(self):
         with pytest.raises(ValidationError):
             IssueRecord(
                 id=str(uuid4()),
                 title="Bad Status",
-                status="DRAFT",
+                status="INVALID",
                 epic_slug="epic-001",
                 issue_slug="iss-002",
-                timestamp=datetime.now(timezone.utc),
+                created_at=datetime.now(timezone.utc),
             )
 
     def test_issue_record_missing_id(self):
@@ -44,7 +53,7 @@ class TestIssueRecord:
                 status="SHARDED",
                 epic_slug="epic-001",
                 issue_slug="iss-003",
-                timestamp=datetime.now(timezone.utc),
+                created_at=datetime.now(timezone.utc),
             )
 
     def test_issue_record_serialization(self):
@@ -54,7 +63,7 @@ class TestIssueRecord:
             status="SHARDED",
             epic_slug="epic-001",
             issue_slug="iss-004",
-            timestamp=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
         )
         data = json.loads(record.model_dump_json())
         restored = IssueRecord.model_validate(data)
@@ -70,7 +79,7 @@ class TestAppendIssueRecord:
             status="SHARDED",
             epic_slug="epic-001",
             issue_slug="iss-005",
-            timestamp=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
         )
         result = append_issue_record(record, ledger_path)
         assert result is True
@@ -88,7 +97,7 @@ class TestAppendIssueRecord:
             status="SHARDED",
             epic_slug="epic-001",
             issue_slug="iss-same",
-            timestamp=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
         )
         result1 = append_issue_record(record, ledger_path)
         assert result1 is True
@@ -99,7 +108,7 @@ class TestAppendIssueRecord:
             status="SHARDED",
             epic_slug="epic-001",
             issue_slug="iss-same",
-            timestamp=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
         )
         result2 = append_issue_record(record2, ledger_path)
         assert result2 is False
@@ -117,7 +126,7 @@ class TestAppendIssueRecord:
             status="SHARDED",
             epic_slug="epic-001",
             issue_slug="iss-creator",
-            timestamp=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
         )
         result = append_issue_record(record, ledger_path)
         assert result is True
