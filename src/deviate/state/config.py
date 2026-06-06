@@ -64,10 +64,10 @@ class SessionState(BaseModel):
     def transition_to(self, phase: str) -> SessionState:
         expected_next = _TRANSITION_MAP.get(self.current_phase)
         if phase != expected_next:
-            need = _REVERSE_MAP.get(phase)
+            expected_current = _REVERSE_MAP.get(phase)
             raise TransitionViolationError(
                 f"cannot transition from '{self.current_phase}' to '{phase}': "
-                f"expected '{need}' -> '{phase}', "
+                f"expected '{expected_current}' -> '{phase}', "
                 f"current '{self.current_phase}' -> '{expected_next}'"
             )
         return SessionState(
