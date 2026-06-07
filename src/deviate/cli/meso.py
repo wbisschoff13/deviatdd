@@ -17,22 +17,22 @@ from deviate.state.ledger import (
 console = Console()
 
 
-def _handle_missing_dot_dir() -> None:
+def _handle_missing_dot_dir(phase: str) -> None:
     console.print(
-        "[red]SPECIFY_HALTED: .deviate/ not found, run 'deviate init' first[/]"
+        f"[red]{phase}_HALTED: .deviate/ not found, run 'deviate init' first[/]"
     )
     raise typer.Exit(code=1)
 
 
-def _handle_transition_error(error: TransitionViolationError) -> None:
-    console.print(f"[red]SPECIFY_HALTED: {error}[/]")
+def _handle_transition_error(phase: str, error: TransitionViolationError) -> None:
+    console.print(f"[red]{phase}_HALTED: {error}[/]")
     raise typer.Exit(code=1)
 
 
-def _resolve_and_validate_issue(issue_id: str) -> IssueRecord:
+def _resolve_and_validate_issue(issue_id: str, phase: str) -> IssueRecord:
     dot_dir = Path(".deviate")
     if not dot_dir.exists():
-        _handle_missing_dot_dir()
+        _handle_missing_dot_dir(phase)
 
     ledger_path = Path("specs") / "issues.jsonl"
     record = resolve_issue_record(issue_id, ledger_path)
@@ -46,7 +46,7 @@ def _resolve_and_validate_issue(issue_id: str) -> IssueRecord:
 def tasks(
     issue_id: str = typer.Argument(..., help="Issue ID to decompose into tasks"),
 ) -> None:
-    record = _resolve_and_validate_issue(issue_id)
+    record = _resolve_and_validate_issue(issue_id, "TASKS")
 
     session_path = Path(".deviate") / "session.json"
     session = SessionState.load(session_path)
@@ -61,8 +61,7 @@ def tasks(
     try:
         session = session.transition_to("TASKS")
     except TransitionViolationError as e:
-        console.print(f"[red]TASKS_HALTED: {e}[/]")
-        raise typer.Exit(code=1)
+        _handle_transition_error("TASKS", e)
 
     session.active_issue_id = issue_id
     session.save(session_path)
@@ -79,8 +78,7 @@ def tasks(
     try:
         session = session.transition_to("IDLE")
     except TransitionViolationError as e:
-        console.print(f"[red]TASKS_HALTED: {e}[/]")
-        raise typer.Exit(code=1)
+        _handle_transition_error("TASKS", e)
 
     session.save(session_path)
     console.print(f"[green]TASKS[/] 1 task(s) provisioned for {issue_slug}")
@@ -89,7 +87,7 @@ def tasks(
 def specify(
     issue_id: str = typer.Argument(..., help="Issue ID to specify"),
 ) -> None:
-    record = _resolve_and_validate_issue(issue_id)
+    record = _resolve_and_validate_issue(issue_id, "SPECIFY")
 
     session_path = Path(".deviate") / "session.json"
     session = SessionState.load(session_path)
@@ -110,7 +108,7 @@ def specify(
     try:
         session = session.transition_to("SPECIFY")
     except TransitionViolationError as e:
-        _handle_transition_error(e)
+        _handle_transition_error("SPECIFY", e)
 
     session.active_issue_id = issue_id
     session.save(session_path)
