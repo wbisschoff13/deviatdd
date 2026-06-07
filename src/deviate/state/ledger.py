@@ -76,14 +76,21 @@ class TaskRecord(BaseModel):
 
 def append_task_record(record: TaskRecord, ledger_path: Path) -> bool:
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    existing = _read_ledger(ledger_path)
-    if any(data.get("id") == record.id for data in existing):
-        return False
-
-    with ledger_path.open("a", encoding="utf-8") as f:
+    with ledger_path.open("a+", encoding="utf-8") as f:
         if HAS_FCNTL:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
         try:
+            f.seek(0)
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if data.get("id") == record.id:
+                        return False
+                except json.JSONDecodeError:
+                    continue
             f.write(record.model_dump_json() + "\n")
         finally:
             if HAS_FCNTL:
@@ -100,14 +107,22 @@ def resolve_issue_record(issue_id: str, ledger_path: Path) -> IssueRecord | None
 
 
 def append_issue_record(record: IssueRecord, ledger_path: Path) -> bool:
-    existing = _read_ledger(ledger_path)
-    if any(data.get("issue_slug") == record.issue_slug for data in existing):
-        return False
-
-    with ledger_path.open("a", encoding="utf-8") as f:
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a+", encoding="utf-8") as f:
         if HAS_FCNTL:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
         try:
+            f.seek(0)
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                    if data.get("issue_slug") == record.issue_slug:
+                        return False
+                except json.JSONDecodeError:
+                    continue
             f.write(record.model_dump_json() + "\n")
         finally:
             if HAS_FCNTL:

@@ -63,7 +63,9 @@ def tasks(
         status="PENDING",
         execution_mode="TDD",
     )
-    append_task_record(task, tasks_jsonl)
+    if not append_task_record(task, tasks_jsonl):
+        console.print(f"[red]ERROR[/] Failed to append task record {task.id}")
+        raise typer.Exit(code=1)
 
     try:
         session = session.transition_to("IDLE")
