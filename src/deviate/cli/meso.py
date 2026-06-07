@@ -4,8 +4,12 @@ import uuid
 from pathlib import Path
 
 import typer
-from rich.console import Console
 
+from deviate.cli._common import (
+    _handle_missing_dot_dir,
+    _handle_transition_error,
+    console,
+)
 from deviate.state.config import SessionState, TransitionViolationError
 from deviate.state.ledger import (
     IssueRecord,
@@ -13,20 +17,6 @@ from deviate.state.ledger import (
     append_task_record,
     resolve_issue_record,
 )
-
-console = Console()
-
-
-def _handle_missing_dot_dir(phase: str) -> None:
-    console.print(
-        f"[red]{phase}_HALTED: .deviate/ not found, run 'deviate init' first[/]"
-    )
-    raise typer.Exit(code=1)
-
-
-def _handle_transition_error(phase: str, error: TransitionViolationError) -> None:
-    console.print(f"[red]{phase}_HALTED: {error}[/]")
-    raise typer.Exit(code=1)
 
 
 def _resolve_and_validate_issue(issue_id: str, phase: str) -> IssueRecord:
