@@ -93,7 +93,7 @@
 
 ### Tasks
 
-- [ ] T005: End-to-End Meso Specify→Tasks Cycle Integration Test
+- [x] T005: End-to-End Meso Specify→Tasks Cycle Integration Test
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration
