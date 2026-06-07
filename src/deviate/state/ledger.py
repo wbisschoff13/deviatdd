@@ -25,6 +25,8 @@ class IssueRecord(BaseModel):
     issue_slug: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    model_config = {"extra": "forbid"}
+
     @field_validator("id")
     @classmethod
     def _validate_uuid4(cls, v: str) -> str:
@@ -81,7 +83,11 @@ def append_task_record(record: TaskRecord, ledger_path: Path) -> bool:
     with ledger_path.open("a", encoding="utf-8") as f:
         if HAS_FCNTL:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        f.write(record.model_dump_json() + "\n")
+        try:
+            f.write(record.model_dump_json() + "\n")
+        finally:
+            if HAS_FCNTL:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     return True
 
 
@@ -101,5 +107,9 @@ def append_issue_record(record: IssueRecord, ledger_path: Path) -> bool:
     with ledger_path.open("a", encoding="utf-8") as f:
         if HAS_FCNTL:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        f.write(record.model_dump_json() + "\n")
+        try:
+            f.write(record.model_dump_json() + "\n")
+        finally:
+            if HAS_FCNTL:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     return True

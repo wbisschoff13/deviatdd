@@ -128,7 +128,7 @@ class TestTasksCommand:
 
             post_lines = len(tasks_jsonl.read_text().splitlines())
             assert post_lines == pre_lines, (
-                f"Line count changed: {pre_lines} \u2192 {post_lines}"
+                f"Line count changed: {pre_lines} → {post_lines}"
             )
 
     def test_tasks_sets_session_transition(self, tmp_path: Path):
