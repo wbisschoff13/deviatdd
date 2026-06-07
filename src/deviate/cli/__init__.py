@@ -9,7 +9,7 @@ from rich.console import Console
 
 from deviate.state.config import DeviateConfig, SessionState
 from deviate.cli.macro import explore, research, prd, shard
-from deviate.cli.meso import specify
+from deviate.cli.meso import specify, tasks
 
 cli = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -191,3 +191,4 @@ cli.command(name="research")(research)
 cli.command(name="prd")(prd)
 cli.command(name="shard")(shard)
 cli.command(name="specify")(specify)
+cli.command(name="tasks")(tasks)
