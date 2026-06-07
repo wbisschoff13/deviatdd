@@ -24,14 +24,20 @@ _VALID_PHASES = frozenset(
     }
 )
 
-_TRANSITION_MAP: dict[str, str] = {
-    "IDLE": "EXPLORE",
-    "EXPLORE": "RESEARCH",
-    "RESEARCH": "PRD",
-    "PRD": "SHARD",
-    "SHARD": "IDLE",
+_TRANSITION_MAP: dict[str, tuple[str, ...]] = {
+    "IDLE": ("EXPLORE", "SPECIFY"),
+    "EXPLORE": ("RESEARCH",),
+    "RESEARCH": ("PRD",),
+    "PRD": ("SHARD",),
+    "SHARD": ("IDLE",),
+    "SPECIFY": ("TASKS",),
+    "TASKS": ("IDLE",),
 }
-_REVERSE_MAP: dict[str, str] = {v: k for k, v in _TRANSITION_MAP.items()}
+_REVERSE_MAP: dict[str, str] = {}
+for _src, _targets in _TRANSITION_MAP.items():
+    for _tgt in _targets:
+        if _tgt not in _REVERSE_MAP:
+            _REVERSE_MAP[_tgt] = _src
 
 
 class TransitionViolationError(Exception):
@@ -62,8 +68,8 @@ class SessionState(BaseModel):
         return v
 
     def transition_to(self, phase: str) -> SessionState:
-        expected_next = _TRANSITION_MAP.get(self.current_phase)
-        if phase != expected_next:
+        expected_next: tuple[str, ...] | None = _TRANSITION_MAP.get(self.current_phase)
+        if expected_next is None or phase not in expected_next:
             expected_current = _REVERSE_MAP.get(phase)
             raise TransitionViolationError(
                 f"cannot transition from '{self.current_phase}' to '{phase}': "
