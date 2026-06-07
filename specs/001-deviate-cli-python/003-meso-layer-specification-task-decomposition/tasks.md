@@ -25,7 +25,7 @@
     - **Refactor**: Ensure `_read_ledger()` is reused (not duplicated) across `append_issue_record`, `append_task_record`, and `resolve_issue_record`. Align error messages with existing `_validate_uuid4` pattern.
     - **Acceptance**: All new tests pass. TaskRecord model round-trips through JSON serialization. `resolve_issue_record` returns the canonical (last-written) state for a given id.
 
-- [/] T002: SessionState Meso Phase Transition Map
+- [x] T002: SessionState Meso Phase Transition Map
   - **Type**: Domain_Batch
   - **Mode**: TDD
   - **Test Strategy**: Solitary_Unit
