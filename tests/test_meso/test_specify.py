@@ -50,9 +50,7 @@ class TestSpecifyCommand:
             assert result.exit_code == 0, result.output
 
             spec_dir = Path("specs") / issue_slug
-            assert spec_dir.is_dir(), (
-                f"Expected directory {spec_dir} to be created"
-            )
+            assert spec_dir.is_dir(), f"Expected directory {spec_dir} to be created"
 
     def test_specify_invalid_issue_id(self, tmp_path: Path):
         valid_id = "550e8400-e29b-41d4-a716-446655440001"
@@ -69,9 +67,7 @@ class TestSpecifyCommand:
             _write_ledger(ledger, record)
 
             result = runner.invoke(cli, ["specify", missing_id])
-            assert result.exit_code != 0, (
-                "Expected non-zero exit for invalid issue ID"
-            )
+            assert result.exit_code != 0, "Expected non-zero exit for invalid issue ID"
             assert "INVALID_ISSUE_ID" in result.output
 
     def test_specify_issue_regardless_of_status(self, tmp_path: Path):
@@ -92,9 +88,7 @@ class TestSpecifyCommand:
             assert result.exit_code == 0, result.output
 
             spec_dir = Path("specs") / issue_slug
-            assert spec_dir.is_dir(), (
-                f"Expected directory {spec_dir} for DRAFT issue"
-            )
+            assert spec_dir.is_dir(), f"Expected directory {spec_dir} for DRAFT issue"
 
     def test_specify_creates_spec_md_placeholder(self, tmp_path: Path):
         issue_id = "550e8400-e29b-41d4-a716-446655440004"
@@ -114,9 +108,7 @@ class TestSpecifyCommand:
             assert result.exit_code == 0, result.output
 
             spec_md = Path("specs") / issue_slug / "spec.md"
-            assert spec_md.is_file(), (
-                f"Expected {spec_md} placeholder to exist"
-            )
+            assert spec_md.is_file(), f"Expected {spec_md} placeholder to exist"
 
     def test_specify_sets_session_to_specify(self, tmp_path: Path):
         issue_id = "550e8400-e29b-41d4-a716-446655440005"
@@ -140,6 +132,5 @@ class TestSpecifyCommand:
                 f"Expected SPECIFY, got {loaded.current_phase}"
             )
             assert loaded.active_issue_id == issue_id, (
-                f"Expected active_issue_id={issue_id}, "
-                f"got {loaded.active_issue_id}"
+                f"Expected active_issue_id={issue_id}, got {loaded.active_issue_id}"
             )

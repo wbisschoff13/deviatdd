@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 import typer
 from rich.console import Console
 
 from deviate.state.config import SessionState, TransitionViolationError
-from deviate.state.ledger import IssueRecord, resolve_issue_record
+from deviate.state.ledger import (
+    IssueRecord,
+    TaskRecord,
+    append_task_record,
+    resolve_issue_record,
+)
 
 console = Console()
 
@@ -40,7 +46,44 @@ def _resolve_and_validate_issue(issue_id: str) -> IssueRecord:
 def tasks(
     issue_id: str = typer.Argument(..., help="Issue ID to decompose into tasks"),
 ) -> None:
-    raise typer.Exit(code=1)
+    record = _resolve_and_validate_issue(issue_id)
+
+    session_path = Path(".deviate") / "session.json"
+    session = SessionState.load(session_path)
+
+    issue_slug = record.issue_slug
+    tasks_jsonl = Path("specs") / issue_slug / "tasks.jsonl"
+
+    if tasks_jsonl.exists():
+        console.print(f"[yellow]SKIP[/] tasks already provisioned for {issue_slug}")
+        raise typer.Exit(code=0)
+
+    try:
+        session = session.transition_to("TASKS")
+    except TransitionViolationError as e:
+        console.print(f"[red]TASKS_HALTED: {e}[/]")
+        raise typer.Exit(code=1)
+
+    session.active_issue_id = issue_id
+    session.save(session_path)
+
+    task = TaskRecord(
+        id=str(uuid.uuid4()),
+        issue_id=issue_id,
+        description=f"Implement {record.title}",
+        status="PENDING",
+        execution_mode="TDD",
+    )
+    append_task_record(task, tasks_jsonl)
+
+    try:
+        session = session.transition_to("IDLE")
+    except TransitionViolationError as e:
+        console.print(f"[red]TASKS_HALTED: {e}[/]")
+        raise typer.Exit(code=1)
+
+    session.save(session_path)
+    console.print(f"[green]TASKS[/] 1 task(s) provisioned for {issue_slug}")
 
 
 def specify(
