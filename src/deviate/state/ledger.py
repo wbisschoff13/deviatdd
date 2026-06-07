@@ -74,31 +74,15 @@ class TaskRecord(BaseModel):
 
 def append_task_record(record: TaskRecord, ledger_path: Path) -> bool:
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a+", encoding="utf-8") as f:
+    existing = _read_ledger(ledger_path)
+    if any(data.get("id") == record.id for data in existing):
+        return False
+
+    with ledger_path.open("a", encoding="utf-8") as f:
         if HAS_FCNTL:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            existing_ids: set[str] = set()
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    data = json.loads(line)
-                    if "id" in data:
-                        existing_ids.add(data["id"])
-                except json.JSONDecodeError:
-                    continue
-
-            if record.id in existing_ids:
-                return False
-
-            f.write(record.model_dump_json() + "\n")
-            return True
-        finally:
-            if HAS_FCNTL:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        f.write(record.model_dump_json() + "\n")
+    return True
 
 
 def resolve_issue_record(issue_id: str, ledger_path: Path) -> IssueRecord | None:
@@ -110,28 +94,12 @@ def resolve_issue_record(issue_id: str, ledger_path: Path) -> IssueRecord | None
 
 
 def append_issue_record(record: IssueRecord, ledger_path: Path) -> bool:
-    with ledger_path.open("a+", encoding="utf-8") as f:
+    existing = _read_ledger(ledger_path)
+    if any(data.get("issue_slug") == record.issue_slug for data in existing):
+        return False
+
+    with ledger_path.open("a", encoding="utf-8") as f:
         if HAS_FCNTL:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            existing_slugs: set[str] = set()
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    data = json.loads(line)
-                    if "issue_slug" in data:
-                        existing_slugs.add(data["issue_slug"])
-                except json.JSONDecodeError:
-                    continue
-
-            if record.issue_slug in existing_slugs:
-                return False
-
-            f.write(record.model_dump_json() + "\n")
-            return True
-        finally:
-            if HAS_FCNTL:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        f.write(record.model_dump_json() + "\n")
+    return True
