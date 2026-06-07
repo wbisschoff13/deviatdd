@@ -50,9 +50,7 @@ class TestTasksCommand:
             assert result.exit_code == 0, result.output
 
             tasks_path = Path("specs") / issue_slug / "tasks.jsonl"
-            assert tasks_path.is_file(), (
-                f"Expected {tasks_path} to exist"
-            )
+            assert tasks_path.is_file(), f"Expected {tasks_path} to exist"
             lines = tasks_path.read_text().strip().splitlines()
             assert len(lines) >= 1, "Expected at least one task record"
 
@@ -71,9 +69,7 @@ class TestTasksCommand:
             _write_ledger(ledger, record)
 
             result = runner.invoke(cli, ["tasks", missing_id])
-            assert result.exit_code != 0, (
-                "Expected non-zero exit for invalid issue ID"
-            )
+            assert result.exit_code != 0, "Expected non-zero exit for invalid issue ID"
             assert "INVALID_ISSUE_ID" in result.output
 
     def test_tasks_idempotent_skip_existing(self, tmp_path: Path):
