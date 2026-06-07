@@ -37,6 +37,12 @@ def _resolve_and_validate_issue(issue_id: str) -> IssueRecord:
     return record
 
 
+def tasks(
+    issue_id: str = typer.Argument(..., help="Issue ID to decompose into tasks"),
+) -> None:
+    raise typer.Exit(code=1)
+
+
 def specify(
     issue_id: str = typer.Argument(..., help="Issue ID to specify"),
 ) -> None:
