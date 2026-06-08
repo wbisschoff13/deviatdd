@@ -21,6 +21,7 @@ from deviate.state.config import SessionState, TransitionViolationError
 from deviate.state.ledger import (
     IssueRecord,
     TaskRecord,
+    append_issue_transition,
     append_task_record,
     resolve_issue_record,
     select_next_unblocked_issue,
@@ -61,6 +62,11 @@ def _save_session(session: SessionState, session_path: Path, phase: str) -> None
 
 
 def _resolve_bucket_dir(source_file: str) -> str:
+    """Extract the epic bucket slug from a source_file path.
+
+    Expects ``source_file`` to follow the pattern ``specs/<epic>/issues/<file>.md``.
+    Returns the second-to-last path component (the epic directory name).
+    """
     return PurePosixPath(source_file).parent.parent.name
 
 
@@ -361,10 +367,13 @@ def _pr_run(
             "timestamp": datetime.now(timezone.utc),
         }
     )
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a", encoding="utf-8") as f:
-        f.write(completed.model_dump_json() + "\n")
-    console.print(f"[green]COMPLETED[/] {issue_id} → COMPLETED")
+    appended = append_issue_transition(completed, ledger_path)
+    if appended:
+        console.print(f"[green]COMPLETED[/] {issue_id} → COMPLETED")
+    else:
+        console.print(
+            f"[yellow]LEDGER_IDEMPOTENT[/] COMPLETED for {issue_id} already recorded"
+        )
     _save_session(session, session_path, "TASKS")
 
 

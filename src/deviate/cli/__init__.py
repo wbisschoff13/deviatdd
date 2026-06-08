@@ -47,7 +47,14 @@ def _dict_to_toml(data: dict) -> str:
             escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
             lines.append(f'{key} = "{escaped}"')
     lines.append("")
-    return "\n".join(lines)
+    toml_str = "\n".join(lines)
+    try:
+        import tomllib
+
+        tomllib.loads(toml_str)
+    except Exception:
+        console.print("  [red]ERROR[/] Generated TOML failed round-trip validation")
+    return toml_str
 
 
 def _resolve_placeholder(match: re.Match[str]) -> str:
