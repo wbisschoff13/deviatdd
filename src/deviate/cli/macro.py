@@ -31,7 +31,11 @@ def _load_and_transition(phase: str) -> tuple[SessionState, Path]:
     if not dot_dir.exists():
         _handle_missing_dot_dir(phase)
     session_path = dot_dir / "session.json"
-    session = SessionState.load(session_path)
+    if not session_path.exists():
+        session = SessionState.reconstruct_from_worktree(Path.cwd())
+        session.save(session_path)
+    else:
+        session = SessionState.load(session_path)
     try:
         session = session.transition_to(phase)
     except TransitionViolationError as e:
@@ -44,7 +48,11 @@ def _load_session(phase: str) -> tuple[SessionState, Path]:
     if not dot_dir.exists():
         _handle_missing_dot_dir(phase)
     session_path = dot_dir / "session.json"
-    session = SessionState.load(session_path)
+    if not session_path.exists():
+        session = SessionState.reconstruct_from_worktree(Path.cwd())
+        session.save(session_path)
+    else:
+        session = SessionState.load(session_path)
     if session.current_phase != phase:
         _halt(phase, f"session is in '{session.current_phase}' not '{phase}'")
     return session, session_path
@@ -94,7 +102,7 @@ explore_app = typer.Typer(no_args_is_help=True, help="Explore phase commands")
 @explore_app.command("pre")
 def explore_pre(
     problem: str = typer.Argument(..., help="Problem description"),
-    slug: str = typer.Option(..., "--slug", help="Feature bucket slug"),
+    slug: str | None = typer.Option(None, "--slug", help="Feature bucket slug"),
 ) -> None:
     """Allocate feature bucket and register scratch entry"""
     _validate_constitution("EXPLORE")
@@ -137,14 +145,23 @@ def explore_post() -> None:
     """Validate explore.md and commit"""
     session, session_path = _load_session("EXPLORE")
 
-    explore_files = list(_resolve_specs_root().rglob("explore.md"))
-    if not explore_files:
-        _halt("EXPLORE", "no explore.md found to commit")
+    specs_root = _resolve_specs_root()
+    epic_slug = resolve_active_feature(specs_root)
+    if not epic_slug:
+        _halt("EXPLORE", "no active feature bucket found")
 
-    for f in explore_files:
-        if f.read_text(encoding="utf-8").strip():
-            commit_artifact(f, f"EXPLORE: {f.parent.name}", repo=Path.cwd())
-            console.print(f"[green]COMMITTED[/] {f}")
+    explore_path = specs_root / epic_slug / "explore.md"
+    if not explore_path.exists():
+        _halt("EXPLORE", f"explore.md not found at {explore_path}")
+
+    content = explore_path.read_text(encoding="utf-8")
+    if not content.strip():
+        _halt("EXPLORE", "explore.md is empty")
+
+    commit_artifact(
+        explore_path, f"EXPLORE: {explore_path.parent.name}", repo=Path.cwd()
+    )
+    console.print(f"[green]COMMITTED[/] {explore_path}")
 
     _save_session(session, session_path, "EXPLORE")
 
@@ -188,16 +205,22 @@ def research_post() -> None:
     """Scan for constitutional violations, commit artifacts"""
     session, session_path = _load_session("RESEARCH")
 
+    _validate_constitution("RESEARCH")
+
     specs_root = _resolve_specs_root()
     epic_slug = resolve_active_feature(specs_root)
-    if epic_slug:
-        for artifact in ("design.md", "data-model.md"):
-            path = specs_root / epic_slug / artifact
-            if path.exists() and path.read_text(encoding="utf-8").strip():
-                commit_artifact(
-                    path, f"RESEARCH: {artifact} for {epic_slug}", repo=Path.cwd()
-                )
-                console.print(f"[green]COMMITTED[/] {path}")
+    if not epic_slug:
+        _halt("RESEARCH", "no active feature bucket found")
+
+    for artifact in ("design.md", "data-model.md"):
+        path = specs_root / epic_slug / artifact
+        if not path.exists():
+            _halt("RESEARCH", f"{artifact} not found in {epic_slug}")
+        content = path.read_text(encoding="utf-8")
+        if not content.strip():
+            _halt("RESEARCH", f"{artifact} is empty")
+        commit_artifact(path, f"RESEARCH: {artifact} for {epic_slug}", repo=Path.cwd())
+        console.print(f"[green]COMMITTED[/] {path}")
 
     _save_session(session, session_path, "RESEARCH")
 
@@ -244,6 +267,22 @@ def prd_post(
     prd_path = _resolve_specs_root() / epic_slug / "prd.md"
     if not prd_path.exists():
         _halt("PRD", f"prd.md not found at {prd_path}")
+
+    prd_content = prd_path.read_text(encoding="utf-8")
+    _REQUIRED_PRD_SECTIONS = [
+        "DOCUMENT_CONTROL_AND_METADATA",
+        "SYSTEM_OBJECTIVES_AND_SCOPE_BOUNDARY",
+        "ARCHITECTURAL_CONSTRAINTS_AND_PREREQUISITES",
+        "FUNCTIONAL_FLOW_AND_SEQUENCE_ARCHITECTURE",
+        "FUNCTIONAL_REQUIREMENTS_AND_EPICS",
+        "GITHUB_ISSUE_SHARDING_STRATEGY",
+    ]
+    missing_sections = [s for s in _REQUIRED_PRD_SECTIONS if s not in prd_content]
+    if missing_sections:
+        sections_str = ", ".join(missing_sections)
+        console.print(
+            f"[yellow]PRD_WARNING[/] missing required sections: {sections_str}"
+        )
 
     reqs = extract_prd_requirements(prd_path)
     manifest_reqs = manifest_data.get("prd_requirements", [])
@@ -309,6 +348,24 @@ def shard_post(
 
     issues = manifest_data.get("issues", [])
     ledger_path = _resolve_specs_root() / "issues.jsonl"
+
+    epic_slug = manifest_data.get("epic_slug", "")
+    if epic_slug:
+        bucket_root = _resolve_specs_root() / epic_slug
+        for shard_artifact in ("spec.md", "tasks.md"):
+            art_path = bucket_root / shard_artifact
+            if art_path.exists():
+                art_content = art_path.read_text(encoding="utf-8")
+                if not art_content.strip():
+                    console.print(f"[yellow]SHARD_WARNING[/] {shard_artifact} is empty")
+                elif not art_content.startswith("---"):
+                    console.print(
+                        f"[yellow]SHARD_WARNING[/] missing YAML frontmatter in {shard_artifact}"
+                    )
+            else:
+                console.print(
+                    f"[yellow]SHARD_WARNING[/] {shard_artifact} not found in {epic_slug}"
+                )
 
     for issue_data in issues:
         record = IssueRecord(

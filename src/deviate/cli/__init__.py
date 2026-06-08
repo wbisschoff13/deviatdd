@@ -51,9 +51,12 @@ def _dict_to_toml(data: dict) -> str:
     try:
         import tomllib
 
-        tomllib.loads(toml_str)
-    except Exception:
-        console.print("  [red]ERROR[/] Generated TOML failed round-trip validation")
+        try:
+            tomllib.loads(toml_str)
+        except tomllib.TOMLDecodeError:
+            console.print("  [red]ERROR[/] Generated TOML failed round-trip validation")
+    except ImportError:
+        pass
     return toml_str
 
 
@@ -228,8 +231,7 @@ def init(
 
     _apply_governance(workdir)
 
-    if generate_constitution:
-        _provision_constitution(workdir)
+    _provision_constitution(workdir)
 
     if agent:
         active_agents = [agent]
