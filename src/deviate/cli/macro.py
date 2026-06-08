@@ -23,7 +23,7 @@ from deviate.core.epic import (
 )
 from deviate.core.prd import extract_prd_requirements
 from deviate.state.config import SessionState, TransitionViolationError
-from deviate.state.ledger import IssueRecord, append_issue_record
+from deviate.state.ledger import IssueRecord, _read_ledger, append_issue_record
 
 
 def _load_and_transition(phase: str) -> tuple[SessionState, Path]:
@@ -71,21 +71,15 @@ def _emit_contract(
 
 
 def _compute_next_issue_id(ledger_path: Path) -> str:
-    if not ledger_path.exists():
-        return "ISS-001"
-    raw = ledger_path.read_text(encoding="utf-8").strip()
-    if not raw:
-        return "ISS-001"
+    records = _read_ledger(ledger_path)
     numbers: list[int] = []
-    for line in raw.splitlines():
-        if not line.strip():
-            continue
-        try:
-            iid = json.loads(line).get("issue_id", "")
-            if iid.startswith("ISS-"):
+    for data in records:
+        iid = data.get("issue_id", "")
+        if isinstance(iid, str) and iid.startswith("ISS-"):
+            try:
                 numbers.append(int(iid.split("-")[1]))
-        except (json.JSONDecodeError, ValueError):
-            continue
+            except (ValueError, IndexError):
+                continue
     next_num = (max(numbers) + 1) if numbers else 1
     return f"ISS-{next_num:03d}"
 
