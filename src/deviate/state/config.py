@@ -57,6 +57,45 @@ class TransitionViolationError(Exception):
     pass
 
 
+# ---------------------------------------------------------------------------
+# Module-level utility functions (extracted from SessionState static methods)
+# ---------------------------------------------------------------------------
+
+
+def validate_filesystem_state(
+    phase: str,
+    epic_slug: str | None,
+    repo_path: Path,
+) -> list[str]:
+    expected_artifacts = _PHASE_ARTIFACT_MAP.get(phase, ())
+    missing: list[str] = []
+    for artifact in expected_artifacts:
+        artifact_path = (
+            repo_path / "specs" / epic_slug / artifact
+            if epic_slug
+            else repo_path / artifact
+        )
+        if not artifact_path.exists():
+            missing.append(artifact)
+    return missing
+
+
+def reconstruct_from_worktree(worktree: Path) -> SessionState:
+    has_spec = (worktree / "spec.md").exists()
+    has_tasks = (worktree / "tasks.md").exists()
+    if has_spec and has_tasks:
+        phase = "TASKS"
+    elif has_spec:
+        phase = "SPECIFY"
+    else:
+        phase = "IDLE"
+    return SessionState(current_phase=phase)
+
+
+def normalize_task_id(ref: str) -> str:
+    return ref.rstrip(":")
+
+
 class DeviateConfig(BaseModel):
     profile: str = "default"
     llm_backend: str = "droid"
@@ -98,6 +137,14 @@ class SessionState(BaseModel):
             timestamp=datetime.now(timezone.utc),
         )
 
+    def force_transition_to(self, phase: str) -> SessionState:
+        return SessionState(
+            current_phase=phase,
+            active_issue_id=self.active_issue_id,
+            last_command=self.last_command,
+            timestamp=datetime.now(timezone.utc),
+        )
+
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.model_dump_json(indent=2), encoding="utf-8")
@@ -116,30 +163,12 @@ class SessionState(BaseModel):
         epic_slug: str | None,
         repo_path: Path,
     ) -> list[str]:
-        expected_artifacts = _PHASE_ARTIFACT_MAP.get(phase, ())
-        missing: list[str] = []
-        for artifact in expected_artifacts:
-            artifact_path = (
-                repo_path / "specs" / epic_slug / artifact
-                if epic_slug
-                else repo_path / artifact
-            )
-            if not artifact_path.exists():
-                missing.append(artifact)
-        return missing
+        return validate_filesystem_state(phase, epic_slug, repo_path)
 
     @staticmethod
     def reconstruct_from_worktree(worktree: Path) -> SessionState:
-        has_spec = (worktree / "spec.md").exists()
-        has_tasks = (worktree / "tasks.md").exists()
-        if has_spec and has_tasks:
-            phase = "TASKS"
-        elif has_spec:
-            phase = "SPECIFY"
-        else:
-            phase = "IDLE"
-        return SessionState(current_phase=phase)
+        return reconstruct_from_worktree(worktree)
 
     @staticmethod
     def normalize_task_id(ref: str) -> str:
-        return ref.rstrip(":")
+        return normalize_task_id(ref)
