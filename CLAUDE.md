@@ -41,6 +41,21 @@
 - Never use `--no-verify`
 - Preserve all semantic anchors
 
+## 🧪 Test Git Isolation (MANDATORY)
+
+Never run git commands against the real repo during tests. Every git
+operation in tests MUST target a `tmp_path`-based isolated repo.
+
+- Use the `tmp_git_repo` fixture (created by T002 in `tests/conftest.py`)
+- Every `git` subprocess call MUST include `cwd=<tmp_git_repo>` — the `cwd`
+  flag is the ONLY thing scoping the command to the temp repo
+- Never use `Path.cwd()`, `os.getcwd()`, or the real repo root in tests
+- Verify test isolation: `git config user.name` inside the fixture should
+  show `Test Runner`, never the real user's name
+
+See `spec.md` §`TEST_ISOLATION_CONSTRAINTS` and `tasks.md` §`Universal
+Test Constraints` for full rules.
+
 ## DeviaTDD Phase Architecture
 
 ### Macro Layer — Feature Scoping
