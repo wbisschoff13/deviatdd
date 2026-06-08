@@ -93,17 +93,6 @@ def _resolve_and_validate_issue(issue_id: str, phase: str) -> IssueRecord:
 # ---------------------------------------------------------------------------
 
 
-def _force_transition_to(session: SessionState, phase: str) -> SessionState:
-    try:
-        return session.transition_to(phase)
-    except TransitionViolationError:
-        return SessionState(
-            current_phase=phase,
-            active_issue_id=session.active_issue_id,
-            last_command=session.last_command,
-        )
-
-
 def _specify_legacy(issue_id: str) -> None:
     record = _resolve_and_validate_issue(issue_id, "SPECIFY")
     session_path = _resolve_dot_deviate() / "session.json"
@@ -119,7 +108,7 @@ def _specify_legacy(issue_id: str) -> None:
     if not spec_md.exists():
         spec_md.write_text("")
         console.print(f"[green]CREATE[/] specs/{issue_slug}/spec.md")
-    session = _force_transition_to(session, "SPECIFY")
+    session = session.force_transition_to("SPECIFY")
     session.active_issue_id = issue_id
     session.save(session_path)
     console.print("[green]SPECIFY[/] session advanced to SPECIFY phase")
@@ -174,7 +163,7 @@ def _specify_pre(issue_id: str | None = None, force: bool = False) -> None:
 
     spec_target = str(_resolve_specs_root() / bucket_slug / "spec.md")
 
-    session = _force_transition_to(session, "SPECIFY")
+    session = session.force_transition_to("SPECIFY")
     session.active_issue_id = resolved_id
     session.save(session_path)
     console.print(
