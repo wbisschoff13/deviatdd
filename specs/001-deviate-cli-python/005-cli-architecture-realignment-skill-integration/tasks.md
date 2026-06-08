@@ -30,6 +30,7 @@
   - **Verification**: `mise run test -- tests/test_core/test_repo.py tests/test_core/test_contract.py tests/test_core/test_commit.py tests/test_core/test_constitution.py tests/test_core/test_validation.py tests/test_core/test_worktree.py -v`
   - **Estimated Time**: 90 minutes
   - **Files**:
+    - `tests/conftest.py` (shared `tmp_git_repo` fixture — create first)
     - `src/deviate/core/repo.py`
     - `src/deviate/core/contract.py`
     - `src/deviate/core/commit.py`
@@ -43,9 +44,10 @@
     - `tests/test_core/test_validation.py`
     - `tests/test_core/test_worktree.py`
   - **Rationale**: US-002-CORE Scenarios 1, 3, 4 require repo root detection, git state gathering, JSON contract round-trip, stage-and-commit workflows, constitution command extraction, spec validation, and worktree management. These 6 modules form the infrastructure foundation all downstream layers depend on.
+  - **Git Isolation**: Per `Universal API Design Constraint`, all git-interacting functions accept `repo_path` parameter. Tests use `tmp_git_repo` conftest fixture. No test references the real repo's `.git`.
   - **Details**:
-    - **Red**: Write `test_find_repo_root_from_subdir()` asserting repo root is the `.git` parent; `test_contract_round_trip()` asserting emit/load preserves all keys; `test_stage_and_commit_creates_commit()` asserting a file is committed and SHA returned; `test_extract_test_command_from_constitution()` asserting `constitution.md` section body is extracted; `test_validate_gherkin_syntax_valid_block()` asserting Given/When/Then detection; `test_create_worktree_returns_path()` asserting worktree creation on new branch.
-    - **Green**: Implement `find_repo_root()` via upward `.git` directory walk and `gather_git_state()` via `git status --porcelain`. Implement `emit_contract(data: dict) -> Path` and `load_contract(path: Path) -> dict` with JSON round-trip. Implement `stage_and_commit(message: str, files: list[Path]) -> str` and `commit_artifact(path: Path, message: str) -> str` via subprocess `git add`/`git commit`. Implement `resolve_constitution() -> Path` finding `specs/constitution.md`, `validate_constitution(path: Path) -> bool`, and `extract_commands() -> dict[str, str]`. Implement `extract_section_body(content: str, header: str) -> str` and `validate_gherkin_syntax(content: str) -> list[str]`. Implement `create_worktree(branch: str, path: Path) -> Path`, `detect_worktree() -> dict`, and `validate_worktree(path: Path) -> bool`.
+    - **Red**: Write `test_find_repo_root_from_subdir(tmp_git_repo)` asserting repo root is the `.git` parent; `test_contract_round_trip()` asserting emit/load preserves all keys; `test_stage_and_commit_creates_commit(tmp_git_repo)` asserting a file is committed and SHA returned; `test_extract_test_command_from_constitution()` asserting `constitution.md` section body is extracted; `test_validate_gherkin_syntax_valid_block()` asserting Given/When/Then detection; `test_create_worktree_returns_path(tmp_git_repo)` asserting worktree creation on new branch.
+    - **Green**: Create `tests/conftest.py` with shared `tmp_git_repo` fixture (calls `git init` inside `tmp_path`, configures `runner@test.local` / `Test Runner` as test user, creates initial commit). Every `git` subprocess call MUST pass `cwd=tmp_path` — this is the sole isolation boundary. Implement `find_repo_root(start_at: Path | None = None)` via upward `.git` directory walk and `gather_git_state(repo: Path | None = None)` via `git status --porcelain`. Implement `emit_contract(data: dict) -> Path` and `load_contract(path: Path) -> dict` with JSON round-trip. Implement `stage_and_commit(message: str, files: list[Path], repo: Path | None = None) -> str` and `commit_artifact(path: Path, message: str, repo: Path | None = None) -> str` via subprocess `git add`/`git commit`. Implement `resolve_constitution() -> Path` finding `specs/constitution.md`, `validate_constitution(path: Path) -> bool`, and `extract_commands() -> dict[str, str]`. Implement `extract_section_body(content: str, header: str) -> str` and `validate_gherkin_syntax(content: str) -> list[str]`. Implement `create_worktree(branch: str, path: Path, repo: Path | None = None) -> Path`, `detect_worktree(repo: Path | None = None) -> dict`, and `validate_worktree(path: Path) -> bool`.
     - **Refactor**: Use `shlex.quote` for all git subprocess calls. Ensure all path operations return `Path` objects, not strings.
     - **Edge Cases**: Handle detached HEAD in `gather_git_state`; handle missing `.git` directory (not a repo); handle `constitution.md` not found; handle empty spec sections; handle worktree path already in use.
     - **Acceptance**: All 6 test files pass independently. `commit_artifact` creates a real git commit visible in `git log`.
@@ -92,6 +94,7 @@
   - **Files**:
     - `src/deviate/cli/macro.py`
     - `tests/test_integration/test_macro_layer.py`
+  - **Git Isolation**: Per `Universal API Design Constraint`, all functions called by macro CLI commands accept `repo_path`. Tests use `tmp_git_repo` fixture (which also sets up `.deviate/` and `specs/` dirs). The `mock_workspace` fixture can be extended to call `git init` in `tmp_path`.
   - **Rationale**: US-004-MACRO Scenarios 1-4 require full macro cycle: explore pre (constitution validation, feature bucket allocation, ledger scratch entry), explore post (content validation, commit), research pre (explore.md gate, constitution re-validation), research post (constitutional violation scan, commit), prd pre (epic slug discovery, upstream artifact resolution), prd post (manifest validation, commit), shard pre (PRD resolution, next_issue_id), shard post (shard validation, ledger registration).
   - **Details**:
     - **Red**: Write `test_explore_pre_allocates_bucket()` asserting new feature bucket directory created with registered `IssueRecord`; `test_research_pre_gates_on_explore_md()` asserting exit on missing `explore.md`; `test_prd_post_validates_manifest()` asserting manifest content validation before commit; `test_shard_post_registers_backlog_issues()` asserting issues appended to ledger with `BACKLOG` status and session resets to `IDLE`.
@@ -110,6 +113,7 @@
   - **Files**:
     - `src/deviate/cli/meso.py`
     - `tests/test_integration/test_meso_layer.py`
+  - **Git Isolation**: Per `Universal API Design Constraint`, all functions called by meso CLI commands accept `repo_path`. Tests use `tmp_git_repo` fixture. PR tests (`test_pr_run_creates_pr`) must mock `gh pr create` within `tmp_path` context — no real GitHub API calls and no real repo branches.
   - **Rationale**: US-003-MESO Scenarios 1-4 require: specify pre (auto-select next unblocked BACKLOG, worktree creation, ledger claim, spec target resolution), specify post (content validation, commit, ledger update), tasks pre (worktree detection, spec discovery, artifact discovery), tasks post (content validation, commit), pr pre (worktree validation, body gathering), pr run (PR creation, merge, COMPLETED event).
   - **Details**:
     - **Red**: Write `test_specify_pre_auto_selects_unblocked_issue()` asserting oldest unblocked `BACKLOG` issue is selected and worktree created; `test_specify_post_validates_and_commits()` asserting Gherkin validation + commit on valid spec; `test_tasks_pre_detects_worktree()` asserting existing worktree discovered without new creation; `test_pr_run_creates_pr()` asserting GitHub PR created and `COMPLETED` event appended to ledger.
@@ -175,6 +179,7 @@
   - **Files**:
     - `src/deviate/state/config.py`
     - `tests/test_state/test_session.py`
+  - **Git Isolation**: Per `Universal API Design Constraint`, worktree detection functions accept `repo_path`. Use `tmp_git_repo` fixture for `test_session_reconstruction_from_worktree()`. No reference to the real repo's `.git`.
   - **Rationale**: US-007-SESSION Scenarios 1-4 require: dual-mode session state enforcing strict phase ordering across Macro and Meso layers, filesystem state validation detecting missing artifacts, worktree-based session reconstruction on `.deviate/session.json` loss, and task ID format normalization (accepting both `T{NNN}` and `T{NNN}:`).
   - **Details**:
     - **Red**: Write `test_strict_phase_ordering_rejects_skip()` asserting `IDLE` → `SPECIFY` is rejected per meso entry rules; `test_filesystem_divergence_detected_on_missing_artifact()` asserting `explore.md` deletion triggers clean error; `test_session_reconstruction_from_worktree()` asserting reconstitution of `SessionState` from worktree artifacts after `session.json` deletion; `test_task_id_normalization()` asserting both `T005:` and `T005` accepted.
@@ -211,6 +216,34 @@
     - **Acceptance**: Full `mise run test` passes with zero failures. All performance gates satisfied: init <= 500ms, per-agent export <= 200ms, pre command <= 500ms.
 
 ---
+
+## Universal Test Constraints (ALL TASKS)
+
+- **Git Isolation Mandatory**: Any test that invokes git operations (init, add, commit, branch, worktree, checkout, log, status, push) MUST operate on a temporary directory initialized as a fresh git repo via `tmp_path` (pytest) or `tempfile.TemporaryDirectory`. Tests MUST NOT run git commands within the real repository's working tree.
+- **Implementation Pattern**: Use the shared `tmp_git_repo` fixture from `tests/conftest.py` (which calls `git init` inside `tmp_path` and configures a test user). Pass `repo=tmp_git_repo` to all git-interacting functions. Never reference `Path.cwd()` or the real repo root.
+- **Conftest Creation**: The first task that needs `tmp_git_repo` (T002) MUST create `tests/conftest.py` with the fixture. Downstream tasks (T004, T005, T008) depend on its existence — they MUST NOT re-create it.
+- **Verification**: After running a test that uses `tmp_git_repo`, verify `git config user.name` inside the temp repo shows `Test Runner` (not the real user). If the real user's name appears, the test is leaking into the real repo — fix the `cwd=` flag.
+- **Rationale**: Prevent accidental commits, branch creation, or state mutation in the actual project repo during test execution. All tests are TDD and run repeatedly; accidental mutations corrupt the development workflow.
+
+## Universal API Design Constraint (ALL CORE MODULES)
+
+Every git-interacting function in core modules (`repo.py`, `commit.py`, `worktree.py`) MUST accept an optional `repo_path: Path | None = None` parameter. When `None`, default to `Path.cwd()`. This is the **sole enabler** of test isolation — without it, tests must use fragile `chdir` tricks or operate on the real repo.
+
+```python
+# DO: accept repo_path, default to cwd
+def find_repo_root(start_at: Path | None = None) -> Path:
+    start_at = start_at or Path.cwd()
+
+def stage_and_commit(message: str, files: list[Path], repo: Path | None = None) -> str:
+    repo = repo or Path.cwd()
+    subprocess.run(["git", "add", ...], cwd=repo, check=True)
+
+# DON'T: hard-code Path.cwd() or rely on ambient working directory
+def find_repo_root() -> Path:  # BAD — untestable
+    ...
+```
+
+**Consequence**: Every per-task "Git Isolation" block below is a specific instance of this universal constraint. If a task's `Green` section says to implement a function that runs git commands, that function **must** accept `repo_path`.
 
 ## Implementation Strategy
 **Execution Order**:

@@ -52,6 +52,51 @@ As a maintainer of the DeviaTDD orchestrator, I need to replace all 15 bash orch
 - `L_max <= 10ms` per Pydantic model validation (any model).
 - All `pre` commands must complete within `L_max <= 500ms` (excluding external git push network latency).
 
+## TEST_ISOLATION_CONSTRAINTS
+
+### Git Isolation (Test Level)
+Any test that invokes git operations (init, add, commit, branch, worktree, checkout, log, status, push) MUST operate on a temporary directory initialized as a fresh git repo via `tmp_path` (pytest) or `tempfile.TemporaryDirectory`. Tests MUST NOT run git commands in the real repository's working tree. This prevents accidental commits, branch creation, or state mutation in the actual project repo during TDD cycles.
+
+### API Injection Pattern (Production Code Level)
+All git-interacting functions in core modules (`repo.py`, `commit.py`, `worktree.py`) MUST accept an optional `repo_path: Path | None = None` parameter. When `None`, the function defaults to `Path.cwd()`. This enables tests to inject a `tmp_path`-based repo without relying on `chdir` side effects or process-wide working directory changes.
+
+Pattern:
+```python
+def find_repo_root(start_at: Path | None = None) -> Path:
+    start_at = start_at or Path.cwd()
+
+def stage_and_commit(message: str, files: list[Path], repo: Path | None = None) -> str:
+    repo = repo or Path.cwd()
+    subprocess.run(["git", "add", ...], cwd=repo, ...)
+```
+
+### Reusable Conftest Fixture
+Provide a shared `tmp_git_repo` fixture in `tests/conftest.py` to eliminate repeated `git init` boilerplate:
+
+```python
+@pytest.fixture
+def tmp_git_repo(tmp_path: Path) -> Path:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "runner@test.local"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test Runner"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", "initial"],
+        cwd=tmp_path,
+        check=True,
+    )
+    yield tmp_path
+```
+
+Tests use the fixture instead of reaching into the real repo:
+```python
+def test_find_repo_root_from_subdir(tmp_git_repo: Path):
+    subdir = tmp_git_repo / "subdir"
+    subdir.mkdir()
+    assert find_repo_root(start_at=subdir) == tmp_git_repo
+```
+
+> **WARNING**: The `cwd=tmp_path` flag on every `subprocess.run(["git", ...])` call is the **sole boundary** keeping these operations inside the temp repo. Omitting `cwd=` means git auto-discovers the nearest `.git` by walking up the directory tree — which will find the **real project repo**. Every git subprocess call in tests and production code MUST pass `cwd=<repo_path>` or the equivalent `repo=` parameter. Never rely on ambient working directory.
+
 ## MULTI_TIERED_VERIFICATION_TARGETS
 
 | Tier | Target | Description |
