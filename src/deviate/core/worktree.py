@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
-
-def _git_env() -> dict[str, str]:
-    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+from deviate.core._shared import git_env as _git_env
 
 
 def create_worktree(branch: str, path: Path, repo: Path | None = None) -> Path:
