@@ -14,7 +14,7 @@ from deviate.state.ledger import IssueRecord, TaskRecord
 runner = CliRunner()
 
 MESO_ISSUE_ID = "550e8400-e29b-41d4-a716-446655440100"
-MESO_ISSUE_SLUG = "test-meso-issue"
+MESO_BUCKET = "test-epic"
 
 
 class TestMesoTaskLedger:
@@ -22,7 +22,7 @@ class TestMesoTaskLedger:
         result = runner.invoke(cli, ["specify", MESO_ISSUE_ID])
         assert result.exit_code == 0, result.output
 
-        spec_dir = Path("specs") / MESO_ISSUE_SLUG
+        spec_dir = Path("specs") / MESO_BUCKET
         assert spec_dir.is_dir(), f"spec dir {spec_dir} not created"
         spec_md = spec_dir / "spec.md"
         assert spec_md.is_file(), f"spec.md not created at {spec_md}"
@@ -53,7 +53,7 @@ class TestMesoTaskLedger:
         result = runner.invoke(cli, ["tasks", MESO_ISSUE_ID])
         assert result.exit_code == 0, result.output
 
-        spec_dir = Path("specs") / MESO_ISSUE_SLUG
+        spec_dir = Path("specs") / MESO_BUCKET
         tasks_jsonl = spec_dir / "tasks.jsonl"
         pre_lines = len(tasks_jsonl.read_text().strip().splitlines())
         pre_content = tasks_jsonl.read_text()
@@ -119,7 +119,7 @@ class TestMesoTaskLedger:
             )
             assert result.exit_code == 0, result.output
 
-            spec_dir = Path("specs") / "valid-issue-malformed"
+            spec_dir = Path("specs") / "test-epic"
             assert spec_dir.is_dir(), f"Expected {spec_dir} despite malformed lines"
 
     def test_missing_dotdir_graceful(self, tmp_path: Path) -> None:

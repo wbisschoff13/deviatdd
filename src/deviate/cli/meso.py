@@ -103,7 +103,7 @@ def _specify_legacy(issue_id: str) -> None:
     record = _resolve_and_validate_issue(issue_id, "SPECIFY")
     session_path = _resolve_dot_deviate() / "session.json"
     session = SessionState.load(session_path)
-    issue_slug = PurePosixPath(record.source_file).stem
+    issue_slug = _resolve_bucket_dir(record.source_file)
     spec_dir = _resolve_specs_root() / issue_slug
     if spec_dir.exists():
         console.print(f"[yellow]SKIP[/] specs/{issue_slug}/ already exists")
@@ -228,7 +228,7 @@ def _tasks_legacy(issue_id: str) -> None:
     record = _resolve_and_validate_issue(issue_id, "TASKS")
     session_path = _resolve_dot_deviate() / "session.json"
     session = SessionState.load(session_path)
-    issue_slug = PurePosixPath(record.source_file).stem
+    issue_slug = _resolve_bucket_dir(record.source_file)
     tasks_jsonl = _resolve_specs_root() / issue_slug / "tasks.jsonl"
     if tasks_jsonl.exists():
         console.print(f"[yellow]SKIP[/] tasks already provisioned for {issue_slug}")
