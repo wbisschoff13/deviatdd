@@ -201,7 +201,9 @@ def _ensure_gitignore(workdir: Path) -> None:
     if gitignore.exists():
         content = gitignore.read_text(encoding="utf-8")
         if entry not in content:
-            gitignore.write_text(content + f"{entry}\n", encoding="utf-8")
+            gitignore.write_text(
+                content.rstrip("\n") + f"\n{entry}\n", encoding="utf-8"
+            )
     else:
         gitignore.write_text(f"{entry}\n", encoding="utf-8")
 
@@ -226,7 +228,8 @@ def init(
 
     _apply_governance(workdir)
 
-    _provision_constitution(workdir)
+    if generate_constitution:
+        _provision_constitution(workdir)
 
     if agent:
         active_agents = [agent]
