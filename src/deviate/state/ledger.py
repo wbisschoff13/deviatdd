@@ -71,7 +71,12 @@ class TaskRecord(BaseModel):
         return v
 
 
-def append_task_record(record: TaskRecord, ledger_path: Path) -> bool:
+def _append_record(
+    record_json: str,
+    record_id: str,
+    id_field: str,
+    ledger_path: Path,
+) -> bool:
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     with ledger_path.open("a+", encoding="utf-8") as f:
         if HAS_FCNTL:
@@ -84,15 +89,24 @@ def append_task_record(record: TaskRecord, ledger_path: Path) -> bool:
                     continue
                 try:
                     data = json.loads(line)
-                    if data.get("id") == record.id:
+                    if data.get(id_field) == record_id:
                         return False
                 except json.JSONDecodeError:
                     continue
-            f.write(record.model_dump_json() + "\n")
+            f.write(record_json + "\n")
         finally:
             if HAS_FCNTL:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     return True
+
+
+def append_task_record(record: TaskRecord, ledger_path: Path) -> bool:
+    return _append_record(
+        record_json=record.model_dump_json(),
+        record_id=record.id,
+        id_field="id",
+        ledger_path=ledger_path,
+    )
 
 
 def resolve_issue_record(issue_id: str, ledger_path: Path) -> IssueRecord | None:
@@ -104,24 +118,9 @@ def resolve_issue_record(issue_id: str, ledger_path: Path) -> IssueRecord | None
 
 
 def append_issue_record(record: IssueRecord, ledger_path: Path) -> bool:
-    ledger_path.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_path.open("a+", encoding="utf-8") as f:
-        if HAS_FCNTL:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    data = json.loads(line)
-                    if data.get("issue_id") == record.issue_id:
-                        return False
-                except json.JSONDecodeError:
-                    continue
-            f.write(record.model_dump_json() + "\n")
-        finally:
-            if HAS_FCNTL:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-    return True
+    return _append_record(
+        record_json=record.model_dump_json(),
+        record_id=record.issue_id,
+        id_field="issue_id",
+        ledger_path=ledger_path,
+    )
