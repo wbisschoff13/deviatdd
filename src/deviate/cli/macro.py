@@ -26,6 +26,10 @@ from deviate.core.epic import (
 )
 from deviate.core.prd import extract_prd_requirements
 from deviate.core.repo import find_repo_root
+from deviate.core.validation import (
+    validate_sections,
+    validate_yaml_frontmatter,
+)
 from deviate.state.config import SessionState, TransitionViolationError
 from deviate.state.ledger import IssueRecord, _read_ledger, append_issue_record
 
@@ -223,6 +227,17 @@ def explore_post() -> None:
     if not content.strip():
         _halt("EXPLORE", "explore.md is empty")
 
+    _REQUIRED_EXPLORE_SECTIONS = [
+        "PROBLEM_DEFINITION",
+        "DISCOVERY_AUDIT_RESULTS",
+        "CONSTITUTION_QUOTES",
+        "FILE_REGISTRY",
+        "STATUS_SUMMARY",
+    ]
+    missing = validate_sections(content, _REQUIRED_EXPLORE_SECTIONS)
+    if missing:
+        _halt("EXPLORE", f"missing required sections: {', '.join(missing)}")
+
     commit_artifact(
         explore_path, f"EXPLORE: {explore_path.parent.name}", repo=Path.cwd()
     )
@@ -285,13 +300,39 @@ def research_post() -> None:
     if not epic_slug:
         _halt("RESEARCH", "no active feature bucket found")
 
-    for artifact in ("design.md", "data-model.md"):
+    _REQUIRED_DESIGN_SECTIONS = [
+        "PROBLEM_DEFINITION",
+        "SYSTEM_TOPOLOGY_MAPPING",
+        "THE_PROBLEM_CONTRACT",
+        "SCOPE_BOUNDARIES",
+        "PERFORMANCE_CONSTRAINTS",
+        "MULTI_TIERED_VERIFICATION_TARGETS",
+        "ATDD_ACCEPTANCE_CRITERIA_LEDGER",
+        "SYSTEM_STATUS_SUMMARY",
+        "DESIGN_TRADE_OFF_MATRIX",
+    ]
+    _REQUIRED_DATA_MODEL_SECTIONS = [
+        "[ENTITY_DEFINITIONS]",
+        "[RELATIONSHIP_GRAPH]",
+        "[SCHEMA_TABLES]",
+        "[STATE_TRANSITIONS]",
+        "[DATA_FLOW]",
+        "[SOURCE_REGISTRY]",
+    ]
+
+    for artifact, required in (
+        ("design.md", _REQUIRED_DESIGN_SECTIONS),
+        ("data-model.md", _REQUIRED_DATA_MODEL_SECTIONS),
+    ):
         path = specs_root / epic_slug / artifact
         if not path.exists():
             _halt("RESEARCH", f"{artifact} not found in {epic_slug}")
         content = path.read_text(encoding="utf-8")
         if not content.strip():
             _halt("RESEARCH", f"{artifact} is empty")
+        missing = validate_sections(content, required)
+        if missing:
+            _halt("RESEARCH", f"{artifact} missing sections: {', '.join(missing)}")
         commit_artifact(path, f"RESEARCH: {artifact} for {epic_slug}", repo=Path.cwd())
         console.print(f"[green]COMMITTED[/] {path}")
 
@@ -443,21 +484,18 @@ def shard_post(
 
     epic_slug = manifest_data.get("epic_slug", "")
     if epic_slug:
-        bucket_root = _resolve_specs_root() / epic_slug
-        for shard_artifact in ("spec.md", "tasks.md"):
-            art_path = bucket_root / shard_artifact
-            if art_path.exists():
-                art_content = art_path.read_text(encoding="utf-8")
-                if not art_content.strip():
-                    console.print(f"[yellow]SHARD_WARNING[/] {shard_artifact} is empty")
-                elif not art_content.startswith("---"):
+        issues_dir = _resolve_specs_root() / epic_slug / "issues"
+        if issues_dir.exists():
+            for shard_file in sorted(issues_dir.glob("*-*.md")):
+                shard_content = shard_file.read_text(encoding="utf-8")
+                if not shard_content.strip():
                     console.print(
-                        f"[yellow]SHARD_WARNING[/] missing YAML frontmatter in {shard_artifact}"
+                        f"[yellow]SHARD_WARNING[/] {shard_file.name} is empty"
                     )
-            else:
-                console.print(
-                    f"[yellow]SHARD_WARNING[/] {shard_artifact} not found in {epic_slug}"
-                )
+                elif not validate_yaml_frontmatter(shard_content):
+                    console.print(
+                        f"[yellow]SHARD_WARNING[/] invalid YAML frontmatter in {shard_file.name}"
+                    )
 
     for issue_data in issues:
         record = IssueRecord(

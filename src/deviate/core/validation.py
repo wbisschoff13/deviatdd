@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+import yaml
+
 
 def extract_section_body(content: str, header: str) -> str | None:
     escaped_header = re.escape(header)
@@ -29,3 +31,36 @@ def validate_gherkin_syntax(content: str) -> list[str]:
         if "**Then**" not in body:
             errors.append(f"Scenario {i + 1}: missing 'Then'")
     return errors
+
+
+def validate_sections(content: str | None, required: list[str]) -> list[str]:
+    if not content or not content.strip():
+        return list(required)
+    missing: list[str] = []
+    for section in required:
+        pattern = rf"^##\s+{re.escape(section)}\s*$"
+        if not re.search(pattern, content, re.MULTILINE):
+            missing.append(section)
+    return missing
+
+
+def validate_yaml_frontmatter(content: str) -> bool:
+    if not content.startswith("---"):
+        return False
+    end_idx = content.find("---", 3)
+    if end_idx == -1:
+        return False
+    frontmatter = content[3:end_idx].strip()
+    try:
+        yaml.safe_load(frontmatter)
+        return True
+    except yaml.YAMLError:
+        return False
+
+
+def validate_task_id(task_id: str) -> bool:
+    if not task_id:
+        return False
+    legacy = re.match(r"^T\d{3}$", task_id)
+    new_format = re.match(r"^TSK-\d{3}-\d{2}$", task_id)
+    return bool(legacy or new_format)
