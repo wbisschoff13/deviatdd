@@ -70,7 +70,7 @@ class TestPromptOverrideIntegration:
             init2 = runner.invoke(cli, ["init"])
             assert init2.exit_code == 0, init2.output
 
-        installed = workdir / ".opencode" / "skills" / "commands" / "deviate-red.md"
+        installed = workdir / ".opencode" / "commands" / "deviate-red.md"
         assert installed.exists()
         assert installed.read_text() == override_content
 

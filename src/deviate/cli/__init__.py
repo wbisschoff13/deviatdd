@@ -14,7 +14,7 @@ from deviate.state.config import DeviateConfig, SessionState
 from deviate.cli.macro import explore_app, research_app, prd_app, shard_app
 from deviate.cli.meso import pr, specify, tasks
 from deviate.cli.micro import run_command
-from deviate.core.skills import detect_agents, discover_skills, install_skill
+from deviate.core.skills import detect_agents, discover_commands, install_skill
 
 cli = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -38,30 +38,23 @@ def _write_if_missing(path: Path, content: str) -> bool:
     return True
 
 
-def _dict_to_toml(data: dict) -> str:
+def _dict_to_toml(data: dict, prefix: str = "") -> str:
     lines: list[str] = []
     for key, value in data.items():
         if value is None:
             continue
         if isinstance(value, bool):
-            lines.append(f"{key} = {'true' if value else 'false'}")
+            lines.append(f"{prefix}{key} = {'true' if value else 'false'}")
         elif isinstance(value, (int, float)):
-            lines.append(f"{key} = {value}")
+            lines.append(f"{prefix}{key} = {value}")
+        elif isinstance(value, dict):
+            lines.append("")
+            lines.append(f"[{prefix}{key}]")
+            lines.append(_dict_to_toml(value, prefix=f"{prefix}{key}."))
         else:
             escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
-            lines.append(f'{key} = "{escaped}"')
-    lines.append("")
-    toml_str = "\n".join(lines)
-    try:
-        import tomllib
-
-        try:
-            tomllib.loads(toml_str)
-        except tomllib.TOMLDecodeError:
-            console.print("  [red]ERROR[/] Generated TOML failed round-trip validation")
-    except ImportError:
-        pass
-    return toml_str
+            lines.append(f'{prefix}{key} = "{escaped}"')
+    return "\n".join(lines)
 
 
 def _resolve_placeholder(match: re.Match[str]) -> str:
@@ -176,30 +169,30 @@ def _apply_governance(workdir: Path) -> None:
     _upsert_governance_block(agents_path, agents_content)
 
 
-def _get_agent_skill_dir(agent_name: str, workdir: Path) -> Path | None:
+def _get_agent_command_dir(agent_name: str, workdir: Path) -> Path | None:
     if agent_name == "claude":
-        return workdir / ".claude" / "skills"
+        return workdir / ".claude"
     if agent_name == "opencode":
-        return workdir / ".opencode" / "skills"
+        return workdir / ".opencode"
     if agent_name == "factory":
-        return workdir / ".factory" / "skills"
+        return workdir / ".factory"
     return None
 
 
-def _install_skills_to_agents(workdir: Path, agents: list[str]) -> None:
-    skills = discover_skills()
-    if not skills:
+def _install_commands_to_agents(workdir: Path, agents: list[str]) -> None:
+    commands = discover_commands()
+    if not commands:
         return
     for agent in agents:
-        target_dir = _get_agent_skill_dir(agent, workdir)
+        target_dir = _get_agent_command_dir(agent, workdir)
         if target_dir is None:
             console.print(f"  [yellow]SKIP[/] Unknown agent: {agent}")
             continue
-        for skill_name in skills:
-            if install_skill(skill_name, target_dir):
-                console.print(f"  [green]INSTALL[/] {skill_name} → {agent}")
+        for cmd_name in commands:
+            if install_skill(cmd_name, target_dir):
+                console.print(f"  [green]INSTALL[/] {cmd_name} → {agent}")
             else:
-                console.print(f"  [yellow]SKIP[/] {skill_name} → {agent}")
+                console.print(f"  [yellow]SKIP[/] {cmd_name} → {agent}")
 
 
 def _copy_package_prompts(source_root: Path, target_root: Path) -> None:
@@ -282,7 +275,7 @@ def init(
         active_agents = detect_agents(workdir)
 
     if active_agents:
-        _install_skills_to_agents(workdir, active_agents)
+        _install_commands_to_agents(workdir, active_agents)
 
     _ensure_gitignore(workdir)
 

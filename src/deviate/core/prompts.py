@@ -72,7 +72,17 @@ def list_overrides(overrides_root: Path, package_root: Path) -> list[str]:
             continue
         rel = str(path.relative_to(overrides_root))
         package_path = package_root / rel
-        if not package_path.is_file() or path.read_text() != package_path.read_text():
+        try:
+            is_override = (
+                not package_path.is_file()
+                or path.read_text() != package_path.read_text()
+            )
+        except OSError:
+            logger.warning(
+                "Unreadable file in override scan: %s/%s", overrides_root, rel
+            )
+            continue
+        if is_override:
             result.append(rel)
     return result
 
