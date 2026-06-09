@@ -165,7 +165,7 @@
 
 ### Tasks
 
-- [/] T008: End-to-end parity verification suite
+- [x] T008: End-to-end parity verification suite
   - **Type**: Infra_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration
