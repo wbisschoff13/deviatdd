@@ -147,3 +147,50 @@ class TestMesoContracts:
 
             for field in sorted(self.PR_REQUIRED_FIELDS):
                 assert field in contract, f"Missing field in pr pre contract: {field!r}"
+
+    def test_tasks_pre_dry_run_does_not_append_ledger(self, tmp_path: Path) -> None:
+        with chdir(tmp_path):
+            self._setup_git_repo(tmp_path)
+            self._setup_minimal_env(tmp_path, session_phase="SPECIFY")
+
+            epic_dir = tmp_path / "specs" / "test-epic"
+            epic_dir.mkdir(parents=True, exist_ok=True)
+            (epic_dir / "spec.md").write_text("# Spec\n\nTest spec.\n")
+
+            ledger_path = epic_dir / "tasks.jsonl"
+            ledger_path.write_text("")
+
+            result = runner.invoke(cli, ["tasks", "pre", "--dry-run"])
+
+            assert result.exit_code == 0, result.output
+
+            assert ledger_path.read_text() == ""
+
+    def test_tasks_post_issue_id_resolves_correct_spec(self, tmp_path: Path) -> None:
+        with chdir(tmp_path):
+            self._setup_git_repo(tmp_path)
+            self._setup_minimal_env(
+                tmp_path, session_phase="TASKS", active_issue_id="ISS-006"
+            )
+
+            specs_dir = tmp_path / "specs"
+            issue_record = {
+                "issue_id": "ISS-006",
+                "type": "feature",
+                "title": "Issue with explicit spec",
+                "status": "BACKLOG",
+                "source_file": "specs/test-epic/issues/ISS-006.md",
+                "timestamp": "2026-01-01T00:00:00Z",
+            }
+            ledger_path = specs_dir / "issues.jsonl"
+            ledger_path.write_text(json.dumps(issue_record) + "\n")
+
+            (specs_dir / "test-epic").mkdir(parents=True, exist_ok=True)
+            tasks_md = specs_dir / "test-epic" / "tasks.md"
+            tasks_md.write_text("- [x] T001: Complete task\n  - Verification: pytest\n")
+
+            ledger_path.parent.mkdir(parents=True, exist_ok=True)
+
+            result = runner.invoke(cli, ["tasks", "post", "--issue-id", "ISS-006"])
+
+            assert result.exit_code == 0, result.output
