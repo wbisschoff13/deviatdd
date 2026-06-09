@@ -1,60 +1,55 @@
 from __future__ import annotations
 
-import importlib.resources
-import shutil
+import logging
 from pathlib import Path
 
+from deviate.core.prompts import resolve_command
 
-def _resolve_skills_root(skills_root: Path | None = None) -> Path:
-    if skills_root is not None:
-        return skills_root
-    try:
-        return Path(importlib.resources.files("deviate.prompts").joinpath("skills"))
-    except (ModuleNotFoundError, TypeError, FileNotFoundError):
-        fallback = Path("src/deviate/prompts/skills")
-        if fallback.exists():
-            return fallback
-        return Path() / "src" / "deviate" / "prompts" / "skills"
+logger = logging.getLogger(__name__)
 
 
-def discover_skills(skills_root: Path | None = None) -> list[str]:
-    root = _resolve_skills_root(skills_root)
-    if not root.exists():
-        return []
-    return sorted(
-        d.name for d in root.iterdir() if d.is_dir() and (d / "SKILL.md").exists()
-    )
+def install_command(
+    name: str,
+    target_dir: Path,
+    repo_path: Path | None = None,
+) -> bool:
+    overrides_root: Path | None = None
+    if repo_path is not None:
+        overrides_root = repo_path / ".deviate" / "prompts"
 
+    content = resolve_command(name, overrides_root=overrides_root)
 
-def resolve_skill(name: str, skills_root: Path | None = None) -> Path:
-    root = _resolve_skills_root(skills_root)
-    skill_path = root / name / "SKILL.md"
-    if not skill_path.exists():
-        raise FileNotFoundError(f"Skill '{name}' not found at {skill_path}")
-    return skill_path
+    target_path = target_dir / "commands" / f"{name}.md"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
 
-
-def install_skill(name: str, target_dir: Path, skills_root: Path | None = None) -> bool:
-    skill_path = resolve_skill(name, skills_root)
-    target_path = target_dir / name / "SKILL.md"
-    try:
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-    except (FileNotFoundError, FileExistsError):
-        target_path.parent.mkdir(parents=False, exist_ok=True)
-    if target_path.exists() and target_path.read_text(
-        encoding="utf-8"
-    ) == skill_path.read_text(encoding="utf-8"):
+    if target_path.exists() and target_path.read_text(encoding="utf-8") == content:
         return False
-    shutil.copy2(skill_path, target_path)
+
+    target_path.write_text(content, encoding="utf-8")
     return True
 
 
-def detect_agents(workdir: Path | None = None) -> list[str]:
-    """Detect agent platforms from cwd directories.
+def install_skill(
+    name: str,
+    target_dir: Path,
+    repo_path: Path | None = None,
+) -> bool:
+    return install_command(name, target_dir, repo_path=repo_path)
 
-    Scans *workdir* for ``.claude/``, ``.opencode/``, and ``.factory/``
-    subdirectories and returns the matching agent names.
-    """
+
+def discover_commands(root: Path | None = None) -> list[str]:
+    search_root = root or Path.cwd()
+    for agent_dir in (".opencode", ".claude", ".factory"):
+        commands_dir = search_root / agent_dir / "commands"
+        if commands_dir.is_dir():
+            return sorted(p.stem for p in commands_dir.glob("*.md"))
+    return []
+
+
+discover_skills = discover_commands
+
+
+def detect_agents(workdir: Path | None = None) -> list[str]:
     workdir = workdir or Path.cwd()
     agents: list[str] = []
     for name in ("claude", "opencode", "factory"):
