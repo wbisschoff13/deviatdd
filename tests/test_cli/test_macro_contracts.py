@@ -222,3 +222,47 @@ class TestMacroContracts:
                 assert field in contract, (
                     f"Missing field in shard pre contract: {field!r}"
                 )
+
+    def test_prd_pre_dry_run_does_not_create_artifacts(self, tmp_path: Path) -> None:
+        with chdir(tmp_path):
+            self._setup_git_repo(tmp_path)
+            self._setup_minimal_env(tmp_path, session_phase="RESEARCH")
+
+            epic_dir = tmp_path / "specs" / "test-epic"
+            epic_dir.mkdir(parents=True, exist_ok=True)
+            (epic_dir / "explore.md").write_text("# Explore\n\nFacts.\n")
+            (epic_dir / "design.md").write_text("# Design\n\nDesign details.\n")
+            (epic_dir / "data-model.md").write_text("# Data Model\n\nSchema details.\n")
+
+            session_path = tmp_path / ".deviate" / "session.json"
+            before = json.loads(session_path.read_text())
+            assert before["current_phase"] == "RESEARCH"
+
+            result = runner.invoke(cli, ["prd", "pre", "--dry-run"])
+
+            assert result.exit_code == 0, result.output
+
+            session_after = json.loads(session_path.read_text())
+            assert session_after["current_phase"] == "RESEARCH"
+
+    def test_shard_pre_dry_run_does_not_create_issues(self, tmp_path: Path) -> None:
+        with chdir(tmp_path):
+            self._setup_git_repo(tmp_path)
+            self._setup_minimal_env(tmp_path, session_phase="PRD")
+
+            epic_dir = tmp_path / "specs" / "test-epic"
+            epic_dir.mkdir(parents=True, exist_ok=True)
+            (epic_dir / "explore.md").write_text("# Explore\n\nFacts.\n")
+            (epic_dir / "design.md").write_text("# Design\n\nDesign details.\n")
+            (epic_dir / "data-model.md").write_text("# Data Model\n\nSchema details.\n")
+            (epic_dir / "prd.md").write_text("# PRD\n\nPRD details.\n")
+
+            ledger_path = tmp_path / "specs" / "issues.jsonl"
+            (tmp_path / "specs").mkdir(parents=True, exist_ok=True)
+            ledger_path.write_text("")
+
+            result = runner.invoke(cli, ["shard", "pre", "--dry-run"])
+
+            assert result.exit_code == 0, result.output
+
+            assert ledger_path.read_text() == ""

@@ -72,7 +72,7 @@
 
 ### Tasks
 
-- [/] T004: Implement content validation engine and wire into post-commands
+- [x] T004: Implement content validation engine and wire into post-commands
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
@@ -96,7 +96,7 @@
 
 ### Tasks
 
-- [ ] T005: Add dry-run flag to remaining commands and issue-id to tasks post
+- [\] T005: Add dry-run flag to remaining commands and issue-id to tasks post
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
