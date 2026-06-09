@@ -101,6 +101,29 @@ def _find_spec_md(issue_id: str) -> Path | None:
     return None
 
 
+def _resolve_constitution_commands(
+    repo_root: Path,
+) -> tuple[str, str, str]:
+    const_path = repo_root / "specs" / "constitution.md"
+    constitution_path = str(const_path) if const_path.exists() else ""
+    test_command = ""
+    lint_command = ""
+    if const_path.exists():
+        cmds = extract_commands(const_path)
+        test_command = cmds.get("test_command", "")
+        lint_command = cmds.get("lint_command", "")
+    return constitution_path, test_command, lint_command
+
+
+def _derive_pr_metadata(
+    branch_name: str, issue_id: str, record_title: str
+) -> tuple[str, str, str]:
+    pr_title = f"[{issue_id}] {record_title}"
+    pr_body = ""
+    base_branch = "main"
+    return pr_title, pr_body, base_branch
+
+
 def _resolve_and_validate_issue(issue_id: str, phase: str) -> IssueRecord:
     dot_dir = _resolve_dot_deviate()
     if not dot_dir.exists():
@@ -298,14 +321,9 @@ def _specify_pre(
     console.print(f"[green]TRACEABILITY[/] {traceability_status}")
 
     # ── Constitution ───────────────────────────────────────────────────
-    const_path = repo_root / "specs" / "constitution.md"
-    constitution_path = str(const_path) if const_path.exists() else ""
-    constitution_test_command = ""
-    constitution_lint_command = ""
-    if const_path.exists():
-        cmds = extract_commands(const_path)
-        constitution_test_command = cmds.get("test_command", "")
-        constitution_lint_command = cmds.get("lint_command", "")
+    constitution_path, constitution_test_command, constitution_lint_command = (
+        _resolve_constitution_commands(repo_root)
+    )
 
     # ── Dry-run / create worktree ──────────────────────────────────────
     worktree_path: str
@@ -537,14 +555,9 @@ def _tasks_pre() -> None:
     worktree_full = str(next(iter(wts.values()))).strip() if wts else str(repo_root)
     console.print(f"[green]WORKTREES[/] {len(wts)} worktree(s) detected")
 
-    const_path = repo_root / "specs" / "constitution.md"
-    constitution_path = str(const_path) if const_path.exists() else ""
-    constitution_test_command = ""
-    constitution_lint_command = ""
-    if const_path.exists():
-        cmds = extract_commands(const_path)
-        constitution_test_command = cmds.get("test_command", "")
-        constitution_lint_command = cmds.get("lint_command", "")
+    constitution_path, constitution_test_command, constitution_lint_command = (
+        _resolve_constitution_commands(repo_root)
+    )
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     contract = {
@@ -627,9 +640,9 @@ def _pr_pre() -> None:
     )
     branch_name = result.stdout.strip()
 
-    pr_title = f"[{issue_id}] {record.title}"
-    pr_body = ""
-    base_branch = "main"
+    pr_title, pr_body, base_branch = _derive_pr_metadata(
+        branch_name, issue_id, record.title
+    )
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     contract = {
