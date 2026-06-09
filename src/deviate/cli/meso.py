@@ -18,7 +18,10 @@ from deviate.core.commit import commit_artifact
 from deviate.core.constitution import extract_commands
 from deviate.core.issues import claim_issue
 from deviate.core.repo import gather_git_state
-from deviate.core.validation import validate_gherkin_syntax
+from deviate.core.validation import (
+    validate_gherkin_syntax,
+    validate_task_id,
+)
 from deviate.core.worktree import (
     branch_exists_on_remote,
     create_worktree,
@@ -594,6 +597,25 @@ def _tasks_post(force: bool = False) -> None:
     if not content and not force:
         console.print("[red]TASKS_EMPTY[/] tasks.md is empty")
         raise typer.Exit(code=1)
+
+    import re as _re
+
+    task_id_pattern = _re.findall(r"(?m)^- \[[ x]\]\s+(\S+)", content)
+    for tid in task_id_pattern:
+        if not validate_task_id(tid):
+            console.print(f"[red]INVALID_TASK_ID[/] {tid}")
+            raise typer.Exit(code=1)
+
+    task_lines = _re.findall(r"(?m)^- \[[ x]\]\s+\S+.*", content)
+    for line in task_lines:
+        if "[ ]" in line:
+            console.print(f"[yellow]UNCHECKED_TASK[/] {line.strip()}")
+            if not force:
+                console.print(
+                    "[red]UNCHECKED_TASKS[/] some tasks are not marked complete"
+                )
+                raise typer.Exit(code=1)
+
     try:
         sha = commit_artifact(
             tasks_md, f"TASKS: tasks.md for {issue_id}", repo=Path.cwd()
