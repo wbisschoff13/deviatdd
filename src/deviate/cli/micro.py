@@ -41,11 +41,26 @@ def _resolve_issue_number(task_id: str) -> str | None:
     return None
 
 
-def _find_issue_record(root: Path, issue_number: str) -> tuple[dict, Path] | None:
+def _resolve_task_index(task_id: str) -> int | None:
+    m = re.match(r"^T\d{3}$", task_id)
+    if m:
+        return 1
+    m = re.match(r"^TSK-\d{3}-(\d{2})$", task_id)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _find_task_record(
+    root: Path, issue_number: str, task_index: int
+) -> tuple[dict, Path] | None:
+    count = 0
     for ledger_file in sorted(root.glob(_LEDGER_GLOB)):
         for record in _read_ledger_records(ledger_file):
             if record.get("issue_id") == f"ISS-{issue_number}":
-                return record, ledger_file
+                count += 1
+                if count == task_index:
+                    return record, ledger_file
     return None
 
 
@@ -111,7 +126,12 @@ def _run_single(task_id: str, root: Path, c: Console) -> None:
         c.print(f"[red]TASK_NOT_FOUND[/] Unrecognised task ID format: {task_id}")
         raise typer.Exit(code=1)
 
-    result = _find_issue_record(root, issue_number)
+    task_index = _resolve_task_index(task_id)
+    if task_index is None:
+        c.print(f"[red]TASK_NOT_FOUND[/] Unrecognised task ID format: {task_id}")
+        raise typer.Exit(code=1)
+
+    result = _find_task_record(root, issue_number, task_index)
     if result is None:
         c.print(f"[red]TASK_NOT_FOUND[/] No task matching {task_id}")
         raise typer.Exit(code=1)

@@ -78,7 +78,7 @@ class TestRunCommand:
             ledger_path = Path("specs") / "007-macro-meso" / "tasks.jsonl"
             _write_ledger(ledger_path, task)
 
-            result = runner.invoke(cli, ["run", "TSK-007-02"])
+            result = runner.invoke(cli, ["run", "TSK-007-01"])
             assert result.exit_code == 0, (
                 f"Expected exit code 0, got {result.exit_code}: {result.output}"
             )
@@ -174,7 +174,7 @@ class TestRunCommand:
             ledger_path = Path("specs") / "007-macro-meso" / "tasks.jsonl"
             _write_ledger(ledger_path, task)
 
-            result = runner.invoke(cli, ["run", "TSK-007-03"])
+            result = runner.invoke(cli, ["run", "TSK-007-01"])
             assert result.exit_code == 0, result.output
             assert "TASK_ALREADY_DONE" in result.output, (
                 f"Expected TASK_ALREADY_DONE warning: {result.output}"
