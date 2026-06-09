@@ -312,9 +312,10 @@ def prd_pre() -> None:
     epic_slug = discover_epic(specs_root)
     if not epic_slug:
         _halt("PRD", "no epic discovered")
+    epic_dir = specs_root / epic_slug
 
     required = ["design.md", "data-model.md"]
-    missing = [a for a in required if not (specs_root / epic_slug / a).exists()]
+    missing = [a for a in required if not (epic_dir / a).exists()]
     if missing:
         paths = "\n  - ".join(str(specs_root / epic_slug / a) for a in missing)
         _halt("PRD", f"missing upstream artifacts\n  - {paths}")
@@ -327,8 +328,8 @@ def prd_pre() -> None:
         session_path,
         epic_slug=epic_slug,
         feature_bucket=epic_slug,
-        design_path=str(specs_root / epic_slug / "design.md"),
-        data_model_path=str(specs_root / epic_slug / "data-model.md"),
+        design_path=str(epic_dir / "design.md"),
+        data_model_path=str(epic_dir / "data-model.md"),
         issue_id=session.active_issue_id or "",
     )
 
