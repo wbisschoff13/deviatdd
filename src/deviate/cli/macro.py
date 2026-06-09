@@ -37,7 +37,7 @@ from deviate.state.config import SessionState, TransitionViolationError
 from deviate.state.ledger import IssueRecord, _read_ledger, append_issue_record
 
 
-def _load_and_transition(phase: str) -> tuple[SessionState, Path]:
+def _load_or_create_session(phase: str) -> tuple[SessionState, Path]:
     dot_dir = Path(".deviate")
     if not dot_dir.exists():
         _handle_missing_dot_dir(phase)
@@ -47,6 +47,11 @@ def _load_and_transition(phase: str) -> tuple[SessionState, Path]:
         session.save(session_path)
     else:
         session = SessionState.load(session_path)
+    return session, session_path
+
+
+def _load_and_transition(phase: str) -> tuple[SessionState, Path]:
+    session, session_path = _load_or_create_session(phase)
     try:
         session = session.transition_to(phase)
     except TransitionViolationError as e:
@@ -55,15 +60,7 @@ def _load_and_transition(phase: str) -> tuple[SessionState, Path]:
 
 
 def _load_session(phase: str) -> tuple[SessionState, Path]:
-    dot_dir = Path(".deviate")
-    if not dot_dir.exists():
-        _handle_missing_dot_dir(phase)
-    session_path = dot_dir / "session.json"
-    if not session_path.exists():
-        session = SessionState.reconstruct_from_worktree(Path.cwd())
-        session.save(session_path)
-    else:
-        session = SessionState.load(session_path)
+    session, session_path = _load_or_create_session(phase)
     if session.current_phase != phase:
         _halt(phase, f"session is in '{session.current_phase}' not '{phase}'")
     return session, session_path
@@ -118,32 +115,26 @@ def _resolve_constitution_commands() -> dict:
         repo_root = find_repo_root()
         const_path = resolve_constitution(repo_root)
         commands = extract_commands(const_path)
-        test_command = commands.get("test_command", "")
-        lint_command = commands.get("lint_command", "")
-        type_check_command = commands.get("type_check_command", "")
-        return {
-            "constitution_path": str(const_path),
-            "test_cmd": test_command,
-            "lint_cmd": lint_command,
-            "type_check_cmd": type_check_command,
-            "test_command": test_command,
-            "lint_command": lint_command,
-            "type_check_command": type_check_command,
-            "constitution_test_command": test_command,
-            "constitution_lint_command": lint_command,
-        }
+        test_cmd = commands.get("test_command", "")
+        lint_cmd = commands.get("lint_command", "")
+        type_check_cmd = commands.get("type_check_command", "")
+        const_path_str = str(const_path)
     except (FileNotFoundError, ValueError):
-        return {
-            "constitution_path": "",
-            "test_cmd": "",
-            "lint_cmd": "",
-            "type_check_cmd": "",
-            "test_command": "",
-            "lint_command": "",
-            "type_check_command": "",
-            "constitution_test_command": "",
-            "constitution_lint_command": "",
-        }
+        const_path_str = ""
+        test_cmd = ""
+        lint_cmd = ""
+        type_check_cmd = ""
+    return {
+        "constitution_path": const_path_str,
+        "test_cmd": test_cmd,
+        "lint_cmd": lint_cmd,
+        "type_check_cmd": type_check_cmd,
+        "test_command": test_cmd,
+        "lint_command": lint_cmd,
+        "type_check_command": type_check_cmd,
+        "constitution_test_command": test_cmd,
+        "constitution_lint_command": lint_cmd,
+    }
 
 
 def _emit_contract(
@@ -309,10 +300,7 @@ def research_pre(
 
     issues_ledger = str(specs_root / "issues.jsonl")
     explore_md_abs = str(explore_path.resolve())
-    explore_abs = (
-        explore_path if explore_path.is_absolute() else (Path.cwd() / explore_path)
-    )
-    explore_md_rel = str(explore_abs.relative_to(Path.cwd()))
+    explore_md_rel = str(explore_path)
     design_target_abs = str((feature_dir / "design.md").resolve())
     data_model_target_abs = str((feature_dir / "data-model.md").resolve())
 
