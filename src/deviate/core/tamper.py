@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 import os
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePath
 
 
 class TamperContext(enum.Enum):
@@ -61,13 +61,25 @@ class TamperGuard:
         return TamperVerdict.TAMPER_DETECTED if detected else TamperVerdict.TAMPER_PASS
 
     @staticmethod
+    def _is_test_file(filepath: str) -> bool:
+        return PurePath(filepath).parts[0] == "tests"
+
+    @staticmethod
+    def _is_spec_file(filepath: str) -> bool:
+        return PurePath(filepath).parts[0] == "specs"
+
+    @staticmethod
+    def _is_config_file(filepath: str) -> bool:
+        return ".deviate" in PurePath(filepath).parts
+
+    @staticmethod
     def _is_protected(filepath: str, context: TamperContext) -> bool:
         if context == TamperContext.RED_TEST_CREATION:
             return False
         return (
-            filepath.startswith("tests/")
-            or filepath.startswith("specs/")
-            or ".deviate" in filepath
+            TamperGuard._is_test_file(filepath)
+            or TamperGuard._is_spec_file(filepath)
+            or TamperGuard._is_config_file(filepath)
         )
 
     @staticmethod
