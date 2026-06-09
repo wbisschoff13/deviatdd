@@ -5,7 +5,7 @@
 
 ### Tasks
 
-- [/] T001: Prompt Resolution Core Module
+- [x] T001: Prompt Resolution Core Module
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
@@ -40,8 +40,8 @@
 - [ ] T002: Auto Prompt Template Files
   - **Type**: Config
   - **Mode**: IMMEDIATE
-  - **Verification**: `ls src/deviate/prompts/auto/ | wc -l` (expect 11 files) && `pytest tests/test_core/test_prompts.py -v`
-  - **Estimated Time**: 30 minutes
+  - **Verification**: `ls src/deviate/prompts/auto/ | wc -l` (expect 11 files) && `ls src/deviate/prompts/commands/ | wc -l` (expect 18 files) && `pytest tests/test_core/test_prompts.py -v`
+  - **Estimated Time**: 60 minutes
   - **Files**:
     - `src/deviate/prompts/auto/explore.md`
     - `src/deviate/prompts/auto/research.md`
@@ -54,20 +54,7 @@
     - `src/deviate/prompts/auto/refactor.md`
     - `src/deviate/prompts/auto/judge.md`
     - `src/deviate/prompts/auto/yellow.md`
-    - `src/deviate/prompts/__init__.py` (ensure auto/ is a package)
-  - **Rationale**: These slim automated prompt templates are the package defaults that `deviate init` copies into `.deviate/prompts/auto/`. US-010-1 requires these files to exist with content matching what gets scaffolded. They're static boilerplate — no business logic, no tests needed beyond existence verification.
-  - **Details**:
-    - **Implementation**: Create `src/deviate/prompts/auto/` directory with 11 `.md` template files. Each template contains a Markdown structure with `${PLACEHOLDER}` variables matching the spec's interpolation table (`${CONSTITUTION}`, `${CLAUDE_MD}`, `${TASK_DESCRIPTION}`, `${TASK_ID}`, `${SPEC_EXCERPT}`, `${TEST_COMMAND}`, `${LINT_COMMAND}`, `${REPO_ROOT}`, `${FEATURE_SLUG}`, `${ISSUE_ID}`). Ensure `src/deviate/prompts/__init__.py` exists (already does) so `importlib.resources` can discover the `auto/` sub-package.
-    - **Template structure**: Each file follows the spec format: `## [ROLE]`, `## [GOVERNANCE]` with `${CONSTITUTION}`, `## [AGENT_RULES]` with `${CLAUDE_MD}`, `## [TASK]`, `## [CONSTRAINTS]`, `## [OUTPUT]` with YAML manifest block.
-    - **Refactor**: Ensure consistent template header format across all 11 files for model-based prefix caching.
-    - **Acceptance**: 11 `.md` files exist under `src/deviate/prompts/auto/`. Each file contains at least 3 `${PLACEHOLDER}` variables. Template layout matches the spec's stated format.
-
-- [ ] T002b: Command Template Files (Skills→Commands Conversion)
-  - **Type**: Config
-  - **Mode**: IMMEDIATE
-  - **Verification**: `ls src/deviate/prompts/commands/ | wc -l` (expect 18 files) && each file has a valid command frontmatter format
-  - **Estimated Time**: 45 minutes
-  - **Files**:
+    - `src/deviate/prompts/__init__.py`
     - `src/deviate/prompts/commands/deviate-adhoc.md`
     - `src/deviate/prompts/commands/deviate-constitution.md`
     - `src/deviate/prompts/commands/deviate-context.md`
@@ -87,16 +74,18 @@
     - `src/deviate/prompts/commands/deviate-tasks.md`
     - `src/deviate/prompts/commands/deviate-triage.md`
     - (deleted) `src/deviate/prompts/skills/` — entire directory tree
-  - **Rationale**: The existing skills/ directory with 18 SKILL.md files (each nested in a subdirectory) must be converted to flat command files. Instead of `deviate-red/SKILL.md`, use `commands/deviate-red.md` — a single flat `.md` per command. This aligns with the user's direction to use custom commands instead of skills. The command templates will be copied to `.deviate/prompts/commands/` by T003 for override editing, and installed to agent `.opencode/commands/` directories by T004.
+    - `src/deviate/prompts/commands/__init__.py`
+  - **Rationale**: These template files are the package defaults that `deviate init` copies into `.deviate/prompts/auto/` and `.deviate/prompts/commands/`. The auto/ templates are slim DeviaTDD phase prompts; the commands/ templates are the 18 deviate CLI custom commands converted from the nested skills/ directory structure. Both are static boilerplate with `${PLACEHOLDER}` variables — no business logic, no tests needed beyond existence verification.
   - **Details**:
     - **Implementation**: 
-      1. Delete `src/deviate/prompts/skills/` directory tree entirely
-      2. Create `src/deviate/prompts/commands/` directory
-      3. For each of the 18 skill directories, extract the SKILL.md content and create a flat `commands/<skill-name>.md` file
-      4. Each command file should have consistent frontmatter (name, description) and the same body content as the original SKILL.md, adapted for command format (no nested subdirectory assumptions)
-      5. Add `__init__.py` to `commands/` so `importlib.resources` can discover it
-    - **Refactor**: Ensure consistent frontmatter format across all 18 command files. Remove any references to `SKILL.md` or nested directory structure from the template bodies.
-    - **Acceptance**: 18 `.md` files under `src/deviate/prompts/commands/`. No `skills/` directory remains. Each file contains the original SKILL.md content adapted for flat command format. `importlib.resources.files("deviate.prompts").joinpath("commands")` resolves correctly.
+      - Create `src/deviate/prompts/auto/` with 11 `.md` template files. Each template contains a Markdown structure with `${PLACEHOLDER}` variables matching the spec's interpolation table (`${CONSTITUTION}`, `${CLAUDE_MD}`, `${TASK_DESCRIPTION}`, `${TASK_ID}`, `${SPEC_EXCERPT}`, `${TEST_COMMAND}`, `${LINT_COMMAND}`, `${REPO_ROOT}`, `${FEATURE_SLUG}`, `${ISSUE_ID}`).
+      - Delete `src/deviate/prompts/skills/` directory tree entirely (18 subdirectories each with a SKILL.md).
+      - Create `src/deviate/prompts/commands/` with 18 flat `.md` files, one per command, extracted from the skills/ SKILL.md content.
+      - Add `__init__.py` to both `auto/` and `commands/` so `importlib.resources` can discover them.
+    - **Template structure (auto/)**: Each file follows `## [ROLE]`, `## [GOVERNANCE]` with `${CONSTITUTION}`, `## [AGENT_RULES]` with `${CLAUDE_MD}`, `## [TASK]`, `## [CONSTRAINTS]`, `## [OUTPUT]` with YAML manifest block.
+    - **Template structure (commands/)**: Each file is a flat `.md` with frontmatter (name, description) and body content adapted from the original SKILL.md — no nested directory assumptions, no `SKILL.md` references.
+    - **Refactor**: Ensure consistent template header format across all files for model-based prefix caching. Remove any references to `SKILL.md` or nested subdirectory structure from command bodies.
+    - **Acceptance**: 11 auto/ `.md` files and 18 commands/ `.md` files exist under `src/deviate/prompts/`. No `skills/` directory remains. Each file contains at least 3 `${PLACEHOLDER}` variables. `importlib.resources.files("deviate.prompts").joinpath("commands")` resolves correctly.
 
 ---
 
@@ -111,7 +100,7 @@
   - **Test Strategy**: Integration
   - **Verification**: `pytest tests/test_cli/test_init.py -v -k prompt`
   - **Estimated Time**: 90 minutes
-  - **Dependency**: T002, T002b
+  - **Dependency**: T002
   - **Files**:
     - `src/deviate/cli/__init__.py`
     - `tests/test_cli/test_init.py`
@@ -154,7 +143,7 @@
   - **Test Strategy**: Sociable_Unit
   - **Verification**: `pytest tests/test_core/test_skills.py -v`
   - **Estimated Time**: 90 minutes
-  - **Dependency**: T001, T002b
+  - **Dependency**: T001, T002
   - **Files**:
     - `src/deviate/core/skills.py` (rewrite)
     - `tests/test_core/test_skills.py` (rewrite)
@@ -244,13 +233,13 @@
 ## Implementation Strategy
 
 **Execution Order**:
-1. Phase 1 — T001 (prompts.py) + T002 (auto templates) + T002b (commands templates) in parallel
-2. Phase 2 — T003 (init scaffolding) after T002 + T002b (needs templates to copy)
-3. Phase 3 — T004 (command installation) after T001 + T002b; T004b (CLI wiring) after T004
+1. Phase 1 — T001 (prompts.py) + T002 (template files) in parallel
+2. Phase 2 — T003 (init scaffolding) after T002 (needs templates to copy)
+3. Phase 3 — T004 (command installation) after T001 + T002; T004b (CLI wiring) after T004
 4. Phase 4 — T005 (E2E tests) after T003 + T004b
 
 **Critical Dependency Chains**:
-- T002 (auto templates) + T002b (commands templates) must precede T003 (init scaffolding copies them)
+- T002 (template files) must precede T003 (init scaffolding copies them)
 - T001 (prompts.py) must precede T004 (command installation depends on resolve_command)
 - T004 must precede T004b (CLI wiring needs install_command API)
 - T003 + T004b must precede T005 (E2E test depends on all production code)
@@ -272,8 +261,7 @@
 
 **Merge Conflict Boundaries**:
 - T001 creates `prompts.py` — no conflicts
-- T002 creates `auto/` directory — no conflicts
-- T002b deletes `skills/` and creates `commands/` — may conflict if other branches reference skills paths
+- T002 creates `auto/` and `commands/` directories, deletes `skills/` — may conflict if other branches reference skills paths
 - T003 modifies `cli/__init__.py` — isolated from other tasks
 - T004 rewrites `skills.py` — potential conflict with any branch touching skills.py
 - T004b modifies `cli/__init__.py` — same file as T003, sequential execution avoids collision
