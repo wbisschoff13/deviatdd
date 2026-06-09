@@ -94,7 +94,7 @@
 
 ### Tasks
 
-- [ ] T003: Init Prompt Scaffolding and --refresh-prompts
+- [\] T003: Init Prompt Scaffolding and --refresh-prompts
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration
