@@ -5,7 +5,7 @@
 
 ### Tasks
 
-- [/] T001: Agent backend with heredoc-pipe subprocess invocation, YAML handover parsing, timeout/retry, and AgentConfig model
+- [x] T001: Agent backend with heredoc-pipe subprocess invocation, YAML handover parsing, timeout/retry, and AgentConfig model
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
@@ -23,7 +23,7 @@
     - **Edge Cases**: Handle `FileNotFoundError` when agent command is not on PATH (surface `AgentBinaryNotFoundError`). Handle empty stdout (raise `EmptyOutputError`). Handle YAML with missing required keys (raise `MalformedHandoverManifestError` with key list).
     - **Acceptance**: `AgentBackend` can invoke opencode, claude, and droid via heredoc. Timeout applies per backend. YAML manifest is parsed into typed model. Yellow handover trigger is detected. All scenarios from US-004-1 and US-004-10 pass.
 
-- [\] T002: Tamper Guard — git diff evaluation and git restore rollback
+- [x] T002: Tamper Guard — git diff evaluation and git restore rollback
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration
@@ -40,7 +40,7 @@
     - **Edge Cases**: Handle empty diff (no changes) as clean pass. Handle binary files in diff by filtering. Handle `git diff` returning file renames. Handle repo with no commits yet (initial diff behavior).
     - **Acceptance**: Tamper Guard detects unauthorized test/spec/config modifications, rolls them back, and surfaces `TAMPER_DETECTED`. Authorized modifications (src-only, RED test creation, YELLOW-approved) pass through. All scenarios from US-004-4 pass.
 
-- [ ] T003: Full auto prompt templates for RED, GREEN, REFACTOR, JUDGE, and YELLOW phases
+- [x] T003: Full auto prompt templates for RED, GREEN, REFACTOR, JUDGE, and YELLOW phases
   - **Type**: Config
   - **Mode**: IMMEDIATE
   - **Verification**: `for f in red green refactor judge yellow; do test -f "src/deviate/prompts/auto/$f.md" || { echo "MISSING: $f.md"; exit 1; }; done && for f in red green refactor judge yellow; do wc -w "src/deviate/prompts/auto/$f.md"; done && echo "All templates present"`
@@ -64,7 +64,7 @@
 
 ### Tasks
 
-- [ ] T004: RED and GREEN phase manual pre/post commands
+- [\] T004: RED and GREEN phase manual pre/post commands
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit

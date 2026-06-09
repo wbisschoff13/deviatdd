@@ -1,0 +1,667 @@
+[
+  {
+    "chunks": [
+      {
+        "id": "chunk_eb614db299bca60b",
+        "texts": [
+          {
+            "text": "toml table\nin 001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/pyproject.toml\nPurpose: testing\n\n[dependency-groups]\ndev = [\n    \"pytest>=9.0.3\",\n    \"typer>=0.26.7\",\n]\n",
+            "tokenCount": 45
+          }
+        ],
+        "storageText": "toml table\nin 001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/pyproject.toml\nPurpose: testing\n\n[dependency-groups]\ndev = [\n    \"pytest>=9.0.3\",\n    \"typer>=0.26.7\",\n]\n",
+        "content": "[dependency-groups]\ndev = [\n    \"pytest>=9.0.3\",\n    \"typer>=0.26.7\",\n]\n",
+        "contentHash": "f2545d90e7c0c1fe",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/pyproject.toml",
+          "startLine": 35,
+          "endLine": 40,
+          "chunkType": "table",
+          "language": "toml",
+          "hash": "f2545d90e7c0c1fe"
+        }
+      },
+      {
+        "id": "chunk_121274e4cc7834d8",
+        "texts": [
+          {
+            "text": "Python function \"_make_task_record\"\nin tests/test_micro/test_green.py\nPurpose: _make_task_record(task_id, issue_id, description, status, execution_mode) -> TaskRecord\n\ndef _make_task_record(\n    task_id: str = \"550e8400-e29b-41d4-a716-446655440001\",\n    issue_id: str = \"ISS-004\",\n    description: str = \"GREEN phase task\",\n    status: str = \"RED\",\n    execution_mode: str = \"TDD\",\n) -> TaskRecord:\n    return TaskRecord(\n        id=task_id,\n        issue_id=issue_id,\n        description=description,\n        status=status,\n        execution_mode=execution_mode,\n    )",
+            "tokenCount": 143
+          }
+        ],
+        "storageText": "Python function \"_make_task_record\"\nin tests/test_micro/test_green.py\nPurpose: _make_task_record(task_id, issue_id, description, status, execution_mode) -> TaskRecord\n\ndef _make_task_record(\n    task_id: str = \"550e8400-e29b-41d4-a716-446655440001\",\n    issue_id: str = \"ISS-004\",\n    description: str = \"GREEN phase task\",\n    status: str = \"RED\",\n    execution_mode: str = \"TDD\",\n) -> TaskRecord:\n    return TaskRecord(\n        id=task_id,\n        issue_id=issue_id,\n        description=description,\n        status=status,\n        execution_mode=execution_mode,\n    )",
+        "content": "def _make_task_record(\n    task_id: str = \"550e8400-e29b-41d4-a716-446655440001\",\n    issue_id: str = \"ISS-004\",\n    description: str = \"GREEN phase task\",\n    status: str = \"RED\",\n    execution_mode: str = \"TDD\",\n) -> TaskRecord:\n    return TaskRecord(\n        id=task_id,\n        issue_id=issue_id,\n        description=description,\n        status=status,\n        execution_mode=execution_mode,\n    )",
+        "contentHash": "58fe169f5a2bc388",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 17,
+          "endLine": 30,
+          "chunkType": "function_definition",
+          "name": "_make_task_record",
+          "language": "python",
+          "hash": "58fe169f5a2bc388"
+        }
+      },
+      {
+        "id": "chunk_20c6b708e56b91ae",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPre\"\nin tests/test_micro/test_green.py\nPurpose: test_green_pre_loads_red_task(tmp_path), validation, file operations, data parsing, testing, state management\n\nclass TestGreenPre:\n    def test_green_pre_loads_red_task(self, tmp_path: Path):\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            task = _make_task_record(\n                task_id=\"550e8400-e29b-41d4-a716-446655440001\",\n                issue_id=\"ISS-004\",\n                description=\"GREEN test task\",\n                status=\"RED\",\n            )\n            ledger_path = Path(\"specs\") / \"004-micro-layer\" / \"tasks.jsonl\"\n            _write_ledger(ledger_path, task)\n\n            test_file = Path(\"tests\") / \"test_red_task.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_fail():\\n    assert False\\n\")\n\n            result = runner.invoke(cli, [\"green\", \"pre\", \"--task\", \"T004\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            data = json.loads(result.output)\n            assert \"test_file\" in data\n            assert \"implementation_targets\" in data",
+            "tokenCount": 340
+          }
+        ],
+        "storageText": "Python class \"TestGreenPre\"\nin tests/test_micro/test_green.py\nPurpose: test_green_pre_loads_red_task(tmp_path), validation, file operations, data parsing, testing, state management\n\nclass TestGreenPre:\n    def test_green_pre_loads_red_task(self, tmp_path: Path):\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            task = _make_task_record(\n                task_id=\"550e8400-e29b-41d4-a716-446655440001\",\n                issue_id=\"ISS-004\",\n                description=\"GREEN test task\",\n                status=\"RED\",\n            )\n            ledger_path = Path(\"specs\") / \"004-micro-layer\" / \"tasks.jsonl\"\n            _write_ledger(ledger_path, task)\n\n            test_file = Path(\"tests\") / \"test_red_task.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_fail():\\n    assert False\\n\")\n\n            result = runner.invoke(cli, [\"green\", \"pre\", \"--task\", \"T004\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            data = json.loads(result.output)\n            assert \"test_file\" in data\n            assert \"implementation_targets\" in data",
+        "content": "class TestGreenPre:\n    def test_green_pre_loads_red_task(self, tmp_path: Path):\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            task = _make_task_record(\n                task_id=\"550e8400-e29b-41d4-a716-446655440001\",\n                issue_id=\"ISS-004\",\n                description=\"GREEN test task\",\n                status=\"RED\",\n            )\n            ledger_path = Path(\"specs\") / \"004-micro-layer\" / \"tasks.jsonl\"\n            _write_ledger(ledger_path, task)\n\n            test_file = Path(\"tests\") / \"test_red_task.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_fail():\\n    assert False\\n\")\n\n            result = runner.invoke(cli, [\"green\", \"pre\", \"--task\", \"T004\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            data = json.loads(result.output)\n            assert \"test_file\" in data\n            assert \"implementation_targets\" in data",
+        "contentHash": "ac3409d045a17a4c",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 40,
+          "endLine": 68,
+          "chunkType": "class_definition",
+          "name": "TestGreenPre",
+          "language": "python",
+          "hash": "ac3409d045a17a4c"
+        }
+      },
+      {
+        "id": "chunk_2d15fdadf16dea67",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: _init_git_repo(path) -> None, user management, validation, file operations, testing, configuration\n\nclass TestGreenPost:\n    def _init_git_repo(self, path: Path) -> None:\n        env = {k: v for k, v in __import__(\"os\").environ.items() if not k.startswith(\"GIT_\")}\n        subprocess.run([\"git\", \"init\"], cwd=path, env=env, check=True)\n        subprocess.run(\n            [\"git\", \"config\", \"user.email\", \"runner@test.local\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )",
+            "tokenCount": 172
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: _init_git_repo(path) -> None, user management, validation, file operations, testing, configuration\n\nclass TestGreenPost:\n    def _init_git_repo(self, path: Path) -> None:\n        env = {k: v for k, v in __import__(\"os\").environ.items() if not k.startswith(\"GIT_\")}\n        subprocess.run([\"git\", \"init\"], cwd=path, env=env, check=True)\n        subprocess.run(\n            [\"git\", \"config\", \"user.email\", \"runner@test.local\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )",
+        "content": "class TestGreenPost:\n    def _init_git_repo(self, path: Path) -> None:\n        env = {k: v for k, v in __import__(\"os\").environ.items() if not k.startswith(\"GIT_\")}\n        subprocess.run([\"git\", \"init\"], cwd=path, env=env, check=True)\n        subprocess.run(\n            [\"git\", \"config\", \"user.email\", \"runner@test.local\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )",
+        "contentHash": "b694adff62d77d8d",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 71,
+          "endLine": 82,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "b694adff62d77d8d"
+        }
+      },
+      {
+        "id": "chunk_751ede01456efae5",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_green_post_validates_tests_pass(tmp_path), user management, validation, file operations, testing, configuration\n\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"commit\", \"--allow-empty\", \"-m\", \"initial\"],\n            cwd=path, env=env, check=True,\n        )\n\n    def test_green_post_validates_tests_pass(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")",
+            "tokenCount": 155
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_green_post_validates_tests_pass(tmp_path), user management, validation, file operations, testing, configuration\n\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"commit\", \"--allow-empty\", \"-m\", \"initial\"],\n            cwd=path, env=env, check=True,\n        )\n\n    def test_green_post_validates_tests_pass(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")",
+        "content": "            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"commit\", \"--allow-empty\", \"-m\", \"initial\"],\n            cwd=path, env=env, check=True,\n        )\n\n    def test_green_post_validates_tests_pass(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")",
+        "contentHash": "845790f68473d4b2",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 80,
+          "endLine": 91,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "845790f68473d4b2"
+        }
+      },
+      {
+        "id": "chunk_24cb3a08cf4a868e",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_pass(), validation, file operations, data parsing, testing, state management\n\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_green_task.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"deviate\" / \"green_impl.py\"",
+            "tokenCount": 166
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_pass(), validation, file operations, data parsing, testing, state management\n\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_green_task.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"deviate\" / \"green_impl.py\"",
+        "content": "        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_green_task.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"deviate\" / \"green_impl.py\"",
+        "contentHash": "d650710e8178804c",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 89,
+          "endLine": 100,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "d650710e8178804c"
+        }
+      },
+      {
+        "id": "chunk_bc7ff64bd3b8c4ba",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_pass(), validation, file operations, testing\n\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"deviate\" / \"green_impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# GREEN implementation stub\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: RED test and GREEN implementation\"],\n                cwd=tmp_path, check=True,\n            )\n",
+            "tokenCount": 159
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_pass(), validation, file operations, testing\n\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"deviate\" / \"green_impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# GREEN implementation stub\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: RED test and GREEN implementation\"],\n                cwd=tmp_path, check=True,\n            )\n",
+        "content": "            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"deviate\" / \"green_impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# GREEN implementation stub\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: RED test and GREEN implementation\"],\n                cwd=tmp_path, check=True,\n            )\n",
+        "contentHash": "ef239381f040f6f4",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 98,
+          "endLine": 109,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "ef239381f040f6f4"
+        }
+      },
+      {
+        "id": "chunk_a36c5cc01970e0a0",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_pass(), validation, file operations, testing\n\n                cwd=tmp_path, check=True,\n            )\n\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n",
+            "tokenCount": 131
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_pass(), validation, file operations, testing\n\n                cwd=tmp_path, check=True,\n            )\n\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n",
+        "content": "                cwd=tmp_path, check=True,\n            )\n\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n",
+        "contentHash": "0491f21af686c907",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 107,
+          "endLine": 118,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "0491f21af686c907"
+        }
+      },
+      {
+        "id": "chunk_44e2954562a7f909",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_green_post_tamper_detection(tmp_path), validation, logging, file operations, testing\n\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n\n            log = subprocess.run(\n                [\"git\", \"log\", \"--oneline\", \"-1\"],\n                cwd=tmp_path, capture_output=True, text=True,\n            )\n            assert log.returncode == 0\n            assert len(log.stdout.strip()) > 0\n\n    def test_green_post_tamper_detection(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)",
+            "tokenCount": 151
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_green_post_tamper_detection(tmp_path), validation, logging, file operations, testing\n\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n\n            log = subprocess.run(\n                [\"git\", \"log\", \"--oneline\", \"-1\"],\n                cwd=tmp_path, capture_output=True, text=True,\n            )\n            assert log.returncode == 0\n            assert len(log.stdout.strip()) > 0\n\n    def test_green_post_tamper_detection(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)",
+        "content": "                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n\n            log = subprocess.run(\n                [\"git\", \"log\", \"--oneline\", \"-1\"],\n                cwd=tmp_path, capture_output=True, text=True,\n            )\n            assert log.returncode == 0\n            assert len(log.stdout.strip()) > 0\n\n    def test_green_post_tamper_detection(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)",
+        "contentHash": "9f55bbdc2ce3c28e",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 116,
+          "endLine": 127,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "9f55bbdc2ce3c28e"
+        }
+      },
+      {
+        "id": "chunk_04fb45abedf50a6f",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_green_post_tamper_detection(tmp_path), validation, file operations, data parsing, testing, state management\n\n\n    def test_green_post_tamper_detection(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_tamper.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_original():\\n    assert True\\n\")",
+            "tokenCount": 172
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_green_post_tamper_detection(tmp_path), validation, file operations, data parsing, testing, state management\n\n\n    def test_green_post_tamper_detection(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_tamper.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_original():\\n    assert True\\n\")",
+        "content": "\n    def test_green_post_tamper_detection(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_tamper.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_original():\\n    assert True\\n\")",
+        "contentHash": "5daf320a75d40497",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 125,
+          "endLine": 136,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "5daf320a75d40497"
+        }
+      },
+      {
+        "id": "chunk_d2d5a1e301be49cf",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_original(), validation, file operations, testing\n\n            test_file = Path(\"tests\") / \"test_tamper.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_original():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# implementation\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: initial RED test\"],\n                cwd=tmp_path, check=True,",
+            "tokenCount": 172
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_original(), validation, file operations, testing\n\n            test_file = Path(\"tests\") / \"test_tamper.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_original():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# implementation\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: initial RED test\"],\n                cwd=tmp_path, check=True,",
+        "content": "            test_file = Path(\"tests\") / \"test_tamper.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_original():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# implementation\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: initial RED test\"],\n                cwd=tmp_path, check=True,",
+        "contentHash": "1dc4f835c8507fac",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 134,
+          "endLine": 145,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "1dc4f835c8507fac"
+        }
+      },
+      {
+        "id": "chunk_3021768f5d11d62d",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_original(), validation, file operations, testing\n\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: initial RED test\"],\n                cwd=tmp_path, check=True,\n            )\n\n            test_file.write_text(\n                \"def test_original():\\n    assert True\\n\\n\"\n                \"def test_tampered():\\n    assert 1 == 1\\n\"\n            )\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n",
+            "tokenCount": 127
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_original(), validation, file operations, testing\n\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: initial RED test\"],\n                cwd=tmp_path, check=True,\n            )\n\n            test_file.write_text(\n                \"def test_original():\\n    assert True\\n\\n\"\n                \"def test_tampered():\\n    assert 1 == 1\\n\"\n            )\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n",
+        "content": "            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: initial RED test\"],\n                cwd=tmp_path, check=True,\n            )\n\n            test_file.write_text(\n                \"def test_original():\\n    assert True\\n\\n\"\n                \"def test_tampered():\\n    assert 1 == 1\\n\"\n            )\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n",
+        "contentHash": "b61d971f5a8abf47",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 143,
+          "endLine": 154,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "b61d971f5a8abf47"
+        }
+      },
+      {
+        "id": "chunk_e065ab50dc3ff45e",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: validation, caching, file operations, testing, state management\n\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert \"TAMPER_DETECTED\" in result.output, (\n                f\"Expected TAMPER_DETECTED in output: {result.output}\"\n            )\n\n            restored = test_file.read_text()\n            assert \"test_tampered\" not in restored, (\n                \"Tamper Guard should have restored the original test file\"\n            )\n",
+            "tokenCount": 133
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: validation, caching, file operations, testing, state management\n\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert \"TAMPER_DETECTED\" in result.output, (\n                f\"Expected TAMPER_DETECTED in output: {result.output}\"\n            )\n\n            restored = test_file.read_text()\n            assert \"test_tampered\" not in restored, (\n                \"Tamper Guard should have restored the original test file\"\n            )\n",
+        "content": "\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert \"TAMPER_DETECTED\" in result.output, (\n                f\"Expected TAMPER_DETECTED in output: {result.output}\"\n            )\n\n            restored = test_file.read_text()\n            assert \"test_tampered\" not in restored, (\n                \"Tamper Guard should have restored the original test file\"\n            )\n",
+        "contentHash": "652d9f3de3198cfe",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 152,
+          "endLine": 163,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "652d9f3de3198cfe"
+        }
+      },
+      {
+        "id": "chunk_0bde8c925a3efcbf",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_green_post_yellow_handover(tmp_path), caching, file operations, data parsing, testing, state management\n\n                \"Tamper Guard should have restored the original test file\"\n            )\n\n    def test_green_post_yellow_handover(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_yellow.py\"",
+            "tokenCount": 162
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_green_post_yellow_handover(tmp_path), caching, file operations, data parsing, testing, state management\n\n                \"Tamper Guard should have restored the original test file\"\n            )\n\n    def test_green_post_yellow_handover(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_yellow.py\"",
+        "content": "                \"Tamper Guard should have restored the original test file\"\n            )\n\n    def test_green_post_yellow_handover(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"RED\")\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_yellow.py\"",
+        "contentHash": "981588b504aa5e8b",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 161,
+          "endLine": 172,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "981588b504aa5e8b"
+        }
+      },
+      {
+        "id": "chunk_71acb306a5bd8421",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_placeholder(), validation, file operations, data parsing, testing\n\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_yellow.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_placeholder():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# implementation\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(",
+            "tokenCount": 163
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: test_placeholder(), validation, file operations, data parsing, testing\n\n            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_yellow.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_placeholder():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# implementation\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(",
+        "content": "            session.save(dot_dir / \"session.json\")\n\n            test_file = Path(\"tests\") / \"test_yellow.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_placeholder():\\n    assert True\\n\")\n\n            implementation = Path(\"src\") / \"impl.py\"\n            implementation.parent.mkdir(parents=True)\n            implementation.write_text(\"# implementation\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(",
+        "contentHash": "826f59f421917fdf",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 170,
+          "endLine": 181,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "826f59f421917fdf"
+        }
+      },
+      {
+        "id": "chunk_31eedb26f98d9676",
+        "texts": [
+          {
+            "text": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: validation, file operations, testing\n\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: RED test\"],\n                cwd=tmp_path, check=True,\n            )\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert \"YELLOW_TRIGGERED\" in result.output, (\n                f\"Expected YELLOW_TRIGGERED in output: {result.output}\"\n            )",
+            "tokenCount": 133
+          }
+        ],
+        "storageText": "Python class \"TestGreenPost\"\nin tests/test_micro/test_green.py\nPurpose: validation, file operations, testing\n\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: RED test\"],\n                cwd=tmp_path, check=True,\n            )\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert \"YELLOW_TRIGGERED\" in result.output, (\n                f\"Expected YELLOW_TRIGGERED in output: {result.output}\"\n            )",
+        "content": "\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n            subprocess.run(\n                [\"git\", \"commit\", \"-m\", \"feat: RED test\"],\n                cwd=tmp_path, check=True,\n            )\n\n            result = runner.invoke(cli, [\"green\", \"post\"])\n\n            assert \"YELLOW_TRIGGERED\" in result.output, (\n                f\"Expected YELLOW_TRIGGERED in output: {result.output}\"\n            )",
+        "contentHash": "e0d027082f616c7e",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_green.py",
+          "startLine": 179,
+          "endLine": 190,
+          "chunkType": "class_definition",
+          "name": "TestGreenPost",
+          "language": "python",
+          "hash": "e0d027082f616c7e"
+        }
+      }
+    ],
+    "error": "GitHub Copilot embedding API error: 429 - Too many requests. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service).\n",
+    "attemptCount": 1,
+    "lastAttempt": "2026-06-09T21:08:00.169Z"
+  },
+  {
+    "chunks": [
+      {
+        "id": "chunk_ac880a0a7e77173e",
+        "texts": [
+          {
+            "text": "Python function \"_make_task_record\"\nin tests/test_micro/test_red.py\nPurpose: _make_task_record(task_id, issue_id, description, status, execution_mode) -> TaskRecord\n\ndef _make_task_record(\n    task_id: str = \"550e8400-e29b-41d4-a716-446655440001\",\n    issue_id: str = \"ISS-004\",\n    description: str = \"RED phase task\",\n    status: str = \"PENDING\",\n    execution_mode: str = \"TDD\",\n) -> TaskRecord:\n    return TaskRecord(\n        id=task_id,\n        issue_id=issue_id,\n        description=description,\n        status=status,\n        execution_mode=execution_mode,\n    )",
+            "tokenCount": 143
+          }
+        ],
+        "storageText": "Python function \"_make_task_record\"\nin tests/test_micro/test_red.py\nPurpose: _make_task_record(task_id, issue_id, description, status, execution_mode) -> TaskRecord\n\ndef _make_task_record(\n    task_id: str = \"550e8400-e29b-41d4-a716-446655440001\",\n    issue_id: str = \"ISS-004\",\n    description: str = \"RED phase task\",\n    status: str = \"PENDING\",\n    execution_mode: str = \"TDD\",\n) -> TaskRecord:\n    return TaskRecord(\n        id=task_id,\n        issue_id=issue_id,\n        description=description,\n        status=status,\n        execution_mode=execution_mode,\n    )",
+        "content": "def _make_task_record(\n    task_id: str = \"550e8400-e29b-41d4-a716-446655440001\",\n    issue_id: str = \"ISS-004\",\n    description: str = \"RED phase task\",\n    status: str = \"PENDING\",\n    execution_mode: str = \"TDD\",\n) -> TaskRecord:\n    return TaskRecord(\n        id=task_id,\n        issue_id=issue_id,\n        description=description,\n        status=status,\n        execution_mode=execution_mode,\n    )",
+        "contentHash": "6ae0b5fb4bbb2dbc",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 17,
+          "endLine": 30,
+          "chunkType": "function_definition",
+          "name": "_make_task_record",
+          "language": "python",
+          "hash": "6ae0b5fb4bbb2dbc"
+        }
+      },
+      {
+        "id": "chunk_aef6e10451f97761",
+        "texts": [
+          {
+            "text": "Python class \"TestRedPre\"\nin tests/test_micro/test_red.py\nPurpose: test_red_pre_emits_contract(tmp_path), validation, file operations, data parsing, testing, state management\n\nclass TestRedPre:\n    def test_red_pre_emits_contract(self, tmp_path: Path):\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"IDLE\")\n            session.save(dot_dir / \"session.json\")\n\n            task = _make_task_record(\n                task_id=\"550e8400-e29b-41d4-a716-446655440001\",\n                issue_id=\"ISS-004\",\n                description=\"RED test task\",\n                status=\"PENDING\",\n            )\n            ledger_path = Path(\"specs\") / \"004-micro-layer\" / \"tasks.jsonl\"\n            _write_ledger(ledger_path, task)\n\n            result = runner.invoke(cli, [\"red\", \"pre\", \"--task\", \"T004\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            data = json.loads(result.output)\n            assert \"task_id\" in data\n            assert \"test_command\" in data\n            assert \"lint_command\" in data\n            assert \"spec_dir\" in data",
+            "tokenCount": 309
+          }
+        ],
+        "storageText": "Python class \"TestRedPre\"\nin tests/test_micro/test_red.py\nPurpose: test_red_pre_emits_contract(tmp_path), validation, file operations, data parsing, testing, state management\n\nclass TestRedPre:\n    def test_red_pre_emits_contract(self, tmp_path: Path):\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"IDLE\")\n            session.save(dot_dir / \"session.json\")\n\n            task = _make_task_record(\n                task_id=\"550e8400-e29b-41d4-a716-446655440001\",\n                issue_id=\"ISS-004\",\n                description=\"RED test task\",\n                status=\"PENDING\",\n            )\n            ledger_path = Path(\"specs\") / \"004-micro-layer\" / \"tasks.jsonl\"\n            _write_ledger(ledger_path, task)\n\n            result = runner.invoke(cli, [\"red\", \"pre\", \"--task\", \"T004\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            data = json.loads(result.output)\n            assert \"task_id\" in data\n            assert \"test_command\" in data\n            assert \"lint_command\" in data\n            assert \"spec_dir\" in data",
+        "content": "class TestRedPre:\n    def test_red_pre_emits_contract(self, tmp_path: Path):\n        with chdir(tmp_path):\n            dot_dir = Path(\".deviate\")\n            dot_dir.mkdir(parents=True)\n            session = SessionState(current_phase=\"IDLE\")\n            session.save(dot_dir / \"session.json\")\n\n            task = _make_task_record(\n                task_id=\"550e8400-e29b-41d4-a716-446655440001\",\n                issue_id=\"ISS-004\",\n                description=\"RED test task\",\n                status=\"PENDING\",\n            )\n            ledger_path = Path(\"specs\") / \"004-micro-layer\" / \"tasks.jsonl\"\n            _write_ledger(ledger_path, task)\n\n            result = runner.invoke(cli, [\"red\", \"pre\", \"--task\", \"T004\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            data = json.loads(result.output)\n            assert \"task_id\" in data\n            assert \"test_command\" in data\n            assert \"lint_command\" in data\n            assert \"spec_dir\" in data",
+        "contentHash": "6db61f106c6e744d",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 40,
+          "endLine": 66,
+          "chunkType": "class_definition",
+          "name": "TestRedPre",
+          "language": "python",
+          "hash": "6db61f106c6e744d"
+        }
+      },
+      {
+        "id": "chunk_03571c034b0e3718",
+        "texts": [
+          {
+            "text": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: _init_git_repo(path) -> None, user management, validation, file operations, testing, configuration\n\nclass TestRedPost:\n    def _init_git_repo(self, path: Path) -> None:\n        env = {k: v for k, v in __import__(\"os\").environ.items() if not k.startswith(\"GIT_\")}\n        subprocess.run([\"git\", \"init\"], cwd=path, env=env, check=True)\n        subprocess.run(\n            [\"git\", \"config\", \"user.email\", \"runner@test.local\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )",
+            "tokenCount": 170
+          }
+        ],
+        "storageText": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: _init_git_repo(path) -> None, user management, validation, file operations, testing, configuration\n\nclass TestRedPost:\n    def _init_git_repo(self, path: Path) -> None:\n        env = {k: v for k, v in __import__(\"os\").environ.items() if not k.startswith(\"GIT_\")}\n        subprocess.run([\"git\", \"init\"], cwd=path, env=env, check=True)\n        subprocess.run(\n            [\"git\", \"config\", \"user.email\", \"runner@test.local\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )",
+        "content": "class TestRedPost:\n    def _init_git_repo(self, path: Path) -> None:\n        env = {k: v for k, v in __import__(\"os\").environ.items() if not k.startswith(\"GIT_\")}\n        subprocess.run([\"git\", \"init\"], cwd=path, env=env, check=True)\n        subprocess.run(\n            [\"git\", \"config\", \"user.email\", \"runner@test.local\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )",
+        "contentHash": "28ca3d2ba3ec08b0",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 69,
+          "endLine": 80,
+          "chunkType": "class_definition",
+          "name": "TestRedPost",
+          "language": "python",
+          "hash": "28ca3d2ba3ec08b0"
+        }
+      },
+      {
+        "id": "chunk_75cecc6e43ae9b18",
+        "texts": [
+          {
+            "text": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_validates_test_fails(tmp_path), user management, validation, file operations, testing, configuration\n\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"commit\", \"--allow-empty\", \"-m\", \"initial\"],\n            cwd=path, env=env, check=True,\n        )\n\n    def test_red_post_validates_test_fails(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_failing.py\"",
+            "tokenCount": 158
+          }
+        ],
+        "storageText": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_validates_test_fails(tmp_path), user management, validation, file operations, testing, configuration\n\n            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"commit\", \"--allow-empty\", \"-m\", \"initial\"],\n            cwd=path, env=env, check=True,\n        )\n\n    def test_red_post_validates_test_fails(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_failing.py\"",
+        "content": "            [\"git\", \"config\", \"user.name\", \"Test Runner\"],\n            cwd=path, env=env, check=True,\n        )\n        subprocess.run(\n            [\"git\", \"commit\", \"--allow-empty\", \"-m\", \"initial\"],\n            cwd=path, env=env, check=True,\n        )\n\n    def test_red_post_validates_test_fails(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_failing.py\"",
+        "contentHash": "d1cf1399bdecb9c7",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 78,
+          "endLine": 89,
+          "chunkType": "class_definition",
+          "name": "TestRedPost",
+          "language": "python",
+          "hash": "d1cf1399bdecb9c7"
+        }
+      },
+      {
+        "id": "chunk_150e23970ddd5f45",
+        "texts": [
+          {
+            "text": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_fail(), validation, file operations, testing\n\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_failing.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_fail():\\n    assert False\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"",
+            "tokenCount": 155
+          }
+        ],
+        "storageText": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_fail(), validation, file operations, testing\n\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_failing.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_fail():\\n    assert False\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"",
+        "content": "        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_failing.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_fail():\\n    assert False\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"",
+        "contentHash": "70de390c3eb4bdc4",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 87,
+          "endLine": 98,
+          "chunkType": "class_definition",
+          "name": "TestRedPost",
+          "language": "python",
+          "hash": "70de390c3eb4bdc4"
+        }
+      },
+      {
+        "id": "chunk_df7cf088dc0b8ddd",
+        "texts": [
+          {
+            "text": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_rejects_passing_test(tmp_path), validation, logging, file operations, testing\n\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            log = subprocess.run(\n                [\"git\", \"log\", \"--oneline\", \"-1\"],\n                cwd=tmp_path, capture_output=True, text=True,\n            )\n            assert log.returncode == 0\n            assert len(log.stdout.strip()) > 0\n\n    def test_red_post_rejects_passing_test(self, tmp_path: Path):",
+            "tokenCount": 153
+          }
+        ],
+        "storageText": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_rejects_passing_test(tmp_path), validation, logging, file operations, testing\n\n\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            log = subprocess.run(\n                [\"git\", \"log\", \"--oneline\", \"-1\"],\n                cwd=tmp_path, capture_output=True, text=True,\n            )\n            assert log.returncode == 0\n            assert len(log.stdout.strip()) > 0\n\n    def test_red_post_rejects_passing_test(self, tmp_path: Path):",
+        "content": "\n            assert result.exit_code == 0, (\n                f\"Expected exit 0, got {result.exit_code}: {result.output}\"\n            )\n            log = subprocess.run(\n                [\"git\", \"log\", \"--oneline\", \"-1\"],\n                cwd=tmp_path, capture_output=True, text=True,\n            )\n            assert log.returncode == 0\n            assert len(log.stdout.strip()) > 0\n\n    def test_red_post_rejects_passing_test(self, tmp_path: Path):",
+        "contentHash": "76688bc8ed6d863a",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 96,
+          "endLine": 107,
+          "chunkType": "class_definition",
+          "name": "TestRedPost",
+          "language": "python",
+          "hash": "76688bc8ed6d863a"
+        }
+      },
+      {
+        "id": "chunk_a191aece1cc95678",
+        "texts": [
+          {
+            "text": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_rejects_passing_test(tmp_path), validation, logging, file operations, testing\n\n            assert len(log.stdout.strip()) > 0\n\n    def test_red_post_rejects_passing_test(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_passing.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])",
+            "tokenCount": 164
+          }
+        ],
+        "storageText": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_rejects_passing_test(tmp_path), validation, logging, file operations, testing\n\n            assert len(log.stdout.strip()) > 0\n\n    def test_red_post_rejects_passing_test(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_passing.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])",
+        "content": "            assert len(log.stdout.strip()) > 0\n\n    def test_red_post_rejects_passing_test(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_passing.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_pass():\\n    assert True\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])",
+        "contentHash": "93cbc5cc3c00d592",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 105,
+          "endLine": 116,
+          "chunkType": "class_definition",
+          "name": "TestRedPost",
+          "language": "python",
+          "hash": "93cbc5cc3c00d592"
+        }
+      },
+      {
+        "id": "chunk_e28d2baaca71fedc",
+        "texts": [
+          {
+            "text": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_rejects_syntax_error(tmp_path), validation, error handling, file operations, testing\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert result.exit_code != 0, (\n                f\"Expected non-zero exit, got {result.exit_code}: {result.output}\"\n            )\n            assert \"RedMustPassError\" in result.output\n\n    def test_red_post_rejects_syntax_error(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):",
+            "tokenCount": 158
+          }
+        ],
+        "storageText": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_rejects_syntax_error(tmp_path), validation, error handling, file operations, testing\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert result.exit_code != 0, (\n                f\"Expected non-zero exit, got {result.exit_code}: {result.output}\"\n            )\n            assert \"RedMustPassError\" in result.output\n\n    def test_red_post_rejects_syntax_error(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):",
+        "content": "            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert result.exit_code != 0, (\n                f\"Expected non-zero exit, got {result.exit_code}: {result.output}\"\n            )\n            assert \"RedMustPassError\" in result.output\n\n    def test_red_post_rejects_syntax_error(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):",
+        "contentHash": "02dc82905546994e",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 114,
+          "endLine": 125,
+          "chunkType": "class_definition",
+          "name": "TestRedPost",
+          "language": "python",
+          "hash": "02dc82905546994e"
+        }
+      },
+      {
+        "id": "chunk_bbb7d6880c459b02",
+        "texts": [
+          {
+            "text": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_rejects_syntax_error(tmp_path), validation, error handling, file operations, testing\n\n    def test_red_post_rejects_syntax_error(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_syntax_error.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_syntax_error(:\\n    pass\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert \"SyntaxCrashRejected\" in result.output",
+            "tokenCount": 170
+          }
+        ],
+        "storageText": "Python class \"TestRedPost\"\nin tests/test_micro/test_red.py\nPurpose: test_red_post_rejects_syntax_error(tmp_path), validation, error handling, file operations, testing\n\n    def test_red_post_rejects_syntax_error(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_syntax_error.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_syntax_error(:\\n    pass\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert \"SyntaxCrashRejected\" in result.output",
+        "content": "    def test_red_post_rejects_syntax_error(self, tmp_path: Path):\n        self._init_git_repo(tmp_path)\n        with chdir(tmp_path):\n            test_file = Path(\"tests\") / \"test_syntax_error.py\"\n            test_file.parent.mkdir(parents=True)\n            test_file.write_text(\"def test_syntax_error(:\\n    pass\\n\")\n\n            subprocess.run([\"git\", \"add\", \".\"], cwd=tmp_path, check=True)\n\n            result = runner.invoke(cli, [\"red\", \"post\"])\n\n            assert \"SyntaxCrashRejected\" in result.output",
+        "contentHash": "9d71835c1ae3124d",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tests/test_micro/test_red.py",
+          "startLine": 123,
+          "endLine": 134,
+          "chunkType": "class_definition",
+          "name": "TestRedPost",
+          "language": "python",
+          "hash": "9d71835c1ae3124d"
+        }
+      },
+      {
+        "id": "chunk_7c6c81eaf51e5a7c",
+        "texts": [
+          {
+            "text": "Python decorated_definition\nin deviate/cli/micro.py\nPurpose: data parsing, testing, configuration\n\n@red_app.command()\ndef pre(\n    task: str | None = typer.Option(None, \"--task\", \"-t\", help=\"Task ID\"),\n) -> None:\n    \"\"\"RED pre: emit JSON contract with task context.\"\"\"\n    console.print(\"[red]RED_PRE_STUB[/]\")\n    raise typer.Exit(code=1)",
+            "tokenCount": 85
+          }
+        ],
+        "storageText": "Python decorated_definition\nin deviate/cli/micro.py\nPurpose: data parsing, testing, configuration\n\n@red_app.command()\ndef pre(\n    task: str | None = typer.Option(None, \"--task\", \"-t\", help=\"Task ID\"),\n) -> None:\n    \"\"\"RED pre: emit JSON contract with task context.\"\"\"\n    console.print(\"[red]RED_PRE_STUB[/]\")\n    raise typer.Exit(code=1)",
+        "content": "@red_app.command()\ndef pre(\n    task: str | None = typer.Option(None, \"--task\", \"-t\", help=\"Task ID\"),\n) -> None:\n    \"\"\"RED pre: emit JSON contract with task context.\"\"\"\n    console.print(\"[red]RED_PRE_STUB[/]\")\n    raise typer.Exit(code=1)",
+        "contentHash": "bd162595926bfeaf",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/cli/micro.py",
+          "startLine": 162,
+          "endLine": 168,
+          "chunkType": "decorated_definition",
+          "language": "python",
+          "hash": "bd162595926bfeaf"
+        }
+      },
+      {
+        "id": "chunk_e56d389e15173d7e",
+        "texts": [
+          {
+            "text": "Python decorated_definition\nin deviate/cli/micro.py\nPurpose: post() -> None, validation, testing\n\n@red_app.command()\ndef post() -> None:\n    \"\"\"RED post: validate test fails and commit.\"\"\"\n    console.print(\"[red]RED_POST_STUB[/]\")\n    raise typer.Exit(code=1)",
+            "tokenCount": 65
+          }
+        ],
+        "storageText": "Python decorated_definition\nin deviate/cli/micro.py\nPurpose: post() -> None, validation, testing\n\n@red_app.command()\ndef post() -> None:\n    \"\"\"RED post: validate test fails and commit.\"\"\"\n    console.print(\"[red]RED_POST_STUB[/]\")\n    raise typer.Exit(code=1)",
+        "content": "@red_app.command()\ndef post() -> None:\n    \"\"\"RED post: validate test fails and commit.\"\"\"\n    console.print(\"[red]RED_POST_STUB[/]\")\n    raise typer.Exit(code=1)",
+        "contentHash": "f064f98eb6b62203",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/cli/micro.py",
+          "startLine": 171,
+          "endLine": 175,
+          "chunkType": "decorated_definition",
+          "language": "python",
+          "hash": "f064f98eb6b62203"
+        }
+      },
+      {
+        "id": "chunk_d74ad09c49d0bbea",
+        "texts": [
+          {
+            "text": "Python decorated_definition\nin deviate/cli/micro.py\nPurpose: data parsing, testing, configuration\n\n@green_app.command()\ndef pre(\n    task: str | None = typer.Option(None, \"--task\", \"-t\", help=\"Task ID\"),\n) -> None:\n    \"\"\"GREEN pre: emit JSON contract with task context.\"\"\"\n    console.print(\"[green]GREEN_PRE_STUB[/]\")\n    raise typer.Exit(code=1)",
+            "tokenCount": 87
+          }
+        ],
+        "storageText": "Python decorated_definition\nin deviate/cli/micro.py\nPurpose: data parsing, testing, configuration\n\n@green_app.command()\ndef pre(\n    task: str | None = typer.Option(None, \"--task\", \"-t\", help=\"Task ID\"),\n) -> None:\n    \"\"\"GREEN pre: emit JSON contract with task context.\"\"\"\n    console.print(\"[green]GREEN_PRE_STUB[/]\")\n    raise typer.Exit(code=1)",
+        "content": "@green_app.command()\ndef pre(\n    task: str | None = typer.Option(None, \"--task\", \"-t\", help=\"Task ID\"),\n) -> None:\n    \"\"\"GREEN pre: emit JSON contract with task context.\"\"\"\n    console.print(\"[green]GREEN_PRE_STUB[/]\")\n    raise typer.Exit(code=1)",
+        "contentHash": "520a1a35536fd7ef",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/cli/micro.py",
+          "startLine": 178,
+          "endLine": 184,
+          "chunkType": "decorated_definition",
+          "language": "python",
+          "hash": "520a1a35536fd7ef"
+        }
+      },
+      {
+        "id": "chunk_0fbcff3aa3d34cfe",
+        "texts": [
+          {
+            "text": "Python decorated_definition\nin deviate/cli/micro.py\nPurpose: post() -> None, validation, testing\n\n@green_app.command()\ndef post() -> None:\n    \"\"\"GREEN post: validate tests pass, run Tamper Guard, commit.\"\"\"\n    console.print(\"[green]GREEN_POST_STUB[/]\")\n    raise typer.Exit(code=1)",
+            "tokenCount": 71
+          }
+        ],
+        "storageText": "Python decorated_definition\nin deviate/cli/micro.py\nPurpose: post() -> None, validation, testing\n\n@green_app.command()\ndef post() -> None:\n    \"\"\"GREEN post: validate tests pass, run Tamper Guard, commit.\"\"\"\n    console.print(\"[green]GREEN_POST_STUB[/]\")\n    raise typer.Exit(code=1)",
+        "content": "@green_app.command()\ndef post() -> None:\n    \"\"\"GREEN post: validate tests pass, run Tamper Guard, commit.\"\"\"\n    console.print(\"[green]GREEN_POST_STUB[/]\")\n    raise typer.Exit(code=1)",
+        "contentHash": "9444729b010b585f",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/cli/micro.py",
+          "startLine": 187,
+          "endLine": 191,
+          "chunkType": "decorated_definition",
+          "language": "python",
+          "hash": "9444729b010b585f"
+        }
+      }
+    ],
+    "error": "GitHub Copilot embedding API error: 429 - Too many requests. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service).\n",
+    "attemptCount": 2,
+    "lastAttempt": "2026-06-09T21:08:00.169Z"
+  },
+  {
+    "chunks": [
+      {
+        "id": "chunk_8f2f4845bfc5ea63",
+        "texts": [
+          {
+            "text": "markdown block\nin 001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tasks.md\nPurpose: validation, error handling, logging, caching, database, file operations\n\n# Implementation Tasks: feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution\n\n## Phase 1: Core Infrastructure\n**Goal**: Establish the foundational components — agent backend abstraction, Tamper Guard, and slim prompt templates — that all micro-layer phases depend on.\n\n### Tasks\n\n- [x] T001: Agent backend with heredoc-pipe subprocess invocation, YAML handover parsing, timeout/retry, and AgentConfig model\n  - **Type**: Feature_Batch\n  - **Mode**: TDD\n  - **Test Strategy**: Sociable_Unit\n  - **Verification**: `pytest tests/test_core/test_agent.py -v`\n  - **Estimated Time**: 75 minutes\n  - **Files**:\n    - `src/deviate/core/agent.py`\n    - `src/deviate/state/config.py`\n    - `tests/test_core/test_agent.py`\n  - **Rationale**: US-004-1 requires an `AgentBackend` class with heredoc-pipe subprocess invocation, YAML manifest parsing, configurable timeout with retry-once-30s-backoff, and structured error handling (AgentTimeoutError, AgentSubprocessError, MalformedHandoverManifestError). US-004-10 requires the `AgentConfig` Pydantic model (backend, timeout fields) within `DeviateConfig` and a `--agent` CLI override flag. Both stories tie to FR-004-AGENT.\n  - **Details**:\n    - **Red**: Write `test_agent_successful_invocation` — mock subprocess to return stdout with valid YAML handover manifest, assert `AgentBackend.invoke()` returns parsed `HandoverManifest` with `phase`, `status`, `test_file`, `verification_command` fields. Write `test_agent_timeout_retry` — mock subprocess to sleep past timeout, assert first call raises `AgentTimeoutError`, 30s backoff occurs, retry fires; second timeout raises final `AgentTimeoutError`. Write `test_agent_malformed_yaml` — mock subprocess to return non-YAML output, assert `MalformedHandoverManifestError` with diagnostic. Write `test_agent_nonzero_exit` — mock exit code 1 with stderr, assert `AgentSubprocessError` captures message. Write `test_agent_backend_parses_yellow_handover` — mock YAML containing `yellow_trigger: true`, assert the manifest flags yellow condition.\n    - **Green**: Implement `AgentBackend` class in `src/deviate/core/agent.py` with `invoke(prompt: str, backend: str | None = None, timeout: int | None = None) -> HandoverManifest`. Use `subprocess.Popen` with heredoc pipe (`echo \"$PROMPT\" | <agent_cmd>`). Parse stdout with `yaml.safe_load`. Add retry-once logic: on `AgentTimeoutError`, wait 30s (`time.sleep(30)`) then retry; second failure propagates. Implement `AgentConfig` model in `src/deviate/state/config.py` extending `DeviateConfig` with `backend: Literal[\"opencode\", \"claude\", \"droid\"] = \"opencode\"` and `timeout: int = Field(default=600, gt=0)`. Wire `--agent` flag in `micro.py` to override config.\n    - **Refactor**: Extract YAML schema validation into `HandoverManifest` Pydantic model. Centralize backend command mapping in a `BACKEND_COMMANDS: dict[str, str]` constant. Add type narrowing for backends.\n    - **Edge Cases**: Handle `FileNotFoundError` when agent command is not on PATH (surface `AgentBinaryNotFoundError`). Handle empty stdout (raise `EmptyOutputError`). Handle YAML with missing required keys (raise `MalformedHandoverManifestError` with key list).\n    - **Acceptance**: `AgentBackend` can invoke opencode, claude, and droid via heredoc. Timeout applies per backend. YAML manifest is parsed into typed model. Yellow handover trigger is detected. All scenarios from US-004-1 and US-004-10 pass.\n\n- [x] T002: Tamper Guard — git diff evaluation and git restore rollback\n  - **Type**: Feature_Batch\n  - **Mode**: TDD\n  - **Test Strategy**: Integration\n  - **Verification**: `pytest tests/test_core/test_tamper.py -v`",
+            "tokenCount": 954
+          }
+        ],
+        "storageText": "markdown block\nin 001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tasks.md\nPurpose: validation, error handling, logging, caching, database, file operations\n\n# Implementation Tasks: feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution\n\n## Phase 1: Core Infrastructure\n**Goal**: Establish the foundational components — agent backend abstraction, Tamper Guard, and slim prompt templates — that all micro-layer phases depend on.\n\n### Tasks\n\n- [x] T001: Agent backend with heredoc-pipe subprocess invocation, YAML handover parsing, timeout/retry, and AgentConfig model\n  - **Type**: Feature_Batch\n  - **Mode**: TDD\n  - **Test Strategy**: Sociable_Unit\n  - **Verification**: `pytest tests/test_core/test_agent.py -v`\n  - **Estimated Time**: 75 minutes\n  - **Files**:\n    - `src/deviate/core/agent.py`\n    - `src/deviate/state/config.py`\n    - `tests/test_core/test_agent.py`\n  - **Rationale**: US-004-1 requires an `AgentBackend` class with heredoc-pipe subprocess invocation, YAML manifest parsing, configurable timeout with retry-once-30s-backoff, and structured error handling (AgentTimeoutError, AgentSubprocessError, MalformedHandoverManifestError). US-004-10 requires the `AgentConfig` Pydantic model (backend, timeout fields) within `DeviateConfig` and a `--agent` CLI override flag. Both stories tie to FR-004-AGENT.\n  - **Details**:\n    - **Red**: Write `test_agent_successful_invocation` — mock subprocess to return stdout with valid YAML handover manifest, assert `AgentBackend.invoke()` returns parsed `HandoverManifest` with `phase`, `status`, `test_file`, `verification_command` fields. Write `test_agent_timeout_retry` — mock subprocess to sleep past timeout, assert first call raises `AgentTimeoutError`, 30s backoff occurs, retry fires; second timeout raises final `AgentTimeoutError`. Write `test_agent_malformed_yaml` — mock subprocess to return non-YAML output, assert `MalformedHandoverManifestError` with diagnostic. Write `test_agent_nonzero_exit` — mock exit code 1 with stderr, assert `AgentSubprocessError` captures message. Write `test_agent_backend_parses_yellow_handover` — mock YAML containing `yellow_trigger: true`, assert the manifest flags yellow condition.\n    - **Green**: Implement `AgentBackend` class in `src/deviate/core/agent.py` with `invoke(prompt: str, backend: str | None = None, timeout: int | None = None) -> HandoverManifest`. Use `subprocess.Popen` with heredoc pipe (`echo \"$PROMPT\" | <agent_cmd>`). Parse stdout with `yaml.safe_load`. Add retry-once logic: on `AgentTimeoutError`, wait 30s (`time.sleep(30)`) then retry; second failure propagates. Implement `AgentConfig` model in `src/deviate/state/config.py` extending `DeviateConfig` with `backend: Literal[\"opencode\", \"claude\", \"droid\"] = \"opencode\"` and `timeout: int = Field(default=600, gt=0)`. Wire `--agent` flag in `micro.py` to override config.\n    - **Refactor**: Extract YAML schema validation into `HandoverManifest` Pydantic model. Centralize backend command mapping in a `BACKEND_COMMANDS: dict[str, str]` constant. Add type narrowing for backends.\n    - **Edge Cases**: Handle `FileNotFoundError` when agent command is not on PATH (surface `AgentBinaryNotFoundError`). Handle empty stdout (raise `EmptyOutputError`). Handle YAML with missing required keys (raise `MalformedHandoverManifestError` with key list).\n    - **Acceptance**: `AgentBackend` can invoke opencode, claude, and droid via heredoc. Timeout applies per backend. YAML manifest is parsed into typed model. Yellow handover trigger is detected. All scenarios from US-004-1 and US-004-10 pass.\n\n- [x] T002: Tamper Guard — git diff evaluation and git restore rollback\n  - **Type**: Feature_Batch\n  - **Mode**: TDD\n  - **Test Strategy**: Integration\n  - **Verification**: `pytest tests/test_core/test_tamper.py -v`",
+        "content": "# Implementation Tasks: feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution\n\n## Phase 1: Core Infrastructure\n**Goal**: Establish the foundational components — agent backend abstraction, Tamper Guard, and slim prompt templates — that all micro-layer phases depend on.\n\n### Tasks\n\n- [x] T001: Agent backend with heredoc-pipe subprocess invocation, YAML handover parsing, timeout/retry, and AgentConfig model\n  - **Type**: Feature_Batch\n  - **Mode**: TDD\n  - **Test Strategy**: Sociable_Unit\n  - **Verification**: `pytest tests/test_core/test_agent.py -v`\n  - **Estimated Time**: 75 minutes\n  - **Files**:\n    - `src/deviate/core/agent.py`\n    - `src/deviate/state/config.py`\n    - `tests/test_core/test_agent.py`\n  - **Rationale**: US-004-1 requires an `AgentBackend` class with heredoc-pipe subprocess invocation, YAML manifest parsing, configurable timeout with retry-once-30s-backoff, and structured error handling (AgentTimeoutError, AgentSubprocessError, MalformedHandoverManifestError). US-004-10 requires the `AgentConfig` Pydantic model (backend, timeout fields) within `DeviateConfig` and a `--agent` CLI override flag. Both stories tie to FR-004-AGENT.\n  - **Details**:\n    - **Red**: Write `test_agent_successful_invocation` — mock subprocess to return stdout with valid YAML handover manifest, assert `AgentBackend.invoke()` returns parsed `HandoverManifest` with `phase`, `status`, `test_file`, `verification_command` fields. Write `test_agent_timeout_retry` — mock subprocess to sleep past timeout, assert first call raises `AgentTimeoutError`, 30s backoff occurs, retry fires; second timeout raises final `AgentTimeoutError`. Write `test_agent_malformed_yaml` — mock subprocess to return non-YAML output, assert `MalformedHandoverManifestError` with diagnostic. Write `test_agent_nonzero_exit` — mock exit code 1 with stderr, assert `AgentSubprocessError` captures message. Write `test_agent_backend_parses_yellow_handover` — mock YAML containing `yellow_trigger: true`, assert the manifest flags yellow condition.\n    - **Green**: Implement `AgentBackend` class in `src/deviate/core/agent.py` with `invoke(prompt: str, backend: str | None = None, timeout: int | None = None) -> HandoverManifest`. Use `subprocess.Popen` with heredoc pipe (`echo \"$PROMPT\" | <agent_cmd>`). Parse stdout with `yaml.safe_load`. Add retry-once logic: on `AgentTimeoutError`, wait 30s (`time.sleep(30)`) then retry; second failure propagates. Implement `AgentConfig` model in `src/deviate/state/config.py` extending `DeviateConfig` with `backend: Literal[\"opencode\", \"claude\", \"droid\"] = \"opencode\"` and `timeout: int = Field(default=600, gt=0)`. Wire `--agent` flag in `micro.py` to override config.\n    - **Refactor**: Extract YAML schema validation into `HandoverManifest` Pydantic model. Centralize backend command mapping in a `BACKEND_COMMANDS: dict[str, str]` constant. Add type narrowing for backends.\n    - **Edge Cases**: Handle `FileNotFoundError` when agent command is not on PATH (surface `AgentBinaryNotFoundError`). Handle empty stdout (raise `EmptyOutputError`). Handle YAML with missing required keys (raise `MalformedHandoverManifestError` with key list).\n    - **Acceptance**: `AgentBackend` can invoke opencode, claude, and droid via heredoc. Timeout applies per backend. YAML manifest is parsed into typed model. Yellow handover trigger is detected. All scenarios from US-004-1 and US-004-10 pass.\n\n- [x] T002: Tamper Guard — git diff evaluation and git restore rollback\n  - **Type**: Feature_Batch\n  - **Mode**: TDD\n  - **Test Strategy**: Integration\n  - **Verification**: `pytest tests/test_core/test_tamper.py -v`",
+        "contentHash": "c56c0824896cf782",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/specs/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tasks.md",
+          "startLine": 1,
+          "endLine": 30,
+          "chunkType": "block",
+          "language": "markdown",
+          "hash": "c56c0824896cf782"
+        }
+      },
+      {
+        "id": "chunk_fd34a7b2579397b0",
+        "texts": [
+          {
+            "text": "markdown block\nin 001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tasks.md\nPurpose: authentication, user management, authorization, validation, logging, caching\n\n  - **Mode**: TDD\n  - **Test Strategy**: Integration\n  - **Verification**: `pytest tests/test_core/test_tamper.py -v`\n  - **Estimated Time**: 60 minutes\n  - **Files**:\n    - `src/deviate/core/tamper.py`\n    - `tests/test_core/test_tamper.py`\n  - **Rationale**: US-004-4 (FR-004-TAMPER) requires Tamper Guard to evaluate `git diff --name-only` after each agent invocation and reject unauthorized modifications to `tests/`, `specs/`, or config files. US-004-4 Scenario 4.2 requires detection and rollback; Scenario 4.4 requires pass-through for authorized changes. This is a foundational safety component that all GREEN/JUDGE phases depend on.\n  - **Details**:\n    - **Red**: Write `test_tamper_detects_test_modification` — create a tmp git repo, commit a test file, write unauthorized content to it via Python, call `TamperGuard.evaluate()`, assert `TAMPER_DETECTED` is returned and the original file content is restored. Write `test_tamper_passes_src_only_changes` — commit a test and src file, modify only the src file, call `TamperGuard.evaluate()`, assert `TAMPER_PASS` and file content is NOT restored. Write `test_tamper_detects_spec_modification` — modify a `specs/` file, assert detection. Write `test_tamper_detects_config_modification` — modify `.deviate/config.toml`, assert detection. Write `test_tamper_ignores_expected_red_test_creation` — assert test file creation (not modification) in RED context passes. Write `test_tamper_accepts_yellow_approved_changes` — pass an approval manifest, assert modification passes.\n    - **Green**: Implement `TamperGuard` class with `evaluate(context: TamperContext) -> TamperVerdict`. Use `git diff --name-only` to get changed files (accept `repo_path` param defaulting to `Path.cwd()`). Compare against allow-list: RED phase allows test file creation; GREEN phase allows src-only changes unless YELLOW-approved manifest is provided. If violation: `git restore <file>` and return `TAMPER_DETECTED`. Context enum: `RED_TEST_CREATION`, `GREEN_IMPLEMENTATION`, `YELLOW_AMENDMENT`. Expose `check(repo_path=None, context=..., approved_mods=None)`.\n    - **Refactor**: Extract file category matching into `_is_test_file()`, `_is_spec_file()`, `_is_config_file()` predicates. Replace string `startswith` with `PurePath` pattern matching.\n    - **Edge Cases**: Handle empty diff (no changes) as clean pass. Handle binary files in diff by filtering. Handle `git diff` returning file renames. Handle repo with no commits yet (initial diff behavior).\n    - **Acceptance**: Tamper Guard detects unauthorized test/spec/config modifications, rolls them back, and surfaces `TAMPER_DETECTED`. Authorized modifications (src-only, RED test creation, YELLOW-approved) pass through. All scenarios from US-004-4 pass.\n\n- [x] T003: Full auto prompt templates for RED, GREEN, REFACTOR, JUDGE, and YELLOW phases\n  - **Type**: Config\n  - **Mode**: IMMEDIATE\n  - **Verification**: `for f in red green refactor judge yellow; do test -f \"src/deviate/prompts/auto/$f.md\" || { echo \"MISSING: $f.md\"; exit 1; }; done && for f in red green refactor judge yellow; do wc -w \"src/deviate/prompts/auto/$f.md\"; done && echo \"All templates present\"`\n  - **Estimated Time**: 45 minutes\n  - **Files**:\n    - `src/deviate/prompts/auto/red.md`\n    - `src/deviate/prompts/auto/green.md`\n    - `src/deviate/prompts/auto/refactor.md`\n    - `src/deviate/prompts/auto/judge.md`\n    - `src/deviate/prompts/auto/yellow.md`\n  - **Rationale**: FR-004-AUTO-PROMPTS requires each auto prompt template to be the full original skill prompt from `.opencode/skills/deviate-<phase>/SKILL.md`, adapted for automated ingestion: CLI calls (`deviate <phase> pre/post`) are removed since the orchestrator handles those internally; constitution reads are replaced by the orchestrator appending `<constitution>...</constitution>` at runtime. The manual skills in `.opencode/skills/` retain their CLI calls for human-driven use, powered by T004-T006.\n  - **Details**:\n    - **Implementation**: Create each `.md` file under `src/deviate/prompts/auto/` by extracting the full content from the corresponding `.opencode/skills/deviate-<phase>/SKILL.md` and: (a) removing frontmatter (`---` delimited blocks), (b) removing all `deviate <phase> pre` / `deviate <phase> post` CLI command blocks from execution sequences, (c) removing steps that explicitly `read specs/constitution.md` (the orchestrator appends it), (d) removing the `<context><user_input>$ARGUMENTS</user_input></context>` footer. All XML structure, role definitions, traceability mandates, few-shot examples, output schemas, and edge-case tables are preserved. Templates with no corresponding skill file (judge, yellow) are written using the phase descriptions from T005 and T007 as specification. No word limits are enforced — comprehensiveness is the goal. The orchestrator pipeline will append `<constitution>[contents of specs/constitution.md]</constitution>` after the auto prompt text before sending to the agent.\n    - **Refactor**: No refactor needed — these are new static files.",
+            "tokenCount": 1302
+          }
+        ],
+        "storageText": "markdown block\nin 001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tasks.md\nPurpose: authentication, user management, authorization, validation, logging, caching\n\n  - **Mode**: TDD\n  - **Test Strategy**: Integration\n  - **Verification**: `pytest tests/test_core/test_tamper.py -v`\n  - **Estimated Time**: 60 minutes\n  - **Files**:\n    - `src/deviate/core/tamper.py`\n    - `tests/test_core/test_tamper.py`\n  - **Rationale**: US-004-4 (FR-004-TAMPER) requires Tamper Guard to evaluate `git diff --name-only` after each agent invocation and reject unauthorized modifications to `tests/`, `specs/`, or config files. US-004-4 Scenario 4.2 requires detection and rollback; Scenario 4.4 requires pass-through for authorized changes. This is a foundational safety component that all GREEN/JUDGE phases depend on.\n  - **Details**:\n    - **Red**: Write `test_tamper_detects_test_modification` — create a tmp git repo, commit a test file, write unauthorized content to it via Python, call `TamperGuard.evaluate()`, assert `TAMPER_DETECTED` is returned and the original file content is restored. Write `test_tamper_passes_src_only_changes` — commit a test and src file, modify only the src file, call `TamperGuard.evaluate()`, assert `TAMPER_PASS` and file content is NOT restored. Write `test_tamper_detects_spec_modification` — modify a `specs/` file, assert detection. Write `test_tamper_detects_config_modification` — modify `.deviate/config.toml`, assert detection. Write `test_tamper_ignores_expected_red_test_creation` — assert test file creation (not modification) in RED context passes. Write `test_tamper_accepts_yellow_approved_changes` — pass an approval manifest, assert modification passes.\n    - **Green**: Implement `TamperGuard` class with `evaluate(context: TamperContext) -> TamperVerdict`. Use `git diff --name-only` to get changed files (accept `repo_path` param defaulting to `Path.cwd()`). Compare against allow-list: RED phase allows test file creation; GREEN phase allows src-only changes unless YELLOW-approved manifest is provided. If violation: `git restore <file>` and return `TAMPER_DETECTED`. Context enum: `RED_TEST_CREATION`, `GREEN_IMPLEMENTATION`, `YELLOW_AMENDMENT`. Expose `check(repo_path=None, context=..., approved_mods=None)`.\n    - **Refactor**: Extract file category matching into `_is_test_file()`, `_is_spec_file()`, `_is_config_file()` predicates. Replace string `startswith` with `PurePath` pattern matching.\n    - **Edge Cases**: Handle empty diff (no changes) as clean pass. Handle binary files in diff by filtering. Handle `git diff` returning file renames. Handle repo with no commits yet (initial diff behavior).\n    - **Acceptance**: Tamper Guard detects unauthorized test/spec/config modifications, rolls them back, and surfaces `TAMPER_DETECTED`. Authorized modifications (src-only, RED test creation, YELLOW-approved) pass through. All scenarios from US-004-4 pass.\n\n- [x] T003: Full auto prompt templates for RED, GREEN, REFACTOR, JUDGE, and YELLOW phases\n  - **Type**: Config\n  - **Mode**: IMMEDIATE\n  - **Verification**: `for f in red green refactor judge yellow; do test -f \"src/deviate/prompts/auto/$f.md\" || { echo \"MISSING: $f.md\"; exit 1; }; done && for f in red green refactor judge yellow; do wc -w \"src/deviate/prompts/auto/$f.md\"; done && echo \"All templates present\"`\n  - **Estimated Time**: 45 minutes\n  - **Files**:\n    - `src/deviate/prompts/auto/red.md`\n    - `src/deviate/prompts/auto/green.md`\n    - `src/deviate/prompts/auto/refactor.md`\n    - `src/deviate/prompts/auto/judge.md`\n    - `src/deviate/prompts/auto/yellow.md`\n  - **Rationale**: FR-004-AUTO-PROMPTS requires each auto prompt template to be the full original skill prompt from `.opencode/skills/deviate-<phase>/SKILL.md`, adapted for automated ingestion: CLI calls (`deviate <phase> pre/post`) are removed since the orchestrator handles those internally; constitution reads are replaced by the orchestrator appending `<constitution>...</constitution>` at runtime. The manual skills in `.opencode/skills/` retain their CLI calls for human-driven use, powered by T004-T006.\n  - **Details**:\n    - **Implementation**: Create each `.md` file under `src/deviate/prompts/auto/` by extracting the full content from the corresponding `.opencode/skills/deviate-<phase>/SKILL.md` and: (a) removing frontmatter (`---` delimited blocks), (b) removing all `deviate <phase> pre` / `deviate <phase> post` CLI command blocks from execution sequences, (c) removing steps that explicitly `read specs/constitution.md` (the orchestrator appends it), (d) removing the `<context><user_input>$ARGUMENTS</user_input></context>` footer. All XML structure, role definitions, traceability mandates, few-shot examples, output schemas, and edge-case tables are preserved. Templates with no corresponding skill file (judge, yellow) are written using the phase descriptions from T005 and T007 as specification. No word limits are enforced — comprehensiveness is the goal. The orchestrator pipeline will append `<constitution>[contents of specs/constitution.md]</constitution>` after the auto prompt text before sending to the agent.\n    - **Refactor**: No refactor needed — these are new static files.",
+        "content": "  - **Mode**: TDD\n  - **Test Strategy**: Integration\n  - **Verification**: `pytest tests/test_core/test_tamper.py -v`\n  - **Estimated Time**: 60 minutes\n  - **Files**:\n    - `src/deviate/core/tamper.py`\n    - `tests/test_core/test_tamper.py`\n  - **Rationale**: US-004-4 (FR-004-TAMPER) requires Tamper Guard to evaluate `git diff --name-only` after each agent invocation and reject unauthorized modifications to `tests/`, `specs/`, or config files. US-004-4 Scenario 4.2 requires detection and rollback; Scenario 4.4 requires pass-through for authorized changes. This is a foundational safety component that all GREEN/JUDGE phases depend on.\n  - **Details**:\n    - **Red**: Write `test_tamper_detects_test_modification` — create a tmp git repo, commit a test file, write unauthorized content to it via Python, call `TamperGuard.evaluate()`, assert `TAMPER_DETECTED` is returned and the original file content is restored. Write `test_tamper_passes_src_only_changes` — commit a test and src file, modify only the src file, call `TamperGuard.evaluate()`, assert `TAMPER_PASS` and file content is NOT restored. Write `test_tamper_detects_spec_modification` — modify a `specs/` file, assert detection. Write `test_tamper_detects_config_modification` — modify `.deviate/config.toml`, assert detection. Write `test_tamper_ignores_expected_red_test_creation` — assert test file creation (not modification) in RED context passes. Write `test_tamper_accepts_yellow_approved_changes` — pass an approval manifest, assert modification passes.\n    - **Green**: Implement `TamperGuard` class with `evaluate(context: TamperContext) -> TamperVerdict`. Use `git diff --name-only` to get changed files (accept `repo_path` param defaulting to `Path.cwd()`). Compare against allow-list: RED phase allows test file creation; GREEN phase allows src-only changes unless YELLOW-approved manifest is provided. If violation: `git restore <file>` and return `TAMPER_DETECTED`. Context enum: `RED_TEST_CREATION`, `GREEN_IMPLEMENTATION`, `YELLOW_AMENDMENT`. Expose `check(repo_path=None, context=..., approved_mods=None)`.\n    - **Refactor**: Extract file category matching into `_is_test_file()`, `_is_spec_file()`, `_is_config_file()` predicates. Replace string `startswith` with `PurePath` pattern matching.\n    - **Edge Cases**: Handle empty diff (no changes) as clean pass. Handle binary files in diff by filtering. Handle `git diff` returning file renames. Handle repo with no commits yet (initial diff behavior).\n    - **Acceptance**: Tamper Guard detects unauthorized test/spec/config modifications, rolls them back, and surfaces `TAMPER_DETECTED`. Authorized modifications (src-only, RED test creation, YELLOW-approved) pass through. All scenarios from US-004-4 pass.\n\n- [x] T003: Full auto prompt templates for RED, GREEN, REFACTOR, JUDGE, and YELLOW phases\n  - **Type**: Config\n  - **Mode**: IMMEDIATE\n  - **Verification**: `for f in red green refactor judge yellow; do test -f \"src/deviate/prompts/auto/$f.md\" || { echo \"MISSING: $f.md\"; exit 1; }; done && for f in red green refactor judge yellow; do wc -w \"src/deviate/prompts/auto/$f.md\"; done && echo \"All templates present\"`\n  - **Estimated Time**: 45 minutes\n  - **Files**:\n    - `src/deviate/prompts/auto/red.md`\n    - `src/deviate/prompts/auto/green.md`\n    - `src/deviate/prompts/auto/refactor.md`\n    - `src/deviate/prompts/auto/judge.md`\n    - `src/deviate/prompts/auto/yellow.md`\n  - **Rationale**: FR-004-AUTO-PROMPTS requires each auto prompt template to be the full original skill prompt from `.opencode/skills/deviate-<phase>/SKILL.md`, adapted for automated ingestion: CLI calls (`deviate <phase> pre/post`) are removed since the orchestrator handles those internally; constitution reads are replaced by the orchestrator appending `<constitution>...</constitution>` at runtime. The manual skills in `.opencode/skills/` retain their CLI calls for human-driven use, powered by T004-T006.\n  - **Details**:\n    - **Implementation**: Create each `.md` file under `src/deviate/prompts/auto/` by extracting the full content from the corresponding `.opencode/skills/deviate-<phase>/SKILL.md` and: (a) removing frontmatter (`---` delimited blocks), (b) removing all `deviate <phase> pre` / `deviate <phase> post` CLI command blocks from execution sequences, (c) removing steps that explicitly `read specs/constitution.md` (the orchestrator appends it), (d) removing the `<context><user_input>$ARGUMENTS</user_input></context>` footer. All XML structure, role definitions, traceability mandates, few-shot examples, output schemas, and edge-case tables are preserved. Templates with no corresponding skill file (judge, yellow) are written using the phase descriptions from T005 and T007 as specification. No word limits are enforced — comprehensiveness is the goal. The orchestrator pipeline will append `<constitution>[contents of specs/constitution.md]</constitution>` after the auto prompt text before sending to the agent.\n    - **Refactor**: No refactor needed — these are new static files.",
+        "contentHash": "e56a0546c75b59f8",
+        "metadata": {
+          "filePath": "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/specs/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/tasks.md",
+          "startLine": 28,
+          "endLine": 57,
+          "chunkType": "block",
+          "language": "markdown",
+          "hash": "e56a0546c75b59f8"
+        }
+      }
+    ],
+    "error": "GitHub Copilot embedding API error: 429 - Too many requests. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service).\n",
+    "attemptCount": 3,
+    "lastAttempt": "2026-06-09T21:08:00.169Z"
+  }
+]

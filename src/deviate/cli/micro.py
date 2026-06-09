@@ -11,6 +11,10 @@ from deviate.state.ledger import TaskRecord, append_task_transition
 
 console = Console()
 
+# Typer apps for manual phase commands (stubs — implemented in GREEN phase)
+red_app = typer.Typer(no_args_is_help=True)
+green_app = typer.Typer(no_args_is_help=True)
+
 _LEDGER_GLOB = "specs/**/tasks.jsonl"
 
 
@@ -153,6 +157,34 @@ def _run_all(root: Path, c: Console) -> None:
         raise typer.Exit(code=0)
     for task, ledger_file in pending:
         _dispatch_task(task, ledger_file, c)
+
+
+@red_app.command(name="pre")
+def red_pre(
+    task: str | None = typer.Option(None, "--task", "-t", help="Task ID"),
+) -> None:
+    console.print("[red]RED_PRE_STUB[/]")
+    raise typer.Exit(code=1)
+
+
+@red_app.command(name="post")
+def red_post() -> None:
+    console.print("[red]RED_POST_STUB[/]")
+    raise typer.Exit(code=1)
+
+
+@green_app.command(name="pre")
+def green_pre(
+    task: str | None = typer.Option(None, "--task", "-t", help="Task ID"),
+) -> None:
+    console.print("[green]GREEN_PRE_STUB[/]")
+    raise typer.Exit(code=1)
+
+
+@green_app.command(name="post")
+def green_post() -> None:
+    console.print("[green]GREEN_POST_STUB[/]")
+    raise typer.Exit(code=1)
 
 
 def run_command(
