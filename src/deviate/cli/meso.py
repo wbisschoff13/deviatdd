@@ -715,14 +715,15 @@ def _tasks_pre(force: bool = False, dry_run: bool = False) -> None:
         _resolve_constitution_commands(repo_root)
     )
 
-    # Resolve tasks_target from the active issue's bucket
+    # Resolve tasks_target alongside spec.md (per-issue, not per-epic)
     tasks_target: str = ""
     if issue_id:
         ledger_path = _resolve_specs_root() / "issues.jsonl"
         record = resolve_issue_record(issue_id, ledger_path)
         if record is not None:
             bucket = _resolve_bucket_dir(record.source_file)
-            tasks_target = str(_resolve_specs_root() / bucket / "tasks.md")
+            slug = _source_stem(record.source_file)
+            tasks_target = str(_resolve_specs_root() / bucket / slug / "tasks.md")
 
     if dry_run:
         console.print("[yellow]DRY_RUN[/] skipping side effects")
@@ -758,7 +759,8 @@ def _tasks_post(force: bool = False, issue_id: str | None = None) -> None:
         console.print(f"[red]ISSUE_NOT_FOUND[/] {resolved_issue_id}")
         raise typer.Exit(code=1)
     bucket = _resolve_bucket_dir(record.source_file)
-    tasks_md = _resolve_specs_root() / bucket / "tasks.md"
+    slug = _source_stem(record.source_file)
+    tasks_md = _resolve_specs_root() / bucket / slug / "tasks.md"
     if not tasks_md.exists():
         console.print(f"[red]TASKS_NOT_FOUND[/] {tasks_md}")
         raise typer.Exit(code=1)
