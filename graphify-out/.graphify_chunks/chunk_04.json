@@ -1,0 +1,26 @@
+{
+  "files": [
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/.opencode/skills/deviate-refactor/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/prompts/deviate-refactor/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/prompts/skills/deviate-refactor/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/.opencode/skills/deviate-research/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/prompts/deviate-research/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/prompts/skills/deviate-research/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/.opencode/skills/deviate-shard/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/prompts/deviate-shard/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/prompts/skills/deviate-shard/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/.opencode/skills/deviate-specify/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/prompts/deviate-specify/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/prompts/skills/deviate-specify/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/.opencode/skills/deviate-tasks/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/prompts/deviate-tasks/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/prompts/skills/deviate-tasks/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/.opencode/skills/deviate-triage/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/prompts/deviate-triage/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/prompts/skills/deviate-triage/SKILL.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/prompts/governance/agents_seed.md",
+    "/Users/werner/Development/tools/aether/.worktrees/feat/001-deviate-cli-python/004-micro-layer-tdd-sandbox-execution/src/deviate/prompts/governance/claudemd_seed.md"
+  ],
+  "num": 4,
+  "total": 5
+}
