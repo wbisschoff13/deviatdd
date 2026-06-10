@@ -103,7 +103,7 @@
     - **Edge Cases**: YELLOW with no proposed changes (print `NO_CHANGES_PROPOSED`, exit). JUDGE with no diff (print `NO_DIFF`, exit cleanly). REFACTOR with no files to refactor (print `NOTHING_TO_REFACTOR`, skip). REFACTOR invariance check with empty test suite (skip, not fail).
     - **Acceptance**: YELLOW pre/post handles amendment protocol end-to-end — accept committed, reject reverted. JUDGE pre returns accurate compliance verdict. REFACTOR pre/post polishes code while maintaining test invariance. All scenarios from US-004-5, US-004-6, US-004-7 pass.
 
-- [ ] T006: EXECUTE, E2E, and HOTFIX phase manual pre/post commands
+- [\] T006: EXECUTE, E2E, and HOTFIX phase manual pre/post commands
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
