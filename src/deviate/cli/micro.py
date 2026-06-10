@@ -218,6 +218,32 @@ def _commit_phase(message: str, root: Path) -> bool:
     return False
 
 
+def _all_tasks_complete(root: Path) -> bool:
+    for ledger_file in sorted(root.glob(_LEDGER_GLOB)):
+        for record in _read_ledger_records(ledger_file):
+            if record.get("status") != "COMPLETED":
+                return False
+    return True
+
+
+def _validate_manifest(manifest_path: str | None) -> dict | None:
+    if manifest_path is None:
+        return None
+    path = Path(manifest_path)
+    if not path.exists():
+        console.print(f"[red]MANIFEST_NOT_FOUND[/] {manifest_path}")
+        raise typer.Exit(code=1)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        console.print(f"[red]MANIFEST_INVALID_JSON[/] {manifest_path}")
+        raise typer.Exit(code=1)
+    if not isinstance(data, dict):
+        console.print("[red]MANIFEST_NOT_DICT[/] Manifest must be a JSON object")
+        raise typer.Exit(code=1)
+    return data
+
+
 _SYNTAX_ERROR_MARKERS = frozenset(
     {
         "SyntaxError",
@@ -657,6 +683,7 @@ def execute_post(
     manifest: str | None = typer.Argument(None, help="Path to manifest file"),
 ) -> None:
     root = Path.cwd()
+    _validate_manifest(manifest)
     _commit_phase("feat: EXECUTE phase \u2014 direct execution result", root)
     raise typer.Exit(code=0)
 
@@ -670,16 +697,7 @@ def execute_post(
 def e2e_pre() -> None:
     root = Path.cwd()
 
-    all_completed = True
-    for ledger_file in sorted(root.glob(_LEDGER_GLOB)):
-        for record in _read_ledger_records(ledger_file):
-            if record.get("status") != "COMPLETED":
-                all_completed = False
-                break
-        if not all_completed:
-            break
-
-    if not all_completed:
+    if not _all_tasks_complete(root):
         console.print("[red]INCOMPLETE_TASKS[/] Some tasks not completed")
         raise typer.Exit(code=1)
 
@@ -690,8 +708,11 @@ def e2e_pre() -> None:
 
 
 @e2e_app.command(name="post")
-def e2e_post() -> None:
+def e2e_post(
+    manifest: str | None = typer.Argument(None, help="Path to manifest file"),
+) -> None:
     root = Path.cwd()
+    _validate_manifest(manifest)
     _commit_phase("feat: E2E phase \u2014 verification results", root)
     raise typer.Exit(code=0)
 
@@ -722,6 +743,7 @@ def hotfix_post(
     manifest: str | None = typer.Argument(None, help="Path to manifest file"),
 ) -> None:
     root = Path.cwd()
+    _validate_manifest(manifest)
     _commit_phase("feat: HOTFIX phase \u2014 bug fix", root)
     raise typer.Exit(code=0)
 
