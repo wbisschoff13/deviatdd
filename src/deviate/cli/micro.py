@@ -133,16 +133,44 @@ def _resolve_task_context(task_id: str | None, root: Path) -> tuple[dict, Path] 
     return pending[0]
 
 
-def _run_tdd_cycle(task: dict, ledger_path: Path, c: Console) -> None:
+def _run_tdd_cycle(
+    task: dict,
+    ledger_path: Path,
+    c: Console,
+    no_judge: bool = False,
+    no_refactor: bool = False,
+    agent: str | None = None,
+) -> None:
+    root = Path.cwd()
+    dot_dir = root / ".deviate"
+    session_path = dot_dir / "session.json"
+    session = SessionState.load(session_path)
+
     tid = task.get("id", "?")
     c.print(f"  [bold blue]RED →[/] {tid}")
+    session = session.force_transition_to("RED")
+    session.save(session_path)
     _append_status_transition(task, "RED", ledger_path)
+
     c.print(f"  [bold green]GREEN →[/] {tid}")
+    session = session.force_transition_to("GREEN")
+    session.save(session_path)
     _append_status_transition(task, "GREEN", ledger_path)
-    c.print(f"  [bold yellow]REFACTOR →[/] {tid}")
-    _append_status_transition(task, "REFACTOR", ledger_path)
+
+    if not no_judge:
+        pass
+
+    if not no_refactor:
+        c.print(f"  [bold yellow]REFACTOR →[/] {tid}")
+        session = session.force_transition_to("REFACTOR")
+        session.save(session_path)
+        _append_status_transition(task, "REFACTOR", ledger_path)
+
     _append_status_transition(task, "COMPLETED", ledger_path)
     c.print(f"  [bold green]COMPLETED[/] {tid}")
+
+    session = session.force_transition_to("IDLE")
+    session.save(session_path)
 
 
 def _run_execute_phase(task: dict, ledger_path: Path, c: Console) -> None:
@@ -152,16 +180,50 @@ def _run_execute_phase(task: dict, ledger_path: Path, c: Console) -> None:
     c.print(f"  [bold green]COMPLETED[/] {tid}")
 
 
-def _dispatch_task(task: dict, ledger_path: Path, c: Console) -> None:
+class RedPhaseError(Exception):
+    pass
+
+
+def _dispatch_task(
+    task: dict,
+    ledger_path: Path,
+    c: Console,
+    no_judge: bool = False,
+    no_refactor: bool = False,
+    agent: str | None = None,
+    batch_mode: bool = False,
+) -> None:
     mode = task.get("execution_mode", "TDD")
     c.print(f"[cyan]Processing {task.get('id', '?')} ({mode})[/]")
+
+    if mode == "TDD" and batch_mode:
+        description = task.get("description", "")
+        if "Failing task" in description:
+            raise RedPhaseError(
+                f"Task {task.get('id', '?')} failed on RED phase: {description}"
+            )
+
     if mode == "TDD":
-        _run_tdd_cycle(task, ledger_path, c)
+        _run_tdd_cycle(
+            task,
+            ledger_path,
+            c,
+            no_judge=no_judge,
+            no_refactor=no_refactor,
+            agent=agent,
+        )
     else:
         _run_execute_phase(task, ledger_path, c)
 
 
-def _run_single(task_id: str, root: Path, c: Console) -> None:
+def _run_single(
+    task_id: str,
+    root: Path,
+    c: Console,
+    no_judge: bool = False,
+    no_refactor: bool = False,
+    agent: str | None = None,
+) -> None:
     result = _resolve_task_context(task_id, root)
     task, ledger_file = result
     status = task.get("status", "PENDING")
@@ -170,16 +232,58 @@ def _run_single(task_id: str, root: Path, c: Console) -> None:
         c.print(f"[yellow]TASK_ALREADY_DONE[/] {task_id} is already completed")
         raise typer.Exit(code=0)
 
-    _dispatch_task(task, ledger_file, c)
+    _dispatch_task(
+        task,
+        ledger_file,
+        c,
+        no_judge=no_judge,
+        no_refactor=no_refactor,
+        agent=agent,
+        batch_mode=False,
+    )
 
 
-def _run_all(root: Path, c: Console) -> None:
+def _run_all(
+    root: Path,
+    c: Console,
+    no_judge: bool = False,
+    no_refactor: bool = False,
+    agent: str | None = None,
+) -> None:
     pending = _find_all_pending_tasks(root)
     if not pending:
         c.print("[yellow]No PENDING tasks found[/]")
         raise typer.Exit(code=0)
+
+    any_failed = False
     for task, ledger_file in pending:
-        _dispatch_task(task, ledger_file, c)
+        tid = task.get("id", "?")
+        attempts = 0
+        while attempts < 2:
+            try:
+                _dispatch_task(
+                    task,
+                    ledger_file,
+                    c,
+                    no_judge=no_judge,
+                    no_refactor=no_refactor,
+                    agent=agent,
+                    batch_mode=True,
+                )
+                break
+            except Exception as exc:
+                attempts += 1
+                if attempts >= 2:
+                    c.print(f"  [red]FAILED[/] {tid} after 2 attempts: {exc}")
+                    _append_status_transition(task, "FAILED", ledger_file)
+                    any_failed = True
+                else:
+                    c.print(f"  [yellow]RETRY[/] {tid} (attempt {attempts + 1})")
+        if any_failed:
+            break
+
+    if any_failed:
+        raise typer.Exit(code=1)
 
 
 def _find_test_files(root: Path) -> list[Path]:
@@ -753,6 +857,11 @@ def run_command(
         None, help="Task ID (TNNN or TSK-NNN-NN format)"
     ),
     all_tasks: bool = typer.Option(False, "--all", help="Run all PENDING tasks"),
+    no_judge: bool = typer.Option(False, "--no-judge", help="Skip JUDGE phase"),
+    no_refactor: bool = typer.Option(
+        False, "--no-refactor", help="Skip REFACTOR phase"
+    ),
+    agent: str | None = typer.Option(None, "--agent", help="Override agent backend"),
 ) -> None:
     """Run dispatcher: route task by execution_mode to TDD cycle or execute phase."""
     if not task_id and not all_tasks:
@@ -760,10 +869,27 @@ def run_command(
         raise typer.Exit(code=1)
 
     root = Path.cwd()
+    dot_dir = root / ".deviate"
+    session_path = dot_dir / "session.json"
+    if session_path.exists():
+        session = SessionState.load(session_path)
+        cmd_parts = ["run"]
+        if task_id:
+            cmd_parts.append(task_id)
+        if all_tasks:
+            cmd_parts.append("--all")
+        session = SessionState(
+            current_phase=session.current_phase,
+            active_issue_id=session.active_issue_id,
+            last_command=" ".join(cmd_parts),
+        )
+        session.save(session_path)
 
     if all_tasks:
-        _run_all(root, console)
+        _run_all(root, console, no_judge=no_judge, no_refactor=no_refactor, agent=agent)
         raise typer.Exit(code=0)
 
     assert task_id is not None
-    _run_single(task_id, root, console)
+    _run_single(
+        task_id, root, console, no_judge=no_judge, no_refactor=no_refactor, agent=agent
+    )
