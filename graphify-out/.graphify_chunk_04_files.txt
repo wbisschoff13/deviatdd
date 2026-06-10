@@ -1,0 +1,3 @@
+/Users/werner/Development/tools/aether/src/deviate/prompts/skills/deviate-specify/SKILL.md
+/Users/werner/Development/tools/aether/src/deviate/prompts/skills/deviate-tasks/SKILL.md
+/Users/werner/Development/tools/aether/src/deviate/prompts/skills/deviate-triage/SKILL.md
