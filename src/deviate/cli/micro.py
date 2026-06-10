@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import typer
@@ -133,6 +134,69 @@ def _resolve_task_context(task_id: str | None, root: Path) -> tuple[dict, Path] 
     return pending[0]
 
 
+def _run_red_phase(
+    task: dict,
+    ledger_path: Path,
+    session: SessionState,
+    session_path: Path,
+    c: Console,
+) -> SessionState:
+    tid = task.get("id", "?")
+    c.print(f"  [bold blue]RED →[/] {tid}")
+    session = session.force_transition_to("RED")
+    session.save(session_path)
+    _append_status_transition(task, "RED", ledger_path)
+    return session
+
+
+def _run_green_phase(
+    task: dict,
+    ledger_path: Path,
+    session: SessionState,
+    session_path: Path,
+    c: Console,
+) -> SessionState:
+    tid = task.get("id", "?")
+    c.print(f"  [bold green]GREEN →[/] {tid}")
+    session = session.force_transition_to("GREEN")
+    session.save(session_path)
+    _append_status_transition(task, "GREEN", ledger_path)
+    return session
+
+
+def _run_judge_phase(
+    task: dict,
+    ledger_path: Path,
+    session: SessionState,
+    session_path: Path,
+    c: Console,
+) -> SessionState:
+    return session
+
+
+def _run_refactor_phase(
+    task: dict,
+    ledger_path: Path,
+    session: SessionState,
+    session_path: Path,
+    c: Console,
+) -> SessionState:
+    tid = task.get("id", "?")
+    c.print(f"  [bold yellow]REFACTOR →[/] {tid}")
+    session = session.force_transition_to("REFACTOR")
+    session.save(session_path)
+    _append_status_transition(task, "REFACTOR", ledger_path)
+    return session
+
+
+_PHASE_MAP: dict[str, Callable] = {
+    "RED": _run_red_phase,
+    "GREEN": _run_green_phase,
+    "JUDGE": _run_judge_phase,
+    "REFACTOR": _run_refactor_phase,
+}
+
+
 def _run_tdd_cycle(
     task: dict,
     ledger_path: Path,
@@ -146,28 +210,15 @@ def _run_tdd_cycle(
     session_path = dot_dir / "session.json"
     session = SessionState.load(session_path)
 
-    tid = task.get("id", "?")
-    c.print(f"  [bold blue]RED →[/] {tid}")
-    session = session.force_transition_to("RED")
-    session.save(session_path)
-    _append_status_transition(task, "RED", ledger_path)
-
-    c.print(f"  [bold green]GREEN →[/] {tid}")
-    session = session.force_transition_to("GREEN")
-    session.save(session_path)
-    _append_status_transition(task, "GREEN", ledger_path)
-
-    if not no_judge:
-        pass
-
-    if not no_refactor:
-        c.print(f"  [bold yellow]REFACTOR →[/] {tid}")
-        session = session.force_transition_to("REFACTOR")
-        session.save(session_path)
-        _append_status_transition(task, "REFACTOR", ledger_path)
+    for phase in ("RED", "GREEN", "JUDGE", "REFACTOR"):
+        if phase == "JUDGE" and no_judge:
+            continue
+        if phase == "REFACTOR" and no_refactor:
+            continue
+        session = _PHASE_MAP[phase](task, ledger_path, session, session_path, c)
 
     _append_status_transition(task, "COMPLETED", ledger_path)
-    c.print(f"  [bold green]COMPLETED[/] {tid}")
+    c.print(f"  [bold green]COMPLETED[/] {task.get('id', '?')}")
 
     session = session.force_transition_to("IDLE")
     session.save(session_path)
@@ -328,6 +379,19 @@ def _all_tasks_complete(root: Path) -> bool:
             if record.get("status") != "COMPLETED":
                 return False
     return True
+
+
+def _load_governance_context(root: Path) -> str:
+    parts: list[str] = []
+    constitution_path = root / "specs" / "constitution.md"
+    if constitution_path.exists():
+        parts.append(constitution_path.read_text(encoding="utf-8"))
+    claudemd_path = root / "CLAUDE.md"
+    if claudemd_path.exists():
+        parts.append(claudemd_path.read_text(encoding="utf-8"))
+    if not parts:
+        return ""
+    return "\n\n".join(parts)
 
 
 def _validate_manifest(manifest_path: str | None) -> dict | None:
@@ -593,9 +657,6 @@ def judge_pre() -> None:
                         "protected_module": protected_path,
                     }
                 )
-
-    if not changed and not violations:
-        pass
 
     verdict = {
         "verdict": "COMPLIANCE_VIOLATION" if violations else "COMPLIANCE_PASS",
