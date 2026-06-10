@@ -4,6 +4,7 @@ import json
 import subprocess
 from contextlib import chdir
 from pathlib import Path
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -73,7 +74,11 @@ class TestRedPre:
 
 
 class TestRedPost:
-    def test_red_post_validates_test_fails(self, tmp_git_repo: Path):
+    @patch("deviate.cli.micro._run_pytest")
+    def test_red_post_validates_test_fails(self, mock_pytest, tmp_git_repo: Path):
+        mock_pytest.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="1 failed", stderr=""
+        )
         with chdir(tmp_git_repo):
             test_file = Path("tests") / "test_failing.py"
             test_file.parent.mkdir(parents=True)
@@ -98,7 +103,11 @@ class TestRedPost:
             assert log.returncode == 0
             assert len(log.stdout.strip()) > 0
 
-    def test_red_post_rejects_passing_test(self, tmp_git_repo: Path):
+    @patch("deviate.cli.micro._run_pytest")
+    def test_red_post_rejects_passing_test(self, mock_pytest, tmp_git_repo: Path):
+        mock_pytest.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="1 passed", stderr=""
+        )
         with chdir(tmp_git_repo):
             test_file = Path("tests") / "test_passing.py"
             test_file.parent.mkdir(parents=True)
@@ -115,7 +124,11 @@ class TestRedPost:
             )
             assert "RedMustPassError" in result.output
 
-    def test_red_post_rejects_syntax_error(self, tmp_git_repo: Path):
+    @patch("deviate.cli.micro._run_pytest")
+    def test_red_post_rejects_syntax_error(self, mock_pytest, tmp_git_repo: Path):
+        mock_pytest.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="SyntaxError: invalid syntax"
+        )
         with chdir(tmp_git_repo):
             test_file = Path("tests") / "test_syntax_error.py"
             test_file.parent.mkdir(parents=True)

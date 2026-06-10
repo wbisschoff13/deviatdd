@@ -4,6 +4,7 @@ import json
 import subprocess
 from contextlib import chdir
 from pathlib import Path
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -70,7 +71,16 @@ class TestRefactorPre:
 
 
 class TestRefactorPost:
-    def test_refactor_post_test_invariance(self, tmp_git_repo: Path):
+    @patch("deviate.cli.micro._run_pytest")
+    def test_refactor_post_test_invariance(self, mock_pytest, tmp_git_repo: Path):
+        mock_pytest.side_effect = [
+            subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="1 passed", stderr=""
+            ),
+            subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="1 passed", stderr=""
+            ),
+        ]
         with chdir(tmp_git_repo):
             dot_dir = Path(".deviate")
             dot_dir.mkdir(parents=True)
@@ -117,7 +127,11 @@ class TestRefactorPost:
             assert log.returncode == 0
             assert len(log.stdout.strip()) > 0
 
-    def test_refactor_post_regression_rollback(self, tmp_git_repo: Path):
+    @patch("deviate.cli.micro._run_pytest")
+    def test_refactor_post_regression_rollback(self, mock_pytest, tmp_git_repo: Path):
+        mock_pytest.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="1 passed", stderr=""
+        )
         with chdir(tmp_git_repo):
             dot_dir = Path(".deviate")
             dot_dir.mkdir(parents=True)
