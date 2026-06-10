@@ -30,6 +30,8 @@ _VALID_PHASES = frozenset(
         "JUDGE",
         "REFACTOR",
         "E2E",
+        "EXECUTE",
+        "HOTFIX",
     }
 )
 

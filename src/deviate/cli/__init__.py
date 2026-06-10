@@ -11,7 +11,10 @@ from deviate.state.config import DeviateConfig, SessionState
 from deviate.cli.macro import explore_app, research_app, prd_app, shard_app
 from deviate.cli.meso import pr, specify, tasks
 from deviate.cli.micro import (
+    e2e_app,
+    execute_app,
     green_app,
+    hotfix_app,
     judge_app,
     red_app,
     refactor_app,
@@ -266,4 +269,7 @@ cli.add_typer(green_app, name="green")
 cli.add_typer(yellow_app, name="yellow")
 cli.add_typer(judge_app, name="judge")
 cli.add_typer(refactor_app, name="refactor")
+cli.add_typer(execute_app, name="execute")
+cli.add_typer(e2e_app, name="e2e")
+cli.add_typer(hotfix_app, name="hotfix")
 cli.command(name="run")(run_command)

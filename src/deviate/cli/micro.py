@@ -23,6 +23,9 @@ green_app = typer.Typer(no_args_is_help=True)
 yellow_app = typer.Typer(no_args_is_help=True)
 judge_app = typer.Typer(no_args_is_help=True)
 refactor_app = typer.Typer(no_args_is_help=True)
+execute_app = typer.Typer(no_args_is_help=True)
+e2e_app = typer.Typer(no_args_is_help=True)
+hotfix_app = typer.Typer(no_args_is_help=True)
 
 _LEDGER_GLOB = "specs/**/tasks.jsonl"
 
@@ -623,6 +626,103 @@ def refactor_post() -> None:
     else:
         console.print("[yellow]NOTHING_CHANGED[/]")
 
+    raise typer.Exit(code=0)
+
+
+# ---------------------------------------------------------------------------
+# EXECUTE commands (DIRECT mode — bypasses RED/GREEN/REFACTOR)
+# ---------------------------------------------------------------------------
+# RED-phase stubs — minimum structure so CLI commands are routable;
+# tests fail because the real contract emission, validation, and ledger
+# updates are not yet implemented (GREEN phase).
+
+
+@execute_app.command(name="pre")
+def execute_pre(
+    task: str | None = typer.Option(None, "--task", "-t", help="Task ID"),
+) -> None:
+    root = Path.cwd()
+    task_data, _ = _resolve_task_context(task, root)
+
+    contract = {
+        "task_id": task_data.get("id", ""),
+        "completion_criteria": "Direct execution task \u2014 bypasses RED/GREEN/REFACTOR",
+    }
+    print(json.dumps(contract, ensure_ascii=False))
+    raise typer.Exit(code=0)
+
+
+@execute_app.command(name="post")
+def execute_post(
+    manifest: str | None = typer.Argument(None, help="Path to manifest file"),
+) -> None:
+    root = Path.cwd()
+    _commit_phase("feat: EXECUTE phase \u2014 direct execution result", root)
+    raise typer.Exit(code=0)
+
+
+# ---------------------------------------------------------------------------
+# E2E commands (end-to-end verification after all tasks complete)
+# ---------------------------------------------------------------------------
+
+
+@e2e_app.command(name="pre")
+def e2e_pre() -> None:
+    root = Path.cwd()
+
+    all_completed = True
+    for ledger_file in sorted(root.glob(_LEDGER_GLOB)):
+        for record in _read_ledger_records(ledger_file):
+            if record.get("status") != "COMPLETED":
+                all_completed = False
+                break
+        if not all_completed:
+            break
+
+    if not all_completed:
+        console.print("[red]INCOMPLETE_TASKS[/] Some tasks not completed")
+        raise typer.Exit(code=1)
+
+    test_paths = [str(p) for p in _find_test_files(root)]
+    contract = {"test_paths": test_paths}
+    print(json.dumps(contract, ensure_ascii=False))
+    raise typer.Exit(code=0)
+
+
+@e2e_app.command(name="post")
+def e2e_post() -> None:
+    root = Path.cwd()
+    _commit_phase("feat: E2E phase \u2014 verification results", root)
+    raise typer.Exit(code=0)
+
+
+# ---------------------------------------------------------------------------
+# HOTFIX commands (bug fixes — bypasses RED phase)
+# ---------------------------------------------------------------------------
+
+
+@hotfix_app.command(name="pre")
+def hotfix_pre(
+    task: str | None = typer.Option(None, "--task", "-t", help="Task ID"),
+) -> None:
+    root = Path.cwd()
+    task_data, _ = _resolve_task_context(task, root)
+
+    contract = {
+        "issue_context": task_data.get("description", ""),
+        "bypasses_red": True,
+        "completion_criteria": "Bug fix \u2014 bypasses RED phase",
+    }
+    print(json.dumps(contract, ensure_ascii=False))
+    raise typer.Exit(code=0)
+
+
+@hotfix_app.command(name="post")
+def hotfix_post(
+    manifest: str | None = typer.Argument(None, help="Path to manifest file"),
+) -> None:
+    root = Path.cwd()
+    _commit_phase("feat: HOTFIX phase \u2014 bug fix", root)
     raise typer.Exit(code=0)
 
 
