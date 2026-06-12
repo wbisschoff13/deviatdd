@@ -117,6 +117,12 @@ class DeviateConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class PytestReportConfig(BaseModel):
+    json_report: bool = False
+
+    model_config = {"extra": "forbid"}
+
+
 class ProfileConfig(BaseModel):
     default: Literal["full", "fast", "secure"] = "full"
 
