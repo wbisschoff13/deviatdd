@@ -25,7 +25,7 @@ from deviate.core.agent import (
 from deviate.core.profile import resolve_profile
 from deviate.core.tamper import TamperContext, TamperGuard, TamperVerdict
 from deviate.core.worktree import find_worktree_for_branch
-from deviate.state.config import AgentConfig, SessionState
+from deviate.state.config import AgentConfig, PytestReportConfig, SessionState
 from deviate.state.ledger import (
     TaskRecord,
     append_task_transition,
@@ -693,11 +693,28 @@ def _find_source_files(root: Path) -> list[Path]:
     return sorted(root.glob("src/**/*.py"))
 
 
-def _run_pytest(root: Path) -> subprocess.CompletedProcess:
+def _run_pytest(
+    root: Path,
+    report_config: PytestReportConfig | None = None,
+) -> subprocess.CompletedProcess:
     test_files = _find_test_files(root)
     test_file_list = [str(f) for f in test_files]
+    cmd = [sys.executable, "-m", "pytest", *test_file_list, "-v"]
+
+    if report_config is not None and report_config.json_report:
+        cmd.append("--json-report")
+        try:
+            import pytest_json_report  # noqa: F401
+        except ImportError:
+            import warnings
+
+            warnings.warn(
+                "pytest-json-report plugin not installed; falling back to string parsing",
+                stacklevel=2,
+            )
+
     return subprocess.run(
-        [sys.executable, "-m", "pytest", *test_file_list, "-v"],
+        cmd,
         cwd=root,
         capture_output=True,
         text=True,
