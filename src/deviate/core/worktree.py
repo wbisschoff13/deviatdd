@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -147,4 +148,16 @@ def upsert_governance_block(
     fresh_block: str,
     repo: Path | None = None,
 ) -> str:
-    raise NotImplementedError
+    pattern = re.compile(
+        rf"(^{re.escape(block_header)}\n).*?(?=\n## |\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    match = pattern.search(content)
+    if match:
+        replacement = match.group(1) + fresh_block.strip() + "\n"
+        return pattern.sub(replacement, content, count=1)
+
+    content = (
+        content.rstrip("\n") + "\n\n" + block_header + "\n" + fresh_block.strip() + "\n"
+    )
+    return content
