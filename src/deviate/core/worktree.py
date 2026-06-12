@@ -139,3 +139,12 @@ def validate_worktree(path: Path) -> bool:
     if not path.exists():
         return False
     return (path / ".git").exists()
+
+
+def upsert_governance_block(
+    content: str,
+    block_header: str,
+    fresh_block: str,
+    repo: Path | None = None,
+) -> str:
+    raise NotImplementedError
