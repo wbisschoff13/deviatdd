@@ -33,12 +33,7 @@ def with_json_quiet(func):
     sig = inspect.signature(func)
     orig_params = list(sig.parameters.values())
 
-    new_params = [
-        p
-        for p in orig_params
-        if p.kind
-        not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
-    ]
+    new_params = list(orig_params)
     new_params.extend(
         [
             inspect.Parameter(
