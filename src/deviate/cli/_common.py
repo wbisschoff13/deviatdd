@@ -62,15 +62,17 @@ def with_json_quiet(func):
     def wrapper(**kwargs: object) -> object:
         json_flag = kwargs.pop("json", False)
         quiet_flag = kwargs.pop("quiet", False)
-        if json_flag:
+
+        def _captured() -> object:
             buf = StringIO()
             with redirect_stdout(buf):
-                result = func(**kwargs)
+                return func(**kwargs)
+
+        if json_flag:
+            result = _captured()
             typer.echo(json.dumps(result))
         elif quiet_flag:
-            buf = StringIO()
-            with redirect_stdout(buf):
-                result = func(**kwargs)
+            result = _captured()
         else:
             result = func(**kwargs)
         return result
