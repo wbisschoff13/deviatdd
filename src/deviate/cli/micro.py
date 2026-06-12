@@ -1350,12 +1350,29 @@ def hotfix_post(
     raise typer.Exit(code=0)
 
 
+def _resolve_agent_config(root: Path, agent: str | None) -> str | None:
+    """Resolve agent backend from CLI arg or config.toml fallback."""
+    if agent is not None:
+        return agent
+    config_path = root / ".deviate" / "config.toml"
+    if not config_path.exists():
+        return None
+    try:
+        import tomllib
+
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        return data.get("agent", {}).get("backend") or None
+    except Exception:
+        return None
+
+
 def _validate_profile(value: str) -> str:
-    allowed = {"full", "fast", "secure"}
-    if value not in allowed:
-        raise typer.BadParameter(
-            f"Invalid value '{value}'. Must be one of: {', '.join(sorted(allowed))}"
-        )
+    """Typer callback: validate profile via resolve_profile, emit Typer error."""
+    try:
+        resolve_profile(value)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from e
     return value
 
 
@@ -1381,20 +1398,10 @@ def run_command(
     When called without arguments, picks the next PENDING task for the active issue.
     """
     root = _resolve_workspace_root()
-    dot_dir = root / ".deviate"
-    session_path = dot_dir / "session.json"
+    session_path = root / ".deviate" / "session.json"
 
-    if agent is None:
-        config_path = dot_dir / "config.toml"
-        if config_path.exists():
-            try:
-                import tomllib
+    agent = _resolve_agent_config(root, agent)
 
-                with open(config_path, "rb") as f:
-                    data = tomllib.load(f)
-                agent = data.get("agent", {}).get("backend") or None
-            except Exception:
-                pass
     if session_path.exists():
         session = SessionState.load(session_path)
         cmd_parts = ["run"]
