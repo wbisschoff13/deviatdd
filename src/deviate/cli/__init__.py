@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.resources
 import re
+import warnings
 from pathlib import Path
 
 import typer
@@ -85,31 +86,85 @@ def _dict_to_toml(data: dict) -> str:
     return toml_str
 
 
-def _resolve_placeholder(match: re.Match[str]) -> str:
+def _resolve_placeholder(repo_root: Path | None = None) -> dict[str, str]:
+    root = repo_root.resolve() if repo_root else Path.cwd().resolve()
+
+    result: dict[str, str] = {}
+    result["REPO_ROOT"] = str(root)
+    result["TARGET_COVERAGE_MINIMUM"] = "80"
+
+    pyproject = root / "pyproject.toml"
+
+    data: dict = {}
+    if pyproject.exists():
+        try:
+            import tomllib
+
+            with open(pyproject, "rb") as f:
+                data = tomllib.load(f)
+        except Exception:
+            pass
+
+    tool = data.get("tool", {})
+
+    # PROJECT_NAME
+    project_name = data.get("project", {}).get("name")
+    if project_name:
+        result["PROJECT_NAME"] = project_name
+    else:
+        result["PROJECT_NAME"] = "UNKNOWN"
+        warnings.warn("PROJECT_NAME could not be resolved from pyproject.toml")
+
+    # TARGET_BACKEND_FRAMEWORK — parse first dependency name
+    framework: str = "UNKNOWN"
+    deps = data.get("project", {}).get("dependencies", [])
+    if deps:
+        pkg = re.split(r"[><=~!]", deps[0])[0].strip()
+        if pkg:
+            framework = pkg
+    if framework == "UNKNOWN":
+        warnings.warn(
+            "TARGET_BACKEND_FRAMEWORK could not be resolved from pyproject.toml"
+        )
+    result["TARGET_BACKEND_FRAMEWORK"] = framework
+
+    # TARGET_PACKAGE_MANAGER
+    pkg_manager: str = "UNKNOWN"
+    if "uv" in tool:
+        pkg_manager = "uv"
+    elif "poetry" in tool:
+        pkg_manager = "poetry"
+    elif "hatch" in tool:
+        pkg_manager = "hatch"
+    elif "pdm" in tool:
+        pkg_manager = "pdm"
+    if pkg_manager == "UNKNOWN":
+        warnings.warn(
+            "TARGET_PACKAGE_MANAGER could not be resolved from pyproject.toml"
+        )
+    result["TARGET_PACKAGE_MANAGER"] = pkg_manager
+
+    # TARGET_TEST_RUNNER
+    test_runner: str = "UNKNOWN"
+    if "pytest" in tool:
+        test_runner = "pytest"
+    elif "unittest" in tool:
+        test_runner = "unittest"
+    if test_runner == "UNKNOWN":
+        warnings.warn("TARGET_TEST_RUNNER could not be resolved from pyproject.toml")
+    result["TARGET_TEST_RUNNER"] = test_runner
+
+    return result
+
+
+def _resolve_placeholder_match(match: re.Match[str]) -> str:
     var_name = match.group(1)
-    cwd = Path.cwd()
-
-    if var_name == "PROJECT_NAME":
-        pyproject = cwd / "pyproject.toml"
-        if pyproject.exists():
-            try:
-                import tomllib
-
-                with open(pyproject, "rb") as f:
-                    data = tomllib.load(f)
-                return data.get("project", {}).get("name", cwd.name)
-            except Exception:
-                pass
-        return cwd.name
-
-    if var_name == "REPO_ROOT":
-        return str(cwd.resolve())
-
-    return match.group(0)
+    resolved = _resolve_placeholder()
+    return resolved.get(var_name, f"${{{var_name}}}")
 
 
 def _resolve_seed(content: str) -> str:
-    return re.sub(r"\$\{(\w+)\}", _resolve_placeholder, content)
+    return re.sub(r"\$\{(\w+)\}", _resolve_placeholder_match, content)
 
 
 def _read_seed(module: str, filename: str) -> str | None:
