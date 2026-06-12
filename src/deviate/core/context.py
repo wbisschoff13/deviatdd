@@ -95,8 +95,8 @@ def enforce_agents_symlink(claude_path: Path, agents_path: Path) -> None:
 
 def remove_stale_references(content: str, patterns: list[str]) -> str:
     lines = content.splitlines()
-    result = [line for line in lines if line.strip() not in patterns]
-    joined = "\n".join(result)
+    preserved = [line for line in lines if line.strip() not in patterns]
+    result = "\n".join(preserved)
     if content.endswith("\n"):
-        joined += "\n"
-    return joined
+        return f"{result}\n"
+    return result

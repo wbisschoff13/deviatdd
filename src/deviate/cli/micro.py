@@ -1535,6 +1535,9 @@ def _check_return_type_mismatch(filepath: str) -> list[str]:
     return issues
 
 
+_PRIMITIVE_TYPES = frozenset({"str", "int", "float", "bool"})
+
+
 def _is_return_type_mismatch(
     value: ast.expr,
     expected: str,
@@ -1544,6 +1547,9 @@ def _is_return_type_mismatch(
         if expected in type_map:
             return not isinstance(value.value, type_map[expected])
         return True
+
+    if expected in _PRIMITIVE_TYPES:
+        return False
 
     expected_nodes = _RETURN_TYPE_MAP.get(expected, ())
     if not expected_nodes:
