@@ -147,4 +147,32 @@ def upsert_governance_block(
     fresh_block: str,
     repo: Path | None = None,
 ) -> str:
-    raise NotImplementedError
+    lines = content.splitlines()
+    header_line = block_header.strip()
+    result: list[str] = []
+    i = 0
+    replaced = False
+    trailing_newline = content.endswith("\n")
+
+    while i < len(lines):
+        line = lines[i]
+        if not replaced and line.strip() == header_line:
+            result.append(line)
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith("#"):
+                i += 1
+            result.append("")
+            result.append(fresh_block)
+            replaced = True
+        else:
+            result.append(line)
+            i += 1
+
+    if not replaced:
+        result.append("")
+        result.append(header_line)
+        result.append("")
+        result.append(fresh_block)
+
+    joined = "\n".join(result)
+    return joined + "\n" if trailing_newline else joined

@@ -637,7 +637,7 @@ def _resolve_tasks_md(root: Path, task: dict) -> Path | None:
 
 def _append_judge_feedback(tasks_md: Path, task_id: str, feedback: str) -> None:
     content = tasks_md.read_text(encoding="utf-8")
-    task_marker = f"TSK-{task_id.split('-', 1)[1]}" if "-" in task_id else task_id
+    task_marker = f"TSK-{task_id.split('-', 1)[1]}" if "-" in task_id else task_id  # noqa: F841
     lines = content.splitlines()
     new_lines: list[str] = []
     inserted = False
