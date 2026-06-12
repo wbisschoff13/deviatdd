@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import warnings
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
@@ -693,6 +694,19 @@ def _find_source_files(root: Path) -> list[Path]:
     return sorted(root.glob("src/**/*.py"))
 
 
+def _is_pytest_json_report_available() -> bool:
+    try:
+        import pytest_json_report  # noqa: F401
+
+        return True
+    except ImportError:
+        warnings.warn(
+            "pytest-json-report plugin not installed; falling back to string parsing",
+            stacklevel=2,
+        )
+        return False
+
+
 def _run_pytest(
     root: Path,
     report_config: PytestReportConfig | None = None,
@@ -703,15 +717,7 @@ def _run_pytest(
 
     if report_config is not None and report_config.json_report:
         cmd.append("--json-report")
-        try:
-            import pytest_json_report  # noqa: F401
-        except ImportError:
-            import warnings
-
-            warnings.warn(
-                "pytest-json-report plugin not installed; falling back to string parsing",
-                stacklevel=2,
-            )
+        _is_pytest_json_report_available()
 
     return subprocess.run(
         cmd,
