@@ -49,8 +49,10 @@ correct repository and MUST NOT mutate the worktree's branch state.
 ### Test Git Isolation
 
 - Use the `tmp_git_repo` fixture (created by T002 in `tests/conftest.py`)
-- Every `git` subprocess call MUST include `cwd=<tmp_git_repo>` — the `cwd`
-  flag is the ONLY thing scoping the command to the temp repo
+- Every `git` subprocess call MUST include BOTH `cwd=<tmp_git_repo>` and
+  `env=_git_env()` — `cwd` targets the temp repo, `env=_git_env()` strips
+  `GIT_*` env vars that could leak from the parent process
+- Import `_git_env` from `tests.conftest` (not redefined locally)
 - Never use `Path.cwd()`, `os.getcwd()`, or the real repo root in tests
 - Verify test isolation: `git config user.name` inside the fixture should
   show `Test Runner`, never the real user's name

@@ -7,6 +7,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from deviate.cli import cli
+from tests.conftest import _git_env
 
 runner = CliRunner()
 
@@ -23,6 +24,7 @@ class TestFeatureCreate:
         branch_out = subprocess.run(
             ["git", "branch", "--list", "feat/auth-overhaul"],
             cwd=tmp_git_repo,
+            env=_git_env(),
             capture_output=True,
             text=True,
         )
@@ -35,6 +37,7 @@ class TestFeatureCreate:
         subprocess.run(
             ["git", "checkout", "-b", "feat/auth-overhaul"],
             cwd=tmp_git_repo,
+            env=_git_env(),
             check=True,
             capture_output=True,
         )
@@ -57,6 +60,7 @@ class TestFeatureCreate:
         branch_out = subprocess.run(
             ["git", "branch", "--list", "feat/user-auth"],
             cwd=tmp_git_repo,
+            env=_git_env(),
             capture_output=True,
             text=True,
         )
