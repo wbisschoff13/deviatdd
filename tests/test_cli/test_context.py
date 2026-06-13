@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from contextlib import chdir
 from pathlib import Path
@@ -8,6 +9,11 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from deviate.cli import cli
+
+
+def _git_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
 
 runner = CliRunner()
 
@@ -146,6 +152,7 @@ class TestContextPost:
         log_result = subprocess.run(
             ["git", "log", "--oneline", "-5"],
             cwd=tmp_git_repo,
+            env=_git_env(),
             capture_output=True,
             text=True,
             check=True,
