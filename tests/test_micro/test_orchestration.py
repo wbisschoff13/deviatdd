@@ -79,7 +79,6 @@ class TestMicroOrchestration:
             )
             assert "RED" in result.output
             assert "GREEN" in result.output
-            assert "REFACTOR" in result.output
             assert "COMPLETED" in result.output
 
             session_data = json.loads(

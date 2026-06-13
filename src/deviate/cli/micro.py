@@ -754,10 +754,10 @@ def _run_refactor_phase(
     agent: str | None = None,
 ) -> SessionState:
     tid = task.get("id", "?")
-    if _phase_already_done(ledger_path, task.get("id", ""), "REFACTOR"):
-        c.print(f"  [dim]REFACTOR already done for {tid}, skipping[/]")
+    if _phase_already_done(ledger_path, task.get("id", ""), "COMPLETED"):
+        c.print(f"  [dim]Already completed for {tid}, skipping[/]")
         return session
-    c.print(f"  [bold yellow]REFACTOR →[/] {tid}")
+    c.print(f"  [bold green]COMPLETED →[/] {tid}")
 
     backend = agent or "opencode"
     skill = _load_skill_content("REFACTOR")
@@ -775,10 +775,11 @@ def _run_refactor_phase(
                 f"REFACTOR phase failed for {tid}: {manifest.rationale or 'unknown'}"
             )
 
-    session = session.force_transition_to("REFACTOR")
+    session = session.force_transition_to("IDLE")
+    session.yellow_triggered = False
     session.save(session_path)
-    _append_status_transition(task, "REFACTOR", ledger_path)
-    _log_uncommitted(Path.cwd(), "REFACTOR", tid)
+    _append_status_transition(task, "COMPLETED", ledger_path)
+    _log_uncommitted(Path.cwd(), "COMPLETED", tid)
     return session
 
 
@@ -896,14 +897,14 @@ def _run_tdd_cycle(
         session = _run_refactor_phase(
             task, ledger_path, session, session_path, c, agent=agent
         )
+    else:
+        _append_status_transition(task, "COMPLETED", ledger_path)
+        c.print(f"  [bold green]COMPLETED[/] {task.get('id', '?')}")
 
-    _append_status_transition(task, "COMPLETED", ledger_path)
-    c.print(f"  [bold green]COMPLETED[/] {task.get('id', '?')}")
-
-    session = session.force_transition_to("IDLE")
-    session.yellow_triggered = False
-    session.train_feedback = ""
-    session.save(session_path)
+        session = session.force_transition_to("IDLE")
+        session.yellow_triggered = False
+        session.train_feedback = ""
+        session.save(session_path)
 
 
 def _run_execute_phase(task: dict, ledger_path: Path, c: Console) -> None:
@@ -965,7 +966,7 @@ def _run_single(
     task, ledger_file = result
     status = task.get("status", "PENDING")
 
-    if status == "COMPLETED":
+    if status in ("COMPLETED", "REFACTOR"):
         c.print(f"[yellow]TASK_ALREADY_DONE[/] {task_id} is already completed")
         raise typer.Exit(code=0)
 
@@ -1154,7 +1155,7 @@ def _verify_worktree_branch(root: Path) -> None:
 def _all_tasks_complete(root: Path) -> bool:
     for ledger_file in sorted(root.glob(_LEDGER_GLOB)):
         for record in _read_ledger_records(ledger_file):
-            if record.get("status") != "COMPLETED":
+            if record.get("status") not in ("COMPLETED", "REFACTOR"):
                 return False
     return True
 
@@ -1626,16 +1627,16 @@ def refactor_post() -> None:
 
     task_uuid = green_task[0].get("id", "")
 
-    # Append REFACTOR transition for this specific task
     try:
         record = TaskRecord.model_validate(green_task[0])
-        record.status = "REFACTOR"  # type: ignore[assignment]
+        record.status = "COMPLETED"  # type: ignore[assignment]
         append_task_transition(record, green_task[1])
     except Exception as e:
         console.print(f"[red]LEDGER_UPDATE_FAILED[/] {e}")
         raise typer.Exit(code=1)
 
-    session = session.force_transition_to("REFACTOR")
+    session = session.force_transition_to("IDLE")
+    session.yellow_triggered = False
     session.save(session_path)
 
     scope = _build_scope(issue_id, task_uuid)
