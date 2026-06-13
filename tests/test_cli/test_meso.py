@@ -41,9 +41,9 @@ class TestSpecifyPre:
             )
 
         assert result.exit_code == 0, f"stdout: {result.stdout}"
-        assert (
-            tmp_git_repo / "specs" / "test-feature"
-        ).is_dir(), "Feature workspace should exist"
-        assert (
-            tmp_git_repo / ".deviate" / "session.json"
-        ).exists(), "Session file should exist"
+        assert (tmp_git_repo / "specs" / "test-feature").is_dir(), (
+            "Feature workspace should exist"
+        )
+        assert (tmp_git_repo / ".deviate" / "session.json").exists(), (
+            "Session file should exist"
+        )
