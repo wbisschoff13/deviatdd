@@ -817,7 +817,7 @@ def _tasks_post(force: bool = False, issue_id: str | None = None) -> None:
 
 
 def _pr_pre() -> None:
-    session, _ = _load_session("TASKS")
+    session, _ = _load_session_accept("TASKS", "IDLE")
     repo_root = Path.cwd()
     issue_id = session.active_issue_id
     if not issue_id:
@@ -868,7 +868,7 @@ def _pr_run(
     merge: bool = False,
     auto_merge: bool = False,
 ) -> None:
-    session, session_path = _load_session("TASKS")
+    session, session_path = _load_session_accept("TASKS", "IDLE")
     issue_id = session.active_issue_id
     if not issue_id:
         console.print("[red]NO_ACTIVE_ISSUE[/] session has no active_issue_id")
