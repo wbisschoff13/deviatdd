@@ -22,6 +22,7 @@ from deviate.cli.micro import (
     run_command,
     yellow_app,
 )
+from deviate.cli.adhoc import adhoc_app
 from deviate.core.skills import detect_agents, discover_skills, install_skill
 
 cli = typer.Typer(no_args_is_help=True)
@@ -354,4 +355,5 @@ cli.add_typer(refactor_app, name="refactor")
 cli.add_typer(execute_app, name="execute")
 cli.add_typer(e2e_app, name="e2e")
 cli.add_typer(hotfix_app, name="hotfix")
+cli.add_typer(adhoc_app, name="adhoc")
 cli.command(name="run")(run_command)
