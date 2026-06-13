@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 
 from deviate.state.config import DeviateConfig, SessionState
+from deviate.cli.context import context_app
 from deviate.cli.macro import explore_app, research_app, prd_app, shard_app
 from deviate.cli.meso import pr, specify, tasks
 from deviate.cli.micro import (
@@ -354,4 +355,5 @@ cli.add_typer(refactor_app, name="refactor")
 cli.add_typer(execute_app, name="execute")
 cli.add_typer(e2e_app, name="e2e")
 cli.add_typer(hotfix_app, name="hotfix")
+cli.add_typer(context_app, name="context")
 cli.command(name="run")(run_command)
