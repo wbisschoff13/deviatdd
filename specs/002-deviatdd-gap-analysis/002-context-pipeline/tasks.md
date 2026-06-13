@@ -23,7 +23,7 @@
     - **Edge Cases**: Missing `.deveiate/` directory returns FAILURE with diagnostic. Missing `specs/` returns READY with null specs_path. AGENTS.md content-diverge from CLAUDE.md leaves as-is and warns (per HITL decision). AGENTS.md already a symlink — no-op. Empty content lines in stale audit — skip.
     - **Acceptance**: All 8 test cases pass. Core logic covers US-001 SC-01/02/03, US-002 SC-01, US-003 SC-01/02/03/04/05, US-004 SC-01/02. Governance block upsert preserves surrounding sections.
 
-- [ ] TSK-002-02: CLI Context Pre/Post Commands
+- [x] TSK-002-02: CLI Context Commands (pre, post, combined)
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration
@@ -33,20 +33,20 @@
   - **Files**:
     - `src/deviate/cli/context.py`
     - `tests/test_cli/test_context.py`
-  - **Rationale**: `context.py` CLI is the NEW user-facing entry point wrapping core logic with Typer argument parsing, JSON contract emission, and error handling — covering US-001 (context pre), US-002 (context post — governance, symlink, stale audit, commit). Tests in `test_context.py` validate the full CLI behavior using `CliRunner`, covering every scenario from US-001 and US-002 (valid workspace, missing `.deviate/`, invalid manifest, governance upsert, symlink enforcement, stale reference removal, commit message format).
+  - **Rationale**: `context.py` CLI is the NEW user-facing entry point wrapping core logic with Typer argument parsing, JSON contract emission, and error handling. Exposes three entry points: `deviate context` (default — runs scan + apply in one shot), `deviate context pre` (scan-only, emit JSON contract), and `deviate context post <manifest>` (apply from saved manifest). Tests in `test_context.py` validate all three paths.
   - **Details**:
-    - **Red**: Write failing CLI tests in `tests/test_cli/test_context.py`: `test_context_pre_emits_contract` — invoke `context pre`, assert JSON on stdout with `status: READY` and all required fields; `test_context_pre_missing_deviate` — invoke in dir without `.deviate/`, assert `status: FAILURE`; `test_context_post_updates_governance` — create manifest via `context pre`, invoke `context post /tmp/manifest`, assert CLAUDE.md `## Technical Execution Context` is updated; `test_context_post_symlink_enforcement` — assert AGENTS.md becomes symlink after context post; `test_context_post_stale_refs` — assert stale patterns removed from AGENTS.md; `test_context_post_commit` — assert git commit with message format `chore(context): sync governance for <branch>`
-    - **Green**: Implement `context_app = typer.Typer()` in `src/deviate/cli/context.py` with `pre()` and `post()` commands. `pre()`: call `resolve_workspace_context(Path.cwd())`, print JSON via `json.dumps()`. `post(manifest: Path)`: read manifest file, call `upsert_governance_block()` on CLAUDE.md content, call `enforce_agents_symlink()`, call `remove_stale_references()`, call `commit_artifact()` with conventional commit message. Handle `--json` and `--quiet` flags via `with_json_quiet` decorator pattern.
+    - **Red**: Write failing CLI tests in `tests/test_cli/test_context.py`: `test_context_pre_emits_contract` — invoke `context pre`, assert JSON on stdout with `status: READY` and all required fields; `test_context_pre_missing_deviate` — invoke in dir without `.deviate/`, assert `status: FAILURE`; `test_context_post_updates_governance` — create manifest via `context pre`, invoke `context post /tmp/manifest`, assert CLAUDE.md `## Technical Execution Context` is updated; `test_context_post_symlink_enforcement` — assert AGENTS.md becomes symlink after context post; `test_context_post_stale_refs` — assert stale patterns removed from AGENTS.md; `test_context_post_commit` — assert git commit with message format `chore(context): sync governance for <branch>`; `test_context_combined_updates_governance_and_commits` — invoke `deviate context` with no subcommand, assert governance updated, symlink created, commit made; `test_context_combined_missing_deviate` — invoke `deviate context` in dir without `.deviate/`, assert non-zero exit with diagnostic
+    - **Green**: Implement `context_app = typer.Typer(no_args_is_help=False)` in `src/deviate/cli/context.py` with `context_main()` callback (`invoke_without_command=True`) that runs `resolve_workspace_context()` then `_apply_context()` in one shot, plus `pre()` and `post()` as explicit subcommands. Extract `_apply_context(contract, repo_root)` from `post()` logic so it's shared between the combined command and `post`. `_apply_context` stages files via `git add` (no commit — staged changes are included in the caller's commit). `pre()`: call `resolve_workspace_context()`, print JSON via `json.dumps()`. `post(manifest: Path)`: read manifest file, validate, call `_apply_context()`. Handle `--json` and `--quiet` flags on `pre` via `with_json_quiet` decorator pattern.
     - **Refactor**: Use `_common.py` helpers (`console`, `_halt`) consistently. Match CLI decorator and error-handling patterns from `macro.py` and `meso.py` (Typer exit codes, rich console output).
-    - **Edge Cases**: Invalid manifest path → non-zero exit with diagnostic. Missing CLAUDE.md → warning, continues, exits 0. Windows `os.name == 'nt'` → copy fallback, no `mklink`. Empty manifest JSON → non-zero exit.
-    - **Acceptance**: All 6 test cases pass. `context pre` emits valid JSON contract. `context post` updates governance, enforces symlink, removes stale refs, and commits. Performance: `context pre` < 200ms, `context post` < 300ms.
+    - **Edge Cases**: Invalid manifest path → non-zero exit with diagnostic. Missing CLAUDE.md → warning, continues, exits 0. Windows `os.name == 'nt'` → copy fallback, no `mklink`. Empty manifest JSON → non-zero exit. `deviate context` with FAILURE pre-scan exits non-zero before applying.
+    - **Acceptance**: All 8 test cases pass. `context pre` emits valid JSON contract. `context post` applies from manifest (stages files, no commit). `deviate context` (combined) does both in one shot (stages files, no commit). Performance: combined < 500ms, `context pre` < 200ms.
 
 ## Phase 2: Auto-Trigger Integration
-**Goal**: Wire automatic `context post` invocation into all macro and meso post commands with a `--no-context-sync` escape hatch.
+**Goal**: Wire automatic `deviate context` invocation into all macro and meso post commands with a `--no-context-sync` escape hatch.
 
 ### Tasks
 
-- [ ] TSK-002-03: Auto-Trigger Context Sync in Macro/Meso Post Commands
+- [ ] TSK-002-03: Auto-Trigger `deviate context` in Macro/Meso Post Commands
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
@@ -58,13 +58,13 @@
     - `src/deviate/cli/meso.py`
     - `tests/test_cli/test_macro.py`
     - `tests/test_cli/test_meso.py`
-  - **Rationale**: `macro.py` and `meso.py` are the existing post-command modules that must gain auto-trigger wiring — `explore_post`, `research_post`, `prd_post`, `shard_post` (macro), `specify_post` (meso) — each receiving a `--no-context-sync` flag to suppress the trigger, covering US-005 SC-01/02/03/04 (FR-002). Tests in `test_macro.py` and `test_meso.py` validate auto-trigger behavior, suppression flag, and soft-fail guarantee.
+  - **Rationale**: `macro.py` and `meso.py` are the existing post-command modules that must gain auto-trigger wiring — `explore_post`, `research_post`, `prd_post`, `shard_post` (macro), `specify_post` (meso) — each receiving a `--no-context-sync` flag to suppress the trigger, covering US-005 SC-01/02/03/04 (FR-002). Tests in `test_macro.py` and `test_meso.py` validate auto-trigger behavior, suppression flag, and soft-fail guarantee. The auto-trigger calls `deviate context` (combined command) rather than separate pre/post.
   - **Details**:
-    - **Red**: Write failing tests: `test_explore_post_auto_triggers_context` in `test_macro.py` — mock `context_post`, invoke `explore_post`, assert `context_post` called; `test_explore_post_no_context_sync` — invoke with `--no-context-sync`, assert context NOT called; `test_specify_post_auto_triggers_context` in `test_meso.py` — same pattern for `specify_post`; `test_context_sync_soft_fail_does_not_block_parent` — mock `context_post` to raise, assert parent exits 0 with warning on stderr
-    - **Green**: Add `no_context_sync: bool = typer.Option(False, "--no-context-sync")` to `explore_post()`, `research_post()`, `prd_post()`, `shard_post()` in `macro.py` and `specify_post()` in `meso.py`. At end of each post (after commit): `if not no_context_sync: _maybe_trigger_context_sync()`. Implement `_maybe_trigger_context_sync() -> None` helper (shared by reference or import) that runs `deviate context pre | python -m json.tool > /tmp/ctx.json && deviate context post /tmp/ctx.json` via subprocess, catches `CalledProcessError`, prints `"[yellow]CONTEXT_SYNC_WARN[/] ..."` to stderr, and continues.
+    - **Red**: Write failing tests: `test_explore_post_auto_triggers_context` in `test_macro.py` — mock `deviate context`, invoke `explore_post`, assert combined context called; `test_explore_post_no_context_sync` — invoke with `--no-context-sync`, assert context NOT called; `test_specify_post_auto_triggers_context` in `test_meso.py` — same pattern for `specify_post`; `test_context_sync_soft_fail_does_not_block_parent` — mock `deviate context` to raise, assert parent exits 0 with warning on stderr
+    - **Green**: Add `no_context_sync: bool = typer.Option(False, "--no-context-sync")` to `explore_post()`, `research_post()`, `prd_post()`, `shard_post()` in `macro.py` and `specify_post()` in `meso.py`. At end of each post (after commit): `if not no_context_sync: _maybe_trigger_context_sync()`. Implement `_maybe_trigger_context_sync() -> None` helper (shared by reference or import) that runs `deviate context` via subprocess, catches `CalledProcessError`, prints `"[yellow]CONTEXT_SYNC_WARN[/] ..."` to stderr, and continues.
     - **Refactor**: Extract `_maybe_trigger_context_sync()` into a shared helper in `_common.py` to avoid duplication across 5 post commands. The helper should accept a `repo: Path | None = None` parameter for test isolation.
-    - **Edge Cases**: `context post` binary not found → soft warning. Worktree not in sync → soft warning. Multiple post commands in sequence → each triggers independently. `--no-context-sync` passed → silent skip, no warning about skipped sync.
-    - **Acceptance**: All test cases pass. Every macro/meso post auto-triggers context sync. `--no-context-sync` reliably suppresses trigger. Failed context sync never blocks parent commit (US-005 SC-04).
+    - **Edge Cases**: `deviate context` binary not found → soft warning. Worktree not in sync → soft warning. Workspace scan returns FAILURE → soft warning, parent commit still succeeds. Multiple post commands in sequence → each triggers independently. `--no-context-sync` passed → silent skip, no warning about skipped sync.
+    - **Acceptance**: All test cases pass. Every macro/meso post auto-triggers `deviate context`. `--no-context-sync` reliably suppresses trigger. Failed context sync never blocks parent commit (US-005 SC-04).
 
 - [ ] TSK-002-04: Context Pipeline Integration Tests
   - **Type**: Feature_Batch
@@ -74,11 +74,11 @@
   - **Dependency**: TSK-002-03
   - **Files**:
     - `tests/test_integration/test_context_pipeline.py`
-  - **Rationale**: New integration test file exercising the full context pre→post cycle end-to-end, symlink content-match/diverge edge cases, and performance constraints (L_max <= 200ms for pre, <= 300ms for post). Covers all stories US-001 through US-005 holistically, including HITL decisions on AGENTS.md content comparison and symlink enforcement.
+  - **Rationale**: New integration test file exercising the combined `deviate context` cycle end-to-end, plus phased pre→post, symlink content-match/diverge edge cases, and performance constraints (L_max <= 500ms for combined, <= 200ms for pre). Covers all stories US-001 through US-005 holistically, including HITL decisions on AGENTS.md content comparison and symlink enforcement.
   - **Details**:
-    - **Implementation**: Write `tests/test_integration/test_context_pipeline.py` with `tmp_git_repo` fixture: `test_full_context_pre_post_cycle` — setup `.deviate/` and `specs/`, run `context pre` then `context post` in a subprocess, verify CLAUDE.md `## Technical Execution Context` updated, verify AGENTS.md is symlink, verify git commit exists with `chore(context):` message; `test_context_post_symlink_content_match` — write AGENTS.md with same content as CLAUDE.md, run context post, verify symlink created; `test_context_post_symlink_content_diverge` — write AGENTS.md with different content, run context post, verify no symlink, warning printed; `test_context_pre_performance` — measure `context pre` execution time, assert < 200ms; `test_context_post_performance` — measure `context post` execution time, assert < 300ms
+    - **Implementation**: Write `tests/test_integration/test_context_pipeline.py` with `tmp_git_repo` fixture: `test_combined_context_cycle` — setup `.deviate/` and `specs/`, run `deviate context` (combined), verify CLAUDE.md `## Technical Execution Context` updated, verify AGENTS.md is symlink, verify CLAUDE.md and AGENTS.md are staged (`git diff --cached`); `test_context_post_symlink_content_match` — write AGENTS.md with same content as CLAUDE.md, run `context post`, verify symlink created; `test_context_post_symlink_content_diverge` — write AGENTS.md with different content, run `context post`, verify no symlink, warning printed; `test_combined_context_performance` — measure `deviate context` execution time, assert < 500ms; `test_context_pre_performance` — measure `context pre` execution time, assert < 200ms
     - **Refactor**: Follow existing integration test patterns (see `test_macro_full_cycle.py`, `test_init_export_cycle.py`). Use `subprocess.run` with `cwd=tmp_git_repo` for CLI invocations. Assert on stdout stderr content.
-    - **Acceptance**: All 5 integration tests pass. Full pre→post cycle verified with real filesystem and git operations in isolated temp repo. Performance constraints validated.
+    - **Acceptance**: All 5 integration tests pass. Combined `deviate context` cycle verified with real filesystem and git operations in isolated temp repo. Performance constraints validated.
 
 ---
 
@@ -88,14 +88,15 @@
 
 **Critical Dependency Chains**:
 - TSK-002-01 (Core Context Model + Workspace Resolution + Governance/Symlink/Stale) must precede TSK-002-02 (CLI Commands) — the CLI wraps the core logic
-- TSK-002-02 (CLI Commands) must precede TSK-002-03 (Auto-Trigger) — auto-trigger invokes the CLI commands
+- TSK-002-02 (CLI Commands) must precede TSK-002-03 (Auto-Trigger) — auto-trigger invokes `deviate context`
 - TSK-002-03 (Auto-Trigger) must precede TSK-002-04 (Integration Tests) — integration tests exercise the full pipeline including auto-trigger
 
 **Risk Hotspots**:
 - Symlink `os.name` branching: Windows copy fallback must be tested on CI (mock `os.name == 'nt'` in unit tests; integration tests run on POSIX only)
 - AGENTS.md content comparison: Reading file bytes vs string comparison — must use identical read mode as CLAUDE.md
 - Auto-trigger subprocess invocation: Must use `repo_path` parameter for test isolation, never `Path.cwd()` in test context
-- Performance: `context post` at 300ms includes git commit overhead — may need optimization if commit hooks add latency
+- Performance: Combined `deviate context` at 500ms includes pre-scan + governance update + git commit — may need optimization if commit hooks add latency
+- Combined command failure mode: If workspace scan returns FAILURE, the command exits non-zero before applying — auto-trigger must handle non-zero exit as soft warning
 
 **Merge Conflict Boundaries**:
 - `macro.py` — Touched by both TSK-002-03 (auto-trigger) and potential parallel ISS tasks; maintain backward-compatible signature

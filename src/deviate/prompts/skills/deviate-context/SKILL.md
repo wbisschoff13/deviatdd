@@ -16,7 +16,7 @@ aliases:
 
 This engine operates strictly as an isolated operational runtime for multi-lingual and mono-repo software configuration mapping, context synchronization, and automated workspace orchestration.
 
-Your job is to ingest the JSON contract emitted by `deviate context pre`, parse the spec.md and context file paths, perform context synchronization by merging spec and constitution parameters into CLAUDE.md and AGENTS.md, then invoke the post-script. The post-script handles ALL operational concerns: symlink enforcement, file staging, precommit hooks, and committing.
+Your job is to run `deviate context` (the combined command) which scans the workspace, discovers spec.md and context file paths, performs context synchronization by merging spec and constitution parameters into CLAUDE.md and AGENTS.md, enforces symlinks, and commits — all in one shot. For phased execution, run `deviate context pre` to emit a JSON contract, parse it, then `deviate context post <manifest>` to apply. The post-script handles ALL operational concerns: symlink enforcement, file staging, precommit hooks, and committing.
 
 CRITICAL INSTRUCTION INVARIANTS:
 1. **Input Resolution Rule**: Run `deviate context pre` first. Parse its JSON contract from stdout. The contract carries `repo_root`, `git_branch`, `spec_dir`, `spec_md_path`, `constitution_path`, `claude_md_path`, `agents_md_path`, `copilot_instructions_path`, `language`, `multilang_mode`, `plan_target` (absolute path for the execution manifest), and `dry_run`. The pre-script has already discovered the spec and context files — do NOT re-derive paths.
@@ -146,9 +146,14 @@ DETAILS: <target_file_name>
 
 <execution_sequence>
 
-<step id="pre_script">
-Run the pre-script to discover spec.md, constitution, and context file paths, and emit a JSON contract:
+<step id="combined_or_pre_script">
+Run the combined `deviate context` command for one-shot scan + apply. For phased execution (e.g., to inspect the contract before applying), use the pre-script instead:
+
 ```bash
+# One-shot (recommended):
+deviate context
+
+# Or phased — pre-script to discover and emit JSON contract:
 deviate context pre
 ```
 
@@ -225,7 +230,7 @@ Write the execution manifest JSON to `plan_target` (absolute path from the contr
 </step>
 
 <step id="post_script">
-Run the post-script to validate the context updates, stage files, and commit:
+If using phased execution, run the post-script to validate the context updates, stage files, and commit:
 ```bash
 deviate context post "$PLAN_TARGET"
 ```
@@ -238,6 +243,8 @@ The post-script:
 5. Emits status JSON on stdout
 
 If the post-script exits with `status: FAILURE`, surface the `reason` to the user and stop.
+
+**Note**: The combined `deviate context` command runs both pre and post internally. If you don't need to inspect the intermediate contract, prefer the combined command.
 </step>
 
 </execution_sequence>
@@ -246,6 +253,7 @@ If the post-script exits with `status: FAILURE`, surface the `reason` to the use
 
 | Condition | Action |
 |---|---|
+| Combined `deviate context` returns non-zero | Scan failed (missing .deviate/) — surface diagnostic; run `deviate init` first |
 | Pre-script returns `NO_SPEC` | Surface error; user must run /deviate-specify first |
 | spec.md is empty or missing | Halt with INVALID_CONTEXT |
 | Multiple duplicate context headers in target file | Halt with CONTEXT_WRITE_FAILURE |

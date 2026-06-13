@@ -131,8 +131,8 @@ class TestContextPost:
         assert "Some valid content." in lines
         assert "More valid content." in lines
 
-    def test_context_post_commit(self, tmp_git_repo: Path):
-        """Scenario US-002-01: Git commit with chore(context): message."""
+    def test_context_post_stages_files(self, tmp_git_repo: Path):
+        """Scenario US-002-01: Context post stages CLAUDE.md and AGENTS.md."""
         (tmp_git_repo / ".deviate").mkdir(parents=True)
         (tmp_git_repo / ".deviate" / "config.toml").write_text('profile = "default"\n')
         (tmp_git_repo / "specs").mkdir()
@@ -149,12 +149,59 @@ class TestContextPost:
             manifest_path.write_text(pre_result.stdout)
             result = runner.invoke(cli, ["context", "post", str(manifest_path)])
         assert result.exit_code == 0, result.output
-        log_result = subprocess.run(
-            ["git", "log", "--oneline", "-5"],
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
             cwd=tmp_git_repo,
             env=_git_env(),
             capture_output=True,
             text=True,
             check=True,
         )
-        assert "chore(context):" in log_result.stdout
+        staged_files = staged.stdout.strip().splitlines()
+        assert "CLAUDE.md" in staged_files
+        assert "AGENTS.md" in staged_files
+
+
+class TestContextCombined:
+    """Single `deviate context` command — pre + post in one shot."""
+
+    def test_context_combined_updates_governance_and_stages(self, tmp_git_repo: Path):
+        """Running `deviate context` scans workspace, updates files, and stages."""
+        (tmp_git_repo / ".deviate").mkdir(parents=True)
+        (tmp_git_repo / ".deviate" / "config.toml").write_text('profile = "default"\n')
+        (tmp_git_repo / "specs").mkdir()
+        claude = tmp_git_repo / "CLAUDE.md"
+        claude.write_text(
+            "# Project\n\n"
+            "## Technical Execution Context\n"
+            "Tasks=Old\n\n"
+            "## Other Section\n"
+            "Keep me.\n"
+        )
+        with chdir(tmp_git_repo):
+            result = runner.invoke(cli, ["context"])
+        assert result.exit_code == 0, result.output
+        updated = claude.read_text()
+        assert "## Technical Execution Context" in updated
+        assert "Tasks=Old" not in updated
+        assert "## Other Section" in updated
+        agents = tmp_git_repo / "AGENTS.md"
+        assert agents.is_symlink()
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        staged_files = staged.stdout.strip().splitlines()
+        assert "CLAUDE.md" in staged_files
+        assert "AGENTS.md" in staged_files
+
+    def test_context_combined_missing_deviate_exits_nonzero(self, tmp_path: Path):
+        """Missing .deviate/ emits failure and exits non-zero."""
+        with chdir(tmp_path):
+            result = runner.invoke(cli, ["context"])
+        assert result.exit_code == 1, result.output
+        assert "CONTEXT_FAILURE" in result.output
