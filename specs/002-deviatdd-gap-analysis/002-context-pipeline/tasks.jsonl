@@ -3,3 +3,5 @@
 {"id":"TSK-002-01","issue_id":"ISS-002-002","description":"Core Context Logic — Model, Resolution, Governance, Symlinks, Stale Audit","status":"REFACTOR","execution_mode":"TDD","created_at":"2026-06-12T18:10:00.752948Z"}
 {"id":"TSK-002-02","issue_id":"ISS-002-002","description":"CLI Context Pre/Post Commands","status":"RED","execution_mode":"TDD","created_at":"2026-06-13T12:06:44.402702Z"}
 {"id":"TSK-002-02","issue_id":"ISS-002-002","description":"CLI Context Pre/Post Commands","status":"GREEN","execution_mode":"TDD","created_at":"2026-06-13T12:06:44.402702Z"}
+{"id":"TSK-002-02","issue_id":"ISS-002-002","description":"CLI Context Pre/Post Commands","status":"JUDGE","execution_mode":"TDD","created_at":"2026-06-13T12:19:40.387500Z"}
+{"id":"TSK-002-02","issue_id":"ISS-002-002","description":"CLI Context Pre/Post Commands","status":"REFACTOR","execution_mode":"TDD","created_at":"2026-06-13T12:06:44.402702Z"}

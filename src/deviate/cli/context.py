@@ -15,6 +15,7 @@ from deviate.cli._common import (
 from deviate.core._shared import git_env as _git_env
 from deviate.core.commit import stage_and_commit
 from deviate.core.context import (
+    ContextContract,
     enforce_agents_symlink,
     remove_stale_references,
     resolve_workspace_context,
@@ -45,13 +46,39 @@ def _get_git_branch(repo: Path) -> str:
         return "detached"
 
 
-def _build_governance_block(contract_data: dict) -> str:
-    items: list[str] = []
+def _build_governance_block(contract: ContextContract) -> str:
+    parts: list[str] = []
     for key in ("status", "repo_root", "deviate_path", "specs_path", "timestamp"):
-        value = contract_data.get(key)
+        value = getattr(contract, key, None)
         if value is not None:
-            items.append(f"{key}: {value}")
-    return "Tasks=" + ", ".join(items)
+            parts.append(f"{key}: {value}")
+    return "Tasks=" + ", ".join(parts)
+
+
+def _update_claude_governance(
+    claude_path: Path,
+    contract: ContextContract,
+    repo_root: Path,
+    files_to_commit: list[Path],
+) -> None:
+    claude_content = claude_path.read_text(encoding="utf-8")
+    fresh_block = _build_governance_block(contract)
+    updated = upsert_governance_block(
+        content=claude_content,
+        block_header="## Technical Execution Context",
+        fresh_block=fresh_block,
+        repo=repo_root,
+    )
+    claude_path.write_text(updated, encoding="utf-8")
+    files_to_commit.append(claude_path)
+    console.print("[green]CONTEXT[/] governance block updated in CLAUDE.md")
+
+
+def _clean_agents_stale_refs(agents_path: Path) -> None:
+    agents_content = agents_path.read_text(encoding="utf-8")
+    cleaned = remove_stale_references(agents_content, STALE_PATTERNS)
+    agents_path.write_text(cleaned, encoding="utf-8")
+    console.print("[green]CONTEXT[/] stale references removed from AGENTS.md")
 
 
 context_app = typer.Typer(no_args_is_help=True, help="Context sync commands")
@@ -74,6 +101,7 @@ def context_post(
     """Read manifest, sync governance, enforce symlink, remove stale refs, commit."""
     repo_root = Path.cwd()
     manifest_data = _load_manifest(manifest, "CONTEXT")
+    contract = ContextContract.model_validate(manifest_data)
     branch = _get_git_branch(repo_root)
 
     claude_path = repo_root / "CLAUDE.md"
@@ -81,17 +109,7 @@ def context_post(
     files_to_commit: list[Path] = []
 
     if claude_path.exists():
-        claude_content = claude_path.read_text(encoding="utf-8")
-        fresh_block = _build_governance_block(manifest_data)
-        updated = upsert_governance_block(
-            content=claude_content,
-            block_header="## Technical Execution Context",
-            fresh_block=fresh_block,
-            repo=repo_root,
-        )
-        claude_path.write_text(updated, encoding="utf-8")
-        files_to_commit.append(claude_path)
-        console.print("[green]CONTEXT[/] governance block updated in CLAUDE.md")
+        _update_claude_governance(claude_path, contract, repo_root, files_to_commit)
     else:
         console.print(
             "[yellow]CONTEXT_WARN[/] CLAUDE.md not found "
@@ -99,10 +117,7 @@ def context_post(
         )
 
     if agents_path.exists() and not agents_path.is_symlink():
-        agents_content = agents_path.read_text(encoding="utf-8")
-        cleaned = remove_stale_references(agents_content, STALE_PATTERNS)
-        agents_path.write_text(cleaned, encoding="utf-8")
-        console.print("[green]CONTEXT[/] stale references removed from AGENTS.md")
+        _clean_agents_stale_refs(agents_path)
 
     enforce_agents_symlink(claude_path, agents_path)
 
