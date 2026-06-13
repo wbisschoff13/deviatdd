@@ -18,7 +18,7 @@ def _derive_slug(title: str) -> str:
     slug = title.lower()
     slug = re.sub(r"[^a-z0-9]+", "-", slug)
     slug = slug.strip("-")
-    return slug
+    return f"{slug}"
 
 
 def _create_feature_directory(slug: str, repo_path: Path) -> Path:
@@ -51,7 +51,7 @@ def create(
     slug: str | None = typer.Option(None, "--slug", help="Override derived slug"),
 ) -> None:
     repo_path = Path.cwd()
-    final_slug = slug if slug else _derive_slug(title)
+    final_slug = slug or _derive_slug(title)
 
     _create_feature_directory(final_slug, repo_path)
     _create_feature_branch(final_slug, repo_path)
