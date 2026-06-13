@@ -555,6 +555,7 @@ def _run_red_phase(
     session = session.force_transition_to("RED")
     session.save(session_path)
     _append_status_transition(task, "RED", ledger_path)
+    _log_uncommitted(Path.cwd(), "RED", tid)
     return session
 
 
@@ -612,6 +613,7 @@ def _run_green_phase(
     session.train_feedback = ""
     session.save(session_path)
     _append_status_transition(task, "GREEN", ledger_path)
+    _log_uncommitted(Path.cwd(), "GREEN", tid)
     return session
 
 
@@ -776,6 +778,7 @@ def _run_refactor_phase(
     session = session.force_transition_to("REFACTOR")
     session.save(session_path)
     _append_status_transition(task, "REFACTOR", ledger_path)
+    _log_uncommitted(Path.cwd(), "REFACTOR", tid)
     return session
 
 
@@ -1090,6 +1093,36 @@ def _commit_phase(message: str, root: Path, no_verify: bool = False) -> bool:
             return False
         return True
     return False
+
+
+def _log_uncommitted(root: Path, phase: str, tid: str) -> None:
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=_git_env(),
+    )
+    if status.stdout.strip():
+        files = status.stdout.strip().splitlines()
+        console.print(
+            f"  [yellow]WARN:[/] {phase} phase for {tid} completed with"
+            f" {len(files)} uncommitted file(s) - post-command may not have run"
+        )
+        for line in files[:5]:
+            console.print(f"    {line}")
+        if len(files) > 5:
+            console.print(f"    ... and {len(files) - 5} more")
+        log_dir = root / ".deviate"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / "prompts.log"
+        timestamp = datetime.now(timezone.utc).isoformat()
+        with log_path.open("a", encoding="utf-8") as f:
+            f.write(f"=== {timestamp} | {phase} | {tid} | UNCOMMITTED ===\n")
+            f.write(f"{len(files)} uncommitted file(s):\n")
+            for line in files:
+                f.write(f"  {line}\n")
+            f.write("\n")
 
 
 def _all_tasks_complete(root: Path) -> bool:
