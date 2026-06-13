@@ -54,6 +54,16 @@
 ### Tasks
 
 - TSK-003-03: Feature Create CLI — directory scaffold, branch creation, session update
+  - **Judge Feedback**: The RED test was committed correctly (1269bcd). The GREEN implementation was written on disk but NOT committed. The next GREEN attempt must:
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 1. Stage AND commit the implementation files:
+    - **Judge Feedback**:    - src/deviate/cli/feature.py (already exists on disk)
+    - **Judge Feedback**:    - src/deviate/cli/__init__.py modifications (feature_app import + registration — already on disk)
+    - **Judge Feedback**: 2. Remove the debug print statement in feature.py:78 (`console.print(f"  [dim]DEBUG ...")`)
+    - **Judge Feedback**: 3. Run the full test suite to verify all tests pass before committing
+    - **Judge Feedback**: 4. Commit with message: `feat(TSK-003-03): GREEN phase - implementation passes tests`
+    - **Judge Feedback**: 
+    - **Judge Feedback**: The actual implementation code on disk is structurally correct and passes all 3 feature tests, but it must be COMMITTED as part of the GREEN diff for JUDGE to evaluate it.
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration
