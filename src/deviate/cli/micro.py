@@ -555,6 +555,8 @@ def _run_red_phase(
     session = session.force_transition_to("RED")
     session.save(session_path)
     _append_status_transition(task, "RED", ledger_path)
+    scope = _build_scope(task.get("issue_id", ""), tid)
+    _commit_phase(f"test({scope}): RED phase - failing test", Path.cwd())
     return session
 
 
@@ -568,8 +570,13 @@ def _run_green_phase(
 ) -> SessionState:
     tid = task.get("id", "?")
     if _phase_already_done(ledger_path, task.get("id", ""), "GREEN"):
-        c.print(f"  [dim]GREEN already done for {tid}, skipping[/]")
-        return session
+        if not session.train_feedback:
+            c.print(f"  [dim]GREEN already done for {tid}, skipping[/]")
+            return session
+        c.print(
+            f"  [dim]GREEN already done for {tid}"
+            f" but train_feedback present — re-running[/]"
+        )
     c.print(f"  [bold green]GREEN →[/] {tid}")
 
     backend = agent or "opencode"
@@ -607,6 +614,8 @@ def _run_green_phase(
     session.train_feedback = ""
     session.save(session_path)
     _append_status_transition(task, "GREEN", ledger_path)
+    scope = _build_scope(task.get("issue_id", ""), tid)
+    _commit_phase(f"feat({scope}): GREEN phase - implementation", Path.cwd())
     return session
 
 
@@ -697,6 +706,13 @@ def _run_judge_phase(
             if hasattr(manifest, "train_feedback") and manifest.train_feedback:
                 feedback = manifest.train_feedback
 
+            subprocess.run(
+                ["git", "reset", "--hard", "HEAD~1"],
+                cwd=root,
+                capture_output=True,
+                env=_git_env(),
+            )
+
             tasks_md = _resolve_tasks_md(root, task)
             if tasks_md is not None:
                 _append_judge_feedback(tasks_md, tid, feedback)
@@ -718,13 +734,6 @@ def _run_judge_phase(
                     env=_git_env(),
                 )
 
-            subprocess.run(
-                ["git", "revert", "--no-edit", "HEAD~1"],
-                cwd=root,
-                capture_output=True,
-                env=_git_env(),
-            )
-
             session = session.force_transition_to("GREEN")
             session.train_feedback = feedback
             session.yellow_triggered = False
@@ -732,6 +741,7 @@ def _run_judge_phase(
             return session
 
     session = session.force_transition_to("JUDGE")
+    session.train_feedback = ""
     session.save(session_path)
     _append_status_transition(task, "JUDGE", ledger_path)
     return session
@@ -770,6 +780,8 @@ def _run_refactor_phase(
     session = session.force_transition_to("REFACTOR")
     session.save(session_path)
     _append_status_transition(task, "REFACTOR", ledger_path)
+    scope = _build_scope(task.get("issue_id", ""), tid)
+    _commit_phase(f"refactor({scope}): REFACTOR phase \u2014 code cleanup", Path.cwd())
     return session
 
 
@@ -1125,29 +1137,6 @@ def _validate_manifest(manifest_path: str | None) -> dict | None:
     return data
 
 
-_SYNTAX_ERROR_MARKERS = frozenset(
-    {
-        "SyntaxError",
-        "IndentationError",
-        "TabError",
-        "ImportError",
-        "ModuleNotFoundError",
-    }
-)
-
-
-def _classify_pytest_outcome(stdout: str, stderr: str, returncode: int) -> str | None:
-    combined = stdout + "\n" + stderr
-    if returncode == 0:
-        return "PASS"
-    for marker in _SYNTAX_ERROR_MARKERS:
-        if marker in combined:
-            return "SYNTAX_ERROR"
-    if "AssertionError" in combined or "failed" in stdout:
-        return "ASSERTION_FAILURE"
-    return "UNKNOWN_FAILURE"
-
-
 @red_app.command(name="pre")
 def red_pre(
     task: str | None = typer.Option(None, "--task", "-t", help="Task ID"),
@@ -1159,12 +1148,21 @@ def red_pre(
 
     contract = {
         "task_id": task_data.get("id", ""),
-        "test_command": "pytest tests/ -v",
-        "lint_command": "ruff check .",
+        "test_command": "mise run test",
+        "lint_command": "mise run lint",
         "spec_dir": spec_dir,
     }
     print(json.dumps(contract, ensure_ascii=False))
     raise typer.Exit(code=0)
+
+
+def _run_test_cmd(root: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["mise", "run", "test"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
 
 
 @red_app.command(name="post")
@@ -1176,15 +1174,10 @@ def red_post() -> None:
         console.print("[red]TEST_NOT_FOUND[/]")
         raise typer.Exit(code=1)
 
-    proc = _run_pytest(root)
-    outcome = _classify_pytest_outcome(proc.stdout, proc.stderr, proc.returncode)
+    proc = _run_test_cmd(root)
 
-    if outcome == "PASS":
+    if proc.returncode == 0:
         console.print("[red]RedMustPassError:[/] Test passed, expected a failing test")
-        raise typer.Exit(code=1)
-
-    if outcome == "SYNTAX_ERROR":
-        console.print("[red]SyntaxCrashRejected:[/] Test file contains syntax errors")
         raise typer.Exit(code=1)
 
     dot_dir = root / ".deviate"
