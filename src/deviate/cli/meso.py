@@ -17,7 +17,7 @@ from deviate.cli._common import (
     console,
     with_json_quiet,
 )
-from deviate.cli.feature import _derive_slug
+from deviate.cli.feature import _create_feature_branch, _derive_slug
 from deviate.core._shared import git_env as _git_env
 from deviate.core.commit import commit_artifact
 from deviate.core.constitution import extract_commands
@@ -453,6 +453,7 @@ def _specify_pre(
             slug = _derive_slug(record.title)
             spec_dir = repo_root / "specs" / slug
             spec_dir.mkdir(parents=True, exist_ok=True)
+            _create_feature_branch(slug, repo_root)
             console.print(f"[green]FEATURE_CREATE[/] created specs/{slug}/")
         dot_dir.mkdir(parents=True, exist_ok=True)
         fresh_session = SessionState()

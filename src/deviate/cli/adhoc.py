@@ -17,17 +17,20 @@ def _adhoc_ledger_path() -> Path:
     return Path.cwd() / "specs" / "adhoc.jsonl"
 
 
-def _read_adhoc_ledger(path: Path) -> list[dict]:
+def _read_adhoc_ledger(path: Path) -> dict[str, dict]:
     if not path.exists():
-        return []
-    records: list[dict] = []
+        return {}
+    records: dict[str, dict] = {}
     with path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
             try:
-                records.append(json.loads(line))
+                rec = json.loads(line)
+                issue_id = rec.get("issue_id")
+                if issue_id:
+                    records[issue_id] = rec
             except json.JSONDecodeError:
                 continue
     return records
@@ -88,11 +91,7 @@ def post(
     ledger_path = _adhoc_ledger_path()
     records = _read_adhoc_ledger(ledger_path)
 
-    found = None
-    for rec in records:
-        if rec.get("issue_id") == issue_id:
-            found = rec
-            break
+    found = records.get(issue_id)
 
     if found is None:
         console.print(
@@ -100,12 +99,12 @@ def post(
         )
         raise typer.Exit(code=1)
 
-    found["status"] = "COMPLETED"
-    found["timestamp"] = datetime.now(timezone.utc).isoformat()
+    completed = found.copy()
+    completed["status"] = "COMPLETED"
+    completed["timestamp"] = datetime.now(timezone.utc).isoformat()
 
-    with ledger_path.open("w", encoding="utf-8") as f:
-        for rec in records:
-            f.write(json.dumps(rec) + "\n")
+    with ledger_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(completed) + "\n")
 
     console.print(f"[green]COMPLETED[/] {issue_id}")
     _emit_contract(status="COMPLETED", issue_id=issue_id)

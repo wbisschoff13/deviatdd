@@ -1538,18 +1538,6 @@ def refactor_pre(
     raise typer.Exit(code=0)
 
 
-_RETURN_TYPE_MAP = {
-    "str": (ast.Constant, ast.JoinedStr),
-    "int": (ast.Constant,),
-    "float": (ast.Constant,),
-    "bool": (ast.Constant,),
-    "list": (ast.List,),
-    "dict": (ast.Dict,),
-    "tuple": (ast.Tuple,),
-    "set": (ast.Set,),
-}
-
-
 def _classify_expression_returns(value: ast.expr, expected: str) -> list[str]:
     """Walk return expressions and flag obvious constant mismatches.
 
