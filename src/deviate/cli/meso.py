@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+from contextlib import chdir, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
@@ -1049,6 +1050,9 @@ def _meso_run(
 
     # Re-resolve after possible reset
     record = resolve_issue_record(issue_id, ledger_path)
+    if record is None:
+        console.print(f"[red]INVALID_ISSUE_ID[/] {issue_id} not found in ledger")
+        raise SystemExit(1)
 
     # ── Blocking dependency check (explicit --issue) ─────────────────
     if record and record.blocked_by and not force:
@@ -1091,28 +1095,31 @@ def _meso_run(
     if not skip_specify:
         _specify_pre(issue_id=issue_id, force=force, dry_run=False)
 
-        _invoke_agent_phase("specify", contract)
+    worktree_path = Path.cwd() / ".worktrees" / f"feat/{epic_slug}/{issue_slug}"
+    ctx = chdir(worktree_path) if worktree_path.exists() else nullcontext()
+    with ctx:
+        if not skip_specify:
+            _invoke_agent_phase("specify", contract)
+            _specify_post(force=force)
 
-        _specify_post(force=force)
+        # ── TASKS phase — advance session if needed ──────────────────
+        session = SessionState.load(session_path)
+        if session.current_phase != "TASKS":
+            session = session.force_transition_to("TASKS")
+            session.active_issue_id = issue_id
+            session.save(session_path)
 
-    # ── TASKS phase — advance session if needed ──────────────────────
-    session = SessionState.load(session_path)
-    if session.current_phase != "TASKS":
-        session = session.force_transition_to("TASKS")
-        session.active_issue_id = issue_id
-        session.save(session_path)
+        _tasks_pre(force=force, dry_run=False)
 
-    _tasks_pre(force=force, dry_run=False)
+        _invoke_agent_phase("tasks", contract)
 
-    _invoke_agent_phase("tasks", contract)
+        _tasks_post(force=force, issue_id=issue_id)
 
-    _tasks_post(force=force, issue_id=issue_id)
-
-    # ── Final IDLE guard ─────────────────────────────────────────────
-    session = SessionState.load(session_path)
-    if session.current_phase != "IDLE":
-        session = session.force_transition_to("IDLE")
-        session.save(session_path)
+        # ── Final IDLE guard ─────────────────────────────────────────
+        session = SessionState.load(session_path)
+        if session.current_phase != "IDLE":
+            session = session.force_transition_to("IDLE")
+            session.save(session_path)
     console.print("[green]MESO[/] pipeline complete — session at IDLE")
 
 

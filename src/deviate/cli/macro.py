@@ -655,24 +655,26 @@ def _cycle_phase(phase: str, resolved: str, specs_root: Path) -> None:
         _research_post()
     elif phase == "prd":
         manifest_path = Path(".deviate") / "artifacts" / "manifest_prd.json"
-        manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text(
-            json.dumps({"epic_slug": resolved, "phase": "prd", "status": "PASS"}),
-        )
+        if not manifest_path.exists():
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            manifest_path.write_text(
+                json.dumps({"epic_slug": resolved, "phase": "prd", "status": "PASS"}),
+            )
         _prd_post(manifest=manifest_path)
     elif phase == "shard":
         manifest_path = Path(".deviate") / "artifacts" / "manifest_shard.json"
-        manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text(
-            json.dumps(
-                {
-                    "epic_slug": resolved,
-                    "phase": "shard",
-                    "status": "PASS",
-                    "issues": [],
-                },
-            ),
-        )
+        if not manifest_path.exists():
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "epic_slug": resolved,
+                        "phase": "shard",
+                        "status": "PASS",
+                        "issues": [],
+                    },
+                ),
+            )
         _shard_post(manifest=manifest_path, epic=resolved)
 
 
@@ -692,6 +694,20 @@ def _macro_run(
 
     start_idx = _PHASE_ORDER.index(from_phase) if from_phase else 0
     phases = _PHASE_ORDER[start_idx:]
+
+    if from_phase:
+        session_path = Path(".deviate") / "session.json"
+        session = SessionState.load(session_path)
+        preceding_states = {
+            "explore": "IDLE",
+            "research": "EXPLORE",
+            "prd": "RESEARCH",
+            "shard": "PRD",
+        }
+        required_preceding = preceding_states[from_phase]
+        if session.current_phase != required_preceding:
+            session = session.force_transition_to(required_preceding)
+            session.save(session_path)
 
     if dry_run:
         _dry_run_phases(phases, resolved)
@@ -715,7 +731,7 @@ def _macro_run(
 
 
 def _explore_pre(problem: str, slug: str | None = None) -> None:
-    explore_pre(problem, slug=slug)
+    explore_pre(problem=problem, slug=slug)
 
 
 def _explore_post() -> None:
@@ -723,7 +739,7 @@ def _explore_post() -> None:
 
 
 def _research_pre(epic: str = "") -> None:
-    research_pre(epic)
+    research_pre(epic=epic)
 
 
 def _research_post() -> None:

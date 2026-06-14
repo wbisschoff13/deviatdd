@@ -6,16 +6,12 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+from tests.conftest import _git_env
+
 from deviate.cli import cli
 from deviate.state.config import SessionState
 
 runner = CliRunner()
-
-
-def _git_env() -> dict[str, str]:
-    import os
-
-    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
 def _setup_macro_workspace(

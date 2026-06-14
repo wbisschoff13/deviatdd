@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.resources as resources
 import logging
+import re
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,14 @@ def inject_constitution(
     return f"{prefix}\n\n{prompt}"
 
 
+_PLACEHOLDER_RE = re.compile(r"\$\{(.+?)\}|\$(\w+)|{(.+?)}")
+
+
+def _replace_placeholder(match: re.Match[str], context: dict[str, str]) -> str:
+    key = match.group(1) or match.group(2) or match.group(3)
+    return context.get(key, match.group(0))
+
+
 def assemble_prompt(
     template_name: str,
     context: dict[str, str],
@@ -49,6 +58,5 @@ def assemble_prompt(
 ) -> str:
     template = load_template(template_name)
     prompt = inject_constitution(template, constitution_path, claude_path)
-    for key, value in context.items():
-        prompt = prompt.replace(f"${{{key}}}", value)
+    prompt = _PLACEHOLDER_RE.sub(lambda m: _replace_placeholder(m, context), prompt)
     return prompt
