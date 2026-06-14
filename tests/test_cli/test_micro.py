@@ -228,7 +228,9 @@ def _build_e2e_tasks() -> list[dict]:
 class TestRunAllMonitorE2E:
     @pytest.fixture
     def env3(self, tmp_git_repo: Path) -> Path:
-        _setup_issue_ledger(tmp_git_repo, E2E_ISSUE_ID, E2E_EPIC, E2E_SLUG, _build_e2e_tasks())
+        _setup_issue_ledger(
+            tmp_git_repo, E2E_ISSUE_ID, E2E_EPIC, E2E_SLUG, _build_e2e_tasks()
+        )
         _setup_session(tmp_git_repo, E2E_ISSUE_ID)
         return tmp_git_repo
 
@@ -284,7 +286,9 @@ class TestRunAllMonitorE2E:
             for e in events
             if e["event"] == "task_completed"
         ]
-        assert len(completed_ids) == 3, f"Expected 3 completed tasks, got {len(completed_ids)}"
+        assert len(completed_ids) == 3, (
+            f"Expected 3 completed tasks, got {len(completed_ids)}"
+        )
 
         assert "Traceback" not in result.output
 
@@ -390,17 +394,19 @@ class TestRunAllMonitorE2E:
         events = [json.loads(line) for line in all_lines if line.startswith("{")]
         event_types = [e["event"] for e in events]
 
-        assert "task_failed" in event_types, "Expected task_failed event for failing task"
+        assert "task_failed" in event_types, (
+            "Expected task_failed event for failing task"
+        )
         failed_events = [e for e in events if e["event"] == "task_failed"]
         assert len(failed_events) >= 1
         failed_event = failed_events[0]
         failed_id = failed_event.get("id", failed_event.get("task_id", ""))
-        assert failed_id == "TSK-001-02", f"Expected TSK-001-02 to fail, got {failed_id}"
+        assert failed_id == "TSK-001-02", (
+            f"Expected TSK-001-02 to fail, got {failed_id}"
+        )
 
         task_started_events = [e for e in events if e["event"] == "task_started"]
-        started_ids = [
-            e.get("id", e.get("task_id", "")) for e in task_started_events
-        ]
+        started_ids = [e.get("id", e.get("task_id", "")) for e in task_started_events]
         assert "TSK-001-03" in started_ids, (
             "Remaining tasks should continue after failure — expected TSK-001-03 to start"
         )
