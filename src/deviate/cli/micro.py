@@ -29,7 +29,12 @@ from deviate.core.agent import (
 from deviate.core.profile import resolve_profile
 from deviate.core.tamper import TamperContext, TamperGuard, TamperVerdict
 from deviate.core.worktree import find_worktree_for_branch
-from deviate.state.config import AgentConfig, PytestReportConfig, SessionState
+from deviate.state.config import (
+    AgentConfig,
+    AiderConfig,
+    PytestReportConfig,
+    SessionState,
+)
 from deviate.ui.monitor import OrchestrationMonitor
 from deviate.ui.render import is_interactive
 from deviate.state.ledger import (
@@ -39,6 +44,7 @@ from deviate.state.ledger import (
 
 console = Console()
 _verbose: bool = False
+_model_override: str | None = None
 
 
 def _log(msg: str) -> None:
@@ -209,7 +215,14 @@ def _invoke_agent(
     c.print(f"  [dim]Invoking agent ({backend_name})...[/]")
     _save_agent_log(phase, task_id, "prompt", prompt)
     try:
-        backend = get_agent_backend(AgentConfig(backend=backend_name))
+        if _model_override:
+            backend = get_agent_backend(
+                AgentConfig(
+                    backend=backend_name, aider=AiderConfig(model=_model_override)
+                )
+            )
+        else:
+            backend = get_agent_backend(AgentConfig(backend=backend_name))
         output_handler = _make_output_handler(c)
         raw_lines: list[str] = []
 
@@ -2044,6 +2057,9 @@ def run_command(
         None, "--no-refactor", help="Skip REFACTOR phase"
     ),
     agent: str | None = typer.Option(None, "--agent", help="Override agent backend"),
+    model: str | None = typer.Option(
+        None, "--model", help="Model override (e.g. deepseek/deepseek-v4-flash)"
+    ),
     json_mode: bool = typer.Option(False, "--json", help="Emit JSONL output"),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Print resolved task and exit"
@@ -2054,8 +2070,9 @@ def run_command(
 
     When called without arguments, picks the next PENDING task for the active issue.
     """
-    global _verbose
+    global _verbose, _model_override
     _verbose = verbose
+    _model_override = model
 
     root = _resolve_workspace_root()
     session_path = root / ".deviate" / "session.json"
