@@ -18,6 +18,27 @@
     - `src/deviate/prompts/auto/specify.md`
     - `src/deviate/prompts/auto/tasks.md`
   - **Rationale**: US-003 requires six slim prompt templates in `src/deviate/prompts/auto/`. Each template must follow the static-prefix + dynamic-suffix KV-cacheable pattern. These files are consumed by the assembly service (TSK-008-02) and by both meso and macro pipelines.
+  - **Judge Feedback**: Fix inject_constitution() in src/deviate/prompts/assembly.py:
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 1. Wrap constitution_path.read_text() in try/except (FileNotFoundError,
+    - **Judge Feedback**:    PermissionError, OSError) — log a warning via logger.warning() with
+    - **Judge Feedback**:    the message "CONSTITUTION_MISSING: {path}: {error}", then continue
+    - **Judge Feedback**:    without appending constitution content.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 2. Match existing pattern: CLAUDE.md uses .exists() as a guard (line 33);
+    - **Judge Feedback**:    apply the same defensive guard or equivalent try/except for
+    - **Judge Feedback**:    constitution_path.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 3. Verify both missing CLAUDE.md and missing constitution work
+    - **Judge Feedback**:    independently and together (constitution missing + claude present,
+    - **Judge Feedback**:    both missing, both present).
+    - **Judge Feedback**: 
+    - **Judge Feedback**: Expected behavior:
+    - **Judge Feedback**: - constitution missing → warning logged, prompt assembled without it
+    - **Judge Feedback**: - constitution unreadable → warning logged, prompt assembled without it
+    - **Judge Feedback**: - CLAUDE.md missing → silent skip (already works)
+    - **Judge Feedback**: - Neither exists → raw template returned unchanged
+    - **Judge Feedback**: - Both exist → both prepended with \n\n separators (already works)
   - **Details**:
     - **Implementation**: Create `explore.md` — instructs agent to scan codebase and produce explore.md with problem context and repo structure.
     - **Implementation**: Create `research.md` — instructs agent to consume explore.md and produce design.md + data-model.md with trade-off analysis.
