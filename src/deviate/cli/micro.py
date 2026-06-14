@@ -1094,6 +1094,40 @@ def _run_single(
     )
 
 
+def _execute_task_with_retry(
+    task: dict,
+    ledger_file: Path,
+    c: Console,
+    monitor: OrchestrationMonitor,
+    no_judge: bool = False,
+    no_refactor: bool = False,
+    agent: str | None = None,
+) -> bool:
+    tid = task.get("id", "?")
+    monitor.push_event("task_started", id=tid, description=task.get("description", ""))
+    for attempt in range(2):
+        try:
+            _dispatch_task(
+                task,
+                ledger_file,
+                c,
+                no_judge=no_judge,
+                no_refactor=no_refactor,
+                agent=agent,
+                batch_mode=True,
+                monitor=monitor,
+            )
+            monitor.push_event("task_completed", id=tid)
+            return True
+        except (PhaseFailedError, RedPhaseError) as exc:
+            if attempt == 1:
+                c.print(f"  [red]FAILED[/] {tid} after 2 attempts: {exc}")
+                monitor.push_event("task_failed", id=tid, error_reason=str(exc))
+                _append_status_transition(task, "FAILED", ledger_file)
+                return False
+            c.print(f"  [yellow]RETRY[/] {tid} (attempt {attempt + 2})")
+
+
 def _run_all(
     root: Path,
     c: Console,
@@ -1124,38 +1158,16 @@ def _run_all(
     try:
         with monitor:
             for task, ledger_file in pending:
-                tid = task.get("id", "?")
-                monitor.push_event(
-                    "task_started", id=tid, description=task.get("description", "")
-                )
-                attempts = 0
-                while attempts < 2:
-                    try:
-                        _dispatch_task(
-                            task,
-                            ledger_file,
-                            c,
-                            no_judge=no_judge,
-                            no_refactor=no_refactor,
-                            agent=agent,
-                            batch_mode=True,
-                            monitor=monitor,
-                        )
-                        monitor.push_event("task_completed", id=tid)
-                        break
-                    except (PhaseFailedError, RedPhaseError) as exc:
-                        attempts += 1
-                        if attempts >= 2:
-                            c.print(f"  [red]FAILED[/] {tid} after 2 attempts: {exc}")
-                            monitor.push_event(
-                                "task_failed", id=tid, error_reason=str(exc)
-                            )
-                            _append_status_transition(task, "FAILED", ledger_file)
-                            any_failed = True
-                        else:
-                            c.print(
-                                f"  [yellow]RETRY[/] {tid} (attempt {attempts + 1})"
-                            )
+                if not _execute_task_with_retry(
+                    task,
+                    ledger_file,
+                    c,
+                    monitor,
+                    no_judge=no_judge,
+                    no_refactor=no_refactor,
+                    agent=agent,
+                ):
+                    any_failed = True
     except KeyboardInterrupt:
         monitor.signal_keyboard_interrupt()
 

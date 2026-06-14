@@ -137,6 +137,9 @@ class OrchestrationMonitor:
     def _on_pipeline_complete(self, data: dict[str, Any]) -> None:
         self.display_active = False
 
+    def render(self) -> None:
+        pass
+
     def signal_keyboard_interrupt(self) -> None:
         self._interrupted = True
         for task in self._tasks.values():
@@ -146,6 +149,3 @@ class OrchestrationMonitor:
     @property
     def interrupted(self) -> bool:
         return self._interrupted
-
-    def render(self) -> None:
-        """Delegate to render functions. Stub for Phase 2 integration."""
