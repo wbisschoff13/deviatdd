@@ -23,6 +23,33 @@
     - **Acceptance**: `AiderConfig` validates, serializes/deserializes, rejects extra fields, and nests correctly under `AgentConfig.aider` in `DeviateConfig`. The Literal `"aider"` is accepted for `AgentConfig.backend`.
 
 - TSK-002-02: Implement full AiderBackend class with invocation, parsing, context injection, and post-guard
+  - **Judge Feedback**: The AiderBackend class correctly handles invocation, constitution checks, post-guard,
+    - **Judge Feedback**: and AiderParseError fallthrough. However, the following spec requirements were missed:
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 1. **US-003-AC2 — error_details in FAIL case**:
+    - **Judge Feedback**:    In `AiderBackend.parse_output()`, when `status == "FAIL"`, the HandoverManifest
+    - **Judge Feedback**:    MUST include `error_details` with the failure context. Currently only `status`,
+    - **Judge Feedback**:    `verification_result`, and `files_touched` are returned. Add extraction of error
+    - **Judge Feedback**:    context (e.g., failing test names, error messages) from the stdout and pass it
+    - **Judge Feedback**:    as `error_details`.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 2. **Output parsing — "N tests passed" regex**:
+    - **Judge Feedback**:    The spec requires parsing for `"N tests passed"` (e.g., "3 tests passed",
+    - **Judge Feedback**:    "10 tests passed"). Currently only `"All tests passed"` is matched. Add a
+    - **Judge Feedback**:    regex pattern for `r"\d+\s+tests?\s+passed"` and treat it as PASS/PASS.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 3. **Timeout retry**:
+    - **Judge Feedback**:    The spec requires "Invoke via subprocess.Popen() with configured timeout and
+    - **Judge Feedback**:    timeout retry." The current implementation uses `subprocess.run()` with a
+    - **Judge Feedback**:    timeout parameter but does NOT catch `subprocess.TimeoutExpired` and retry.
+    - **Judge Feedback**:    Wrap the subprocess.run() call to catch TimeoutExpired, sleep 30s, and retry
+    - **Judge Feedback**:    once (matching the parent class pattern).
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 4. **Error messages and stack traces**:
+    - **Judge Feedback**:    The spec requires parsing aider output for "error messages and stack traces."
+    - **Judge Feedback**:    Currently `parse_output()` only extracts test status and file paths. Extract
+    - **Judge Feedback**:    error details from aider's chat output and include them in the HandoverManifest
+    - **Judge Feedback**:    (either via `error_details` or `rationale` field).
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
@@ -42,7 +69,7 @@
     - **Red**: Write `test_aider_backend_context_constitution_missing_aborts()` — assert `CONSTITUTION_MISSING` error when constitution is absent.
     - **Red**: Write `test_aider_backend_context_claude_missing_skips()` — assert no `--read CLAUDE.md` when file missing.
     - **Red**: Write `test_aider_output_parse_all_tests_passed()` — create sample aider stdout with "All tests passed" and file paths, assert `HandoverManifest(status="PASS", ...)` is returned.
-    - **Red**: Write `test_aider_output_parse_tests_failed()` — create sample with "1 failed" / "FAILED", assert `HandoverManifest(status="FAIL", ...)`.
+    - **Red**: Write `test_aider_output_parse_tests_failed()` — create sample with "1 failed" / "FAILED", assert `HandoverManifest(status="FAIL", ...)` with `error_details` containing failure context.
     - **Red**: Write `test_aider_output_parse_ambiguous()` — create sample without pass/fail indicators, assert optimistic `status="PASS"` with `verification_result="UNKNOWN"`.
     - **Red**: Write `test_aider_output_parse_malformed()` — create unparseable output, assert `AIDER_PARSE_ERROR` raised with raw output in message.
     - **Red**: Write `test_aider_post_guard_runs_mise_check()` — mock `subprocess.run` for aider success with "All tests passed", assert `mise run test` is called afterwards.
@@ -50,8 +77,8 @@
     - **Red**: Write `test_aider_nonzero_exit_aborts_immediately()` — mock aider with returncode=1, assert abort without post-guard.
     - **Green**: Add `"aider": "aider"` to `BACKEND_COMMANDS` dict in `agent.py`.
     - **Green**: Implement `_build_aider_command(prompt: str, aider_cfg: AiderConfig, repo_root: Path) -> list[str]` in `agent.py` — builds args list with conditional flags based on config, validates constitution path existence (aborts if missing), adds `--read` for constitution and CLAUDE.md as applicable.
-    - **Green**: Override `invoke()` in `AiderBackend` — use `subprocess.run(args + [prompt])` with timeout (aider uses `--message` not stdin pipe). Handle `FileNotFoundError` for missing aider binary.
-    - **Green**: Implement `parse_aider_output(stdout: str) -> dict` — regex search for "All tests passed", "N failed", "FAILED". Parse file paths from aider log lines. Return structured dict with status, files_touched, verification_result, error_details.
+    - **Green**: Override `invoke()` in `AiderBackend` — use `subprocess.run(args + [prompt])` with timeout. **MUST catch `subprocess.TimeoutExpired` and retry once after 30s backoff** (matching parent class pattern).
+    - **Green**: Implement `parse_aider_output(stdout: str) -> dict` — regex search for "All tests passed", **`r"\d+\s+tests?\s+passed"`** (for "N tests passed"), "N failed", "FAILED". Parse file paths from aider log lines. **MUST extract error messages and stack traces from failing output.** Return structured dict with `status`, `files_touched`, `verification_result`, `error_details`.
     - **Green**: Implement `_run_post_guard() -> bool` — runs `subprocess.run(["mise", "run", "test"])`, returns True if exit 0.
     - **Refactor**: Extract `_build_aider_flag_list()` and `_resolve_context_read_files()` helpers for testability. Align AiderBackend with existing error hierarchy (AgentSubprocessError, AgentTimeoutError, AgentBinaryNotFoundError).
     - **Edge Cases**: Empty aider output (treat as ambiguous parse). Aider exits 0 but empty stdout (post-guard provides verification). Unicode in aider output. Very long output (>100k chars).

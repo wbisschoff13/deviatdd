@@ -584,7 +584,9 @@ class TestAiderBackendPostGuard:
         guard_result.stderr = ""
 
         with (
-            patch("subprocess.run", side_effect=[aider_result, guard_result]) as mock_run,
+            patch(
+                "subprocess.run", side_effect=[aider_result, guard_result]
+            ) as mock_run,
             patch("pathlib.Path.exists", return_value=True),
         ):
             config = AgentConfig(backend="aider")
