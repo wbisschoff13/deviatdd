@@ -27,7 +27,7 @@ def inject_constitution(
     try:
         constitution_content = constitution_path.read_text(encoding="utf-8")
         prefix_parts.append(constitution_content)
-    except (FileNotFoundError, PermissionError, OSError) as exc:
+    except OSError as exc:
         logger.warning("CONSTITUTION_MISSING: %s: %s", constitution_path, exc)
 
     if claude_path.exists():
