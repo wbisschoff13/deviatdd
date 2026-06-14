@@ -5,6 +5,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Literal
 
 import yaml
@@ -54,6 +55,14 @@ class AgentBinaryNotFoundError(Exception):
 
 
 class EmptyOutputError(Exception):
+    pass
+
+
+class AiderParseError(Exception):
+    pass
+
+
+class ConstitutionMissingError(Exception):
     pass
 
 
@@ -274,3 +283,83 @@ class AgentBackend:
                 )
 
         return self.parse_output(stdout, backend_name)
+
+
+class AiderBackend:
+    def __init__(self, config: AgentConfig | None = None) -> None:
+        self.config = config or AgentConfig()
+
+    def _build_aider_command(
+        self, prompt: str, aider_cfg: Any, repo_root: Path
+    ) -> list[str]:
+        constitution_path = repo_root / "specs" / "constitution.md"
+        if not constitution_path.exists():
+            raise ConstitutionMissingError(
+                "Constitution not found at specs/constitution.md"
+            )
+
+        args = ["aider", "--message", prompt]
+
+        if aider_cfg.yes_mode:
+            args.append("--yes")
+
+        if not aider_cfg.auto_commits:
+            args.append("--no-auto-commits")
+
+        if not aider_cfg.suggest_shell_commands:
+            args.append("--no-suggest-shell-commands")
+
+        args.extend(["--model", aider_cfg.model])
+
+        for read_file in aider_cfg.read_files:
+            if (repo_root / read_file).exists():
+                args.extend(["--read", read_file])
+
+        return args
+
+    def parse_output(self, stdout: str, backend_name: str) -> HandoverManifest:
+        if not stdout.strip():
+            raise AiderParseError("Aider returned empty output")
+
+        if "Tests:" in stdout and "failed" in stdout:
+            return HandoverManifest(phase="aider", status="FAIL")
+
+        if "All tests passed" in stdout:
+            return HandoverManifest(phase="aider", status="PASS")
+
+        return HandoverManifest(
+            phase="aider", status="PASS", verification_result="UNKNOWN"
+        )
+
+    def invoke(self, prompt: str) -> HandoverManifest:
+        aider_cfg = self.config.aider
+        repo_root = Path.cwd()
+
+        cmd = self._build_aider_command(prompt, aider_cfg, repo_root)
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+        except FileNotFoundError:
+            raise AgentBinaryNotFoundError(
+                "Agent binary not found on PATH for backend: aider"
+            )
+
+        if result.returncode != 0:
+            raise AgentSubprocessError(
+                message=result.stderr or f"Agent exited with code {result.returncode}",
+                exit_code=result.returncode,
+            )
+
+        manifest = self.parse_output(result.stdout, "aider")
+
+        try:
+            guard_result = subprocess.run(
+                ["mise", "run", "test"], capture_output=True, text=True
+            )
+        except FileNotFoundError:
+            return manifest
+
+        if guard_result.returncode != 0:
+            manifest.status = "FAIL"
+
+        return manifest
