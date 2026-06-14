@@ -986,6 +986,22 @@ def _build_slim_prompt(phase: str, contract: dict[str, str]) -> str:
     )
 
 
+def _invoke_agent_phase(phase: str, contract: dict[str, str]) -> None:
+    """Build a slim prompt, invoke the agent, and abort on failure."""
+    prompt = _build_slim_prompt(phase, contract)
+    backend = AgentBackend()
+    try:
+        manifest = backend.invoke(prompt)
+    except AgentSubprocessError as e:
+        console.print(f"[red]{phase.upper()}_FAILED[/] {e}")
+        raise SystemExit(1) from e
+    if manifest.status != "PASS":
+        console.print(
+            f"[red]{phase.upper()}_FAILED[/] agent returned status: {manifest.status}"
+        )
+        raise SystemExit(1)
+
+
 def _meso_discover_and_sequence() -> str | None:
     ledger_path = _resolve_specs_root() / "issues.jsonl"
     issue = select_next_unblocked_issue(ledger_path)
@@ -1075,19 +1091,7 @@ def _meso_run(
     if not skip_specify:
         _specify_pre(issue_id=issue_id, force=force, dry_run=False)
 
-        prompt = _build_slim_prompt("specify", contract)
-        backend = AgentBackend()
-        try:
-            manifest = backend.invoke(prompt)
-        except AgentSubprocessError as e:
-            console.print(f"[red]SPECIFY_FAILED[/] {e}")
-            raise SystemExit(1)
-
-        if manifest.status != "PASS":
-            console.print(
-                f"[red]SPECIFY_FAILED[/] agent returned status: {manifest.status}"
-            )
-            raise SystemExit(1)
+        _invoke_agent_phase("specify", contract)
 
         _specify_post(force=force)
 
@@ -1100,17 +1104,7 @@ def _meso_run(
 
     _tasks_pre(force=force, dry_run=False)
 
-    prompt = _build_slim_prompt("tasks", contract)
-    backend = AgentBackend()
-    try:
-        manifest = backend.invoke(prompt)
-    except AgentSubprocessError as e:
-        console.print(f"[red]TASKS_FAILED[/] {e}")
-        raise SystemExit(1)
-
-    if manifest.status != "PASS":
-        console.print(f"[red]TASKS_FAILED[/] agent returned status: {manifest.status}")
-        raise SystemExit(1)
+    _invoke_agent_phase("tasks", contract)
 
     _tasks_post(force=force, issue_id=issue_id)
 
