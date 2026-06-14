@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import time
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+
+from rich.live import Live
 
 
 def _resolve_task_id(data: dict[str, Any]) -> str:
@@ -39,14 +42,20 @@ class TaskStatus:
 
 
 class OrchestrationMonitor:
-    def __init__(self, console: Any, *, json_mode: bool = False) -> None:
+    def __init__(
+        self, console: Any, *, json_mode: bool = False, total_tasks: int = 0
+    ) -> None:
         self._console = console
         self._json_mode = json_mode
+        self._total_tasks = total_tasks
         self._tasks: dict[str, TaskStatus] = {}
         self._interrupted = False
         self._exited = False
         self.display_active = False
         self._agent_output_buffer: deque[str] = deque(maxlen=5)
+        self._current_phase: str = "PENDING"
+        self._live: Live | None = None
+        self._last_render_time: float = 0.0
         self._dispatch: dict[str, Any] = {
             "task_started": self._on_task_started,
             "phase_change": self._on_phase_change,
@@ -59,6 +68,22 @@ class OrchestrationMonitor:
     def __enter__(self) -> OrchestrationMonitor:
         self._exited = False
         self.display_active = True
+        if not self._json_mode:
+            from deviate.ui.render import compose_display
+
+            self._live = Live(
+                compose_display(
+                    list(self._tasks.values()),
+                    list(self._agent_output_buffer),
+                    1,
+                    self._total_tasks or 1,
+                    self._current_phase,
+                ),
+                console=self._console,
+                refresh_per_second=10,
+                transient=True,
+            )
+            self._live.__enter__()
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -66,6 +91,9 @@ class OrchestrationMonitor:
             return
         self._exited = True
         self.display_active = False
+        if self._live is not None:
+            self._live.__exit__(*args)
+            self._live = None
 
     def _validate_event(self, event_type: str) -> None:
         if event_type not in VALID_EVENT_TYPES:
@@ -80,9 +108,26 @@ class OrchestrationMonitor:
             from deviate.ui.render import emit_jsonl
 
             emit_jsonl(event_type, **data)
+        else:
+            self._refresh_display()
+
+    def _refresh_display(self) -> None:
+        if self._live is None:
+            return
+        now = time.monotonic()
+        if now - self._last_render_time < 0.1:
+            return
+        self._last_render_time = now
+        self.render()
+
+    def _current_task_index(self) -> int:
+        return sum(
+            1 for t in self._tasks.values() if t.marker is not MarkdownStatus.PENDING
+        )
 
     def _on_task_started(self, data: dict[str, Any]) -> None:
         task_id = _resolve_task_id(data)
+        self._agent_output_buffer.clear()
         if (
             task_id in self._tasks
             and self._tasks[task_id].marker is not MarkdownStatus.PENDING
@@ -97,15 +142,17 @@ class OrchestrationMonitor:
 
     def _on_phase_change(self, data: dict[str, Any]) -> None:
         task_id = _resolve_task_id(data)
+        phase = data.get("phase", "")
+        self._current_phase = phase
         if task_id not in self._tasks:
             self._tasks[task_id] = TaskStatus(
                 id=task_id,
                 description=data.get("description", ""),
                 marker=MarkdownStatus.IN_PROGRESS,
-                phase=data.get("phase", ""),
+                phase=phase,
             )
             return
-        self._tasks[task_id].phase = data.get("phase", "")
+        self._tasks[task_id].phase = phase
         if self._tasks[task_id].marker is MarkdownStatus.PENDING:
             self._tasks[task_id].marker = MarkdownStatus.IN_PROGRESS
 
@@ -146,7 +193,28 @@ class OrchestrationMonitor:
         self.display_active = False
 
     def render(self) -> None:
-        pass
+        if self._live is None:
+            return
+        from deviate.ui.render import compose_display
+
+        idx = self._current_task_index()
+        self._live.update(
+            compose_display(
+                list(self._tasks.values()),
+                list(self._agent_output_buffer),
+                idx,
+                self._total_tasks or idx,
+                self._current_phase,
+            )
+        )
+
+    def get_task_phase(self, task_id: str) -> str:
+        task = self._tasks.get(task_id)
+        return task.phase if task else ""
+
+    @property
+    def failed_count(self) -> int:
+        return sum(1 for t in self._tasks.values() if t.marker is MarkdownStatus.FAILED)
 
     def signal_keyboard_interrupt(self) -> None:
         self._interrupted = True
