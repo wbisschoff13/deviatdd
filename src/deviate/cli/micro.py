@@ -394,14 +394,19 @@ def _find_all_pending_tasks(
                 tid = m.group(1)
                 _log(f"  tasks.md task: {tid}")
                 seen.add(tid)
-                if tid in latest and latest[tid].get("status") in _TERMINAL_STATUSES:
-                    _log(f"    → terminal ({latest[tid].get('status')}), skipping")
-                    continue
                 if tid in latest:
+                    rec = latest[tid]
+                    if (
+                        rec.get("issue_id") == issue_id
+                        and rec.get("status") in _TERMINAL_STATUSES
+                    ):
+                        _log(f"    → terminal ({rec.get('status')}), skipping")
+                        continue
+                if tid in latest and latest[tid].get("issue_id") == issue_id:
                     _log(f"    → status={latest[tid].get('status')}, including")
                     results.append((latest[tid], ledger_of.get(tid, fallback)))
                 else:
-                    _log("    → no ledger entry, assuming PENDING")
+                    _log("    → no ledger entry for this issue, assuming PENDING")
                     results.append(
                         (
                             {
