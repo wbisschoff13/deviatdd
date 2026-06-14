@@ -89,12 +89,18 @@ def _make_mock_subprocess() -> MagicMock:
 
 
 class TestMesoOrchestration:
+    @patch("deviate.cli.meso._tasks_post")
+    @patch("deviate.cli.meso._specify_post")
+    @patch("deviate.cli.meso._specify_pre")
     @patch("deviate.core.agent.AgentBackend.invoke")
     @patch("deviate.cli.micro._run_pytest")
     def test_meso_full_pipeline_success(
         self,
         mock_pytest: MagicMock,
         mock_invoke: MagicMock,
+        mock_specify_pre: MagicMock,
+        mock_specify_post: MagicMock,
+        mock_tasks_post: MagicMock,
         tmp_git_repo: Path,
     ) -> None:
         mock_invoke.return_value = MagicMock(
@@ -117,12 +123,25 @@ class TestMesoOrchestration:
                 f"Expected IDLE, got {loaded.current_phase}"
             )
 
+        mock_specify_pre.assert_called_once_with(
+            issue_id="ISS-001-001", force=False, dry_run=False
+        )
+        assert mock_invoke.call_count == 2
+        mock_specify_post.assert_called_once_with(force=False)
+        mock_tasks_post.assert_called_once_with(force=False, issue_id="ISS-001-001")
+
+    @patch("deviate.cli.meso._tasks_post")
+    @patch("deviate.cli.meso._specify_post")
+    @patch("deviate.cli.meso._specify_pre")
     @patch("deviate.core.agent.AgentBackend.invoke")
     @patch("deviate.cli.micro._run_pytest")
     def test_meso_specific_issue(
         self,
         mock_pytest: MagicMock,
         mock_invoke: MagicMock,
+        mock_specify_pre: MagicMock,
+        mock_specify_post: MagicMock,
+        mock_tasks_post: MagicMock,
         tmp_git_repo: Path,
     ) -> None:
         mock_invoke.return_value = MagicMock(
@@ -144,12 +163,24 @@ class TestMesoOrchestration:
             assert loaded.current_phase == "IDLE"
             assert loaded.active_issue_id == "ISS-001-004"
 
+        mock_specify_pre.assert_called_once_with(
+            issue_id="ISS-001-004", force=False, dry_run=False
+        )
+        mock_specify_post.assert_called_once_with(force=False)
+        mock_tasks_post.assert_called_once_with(force=False, issue_id="ISS-001-004")
+
+    @patch("deviate.cli.meso._tasks_post")
+    @patch("deviate.cli.meso._specify_post")
+    @patch("deviate.cli.meso._specify_pre")
     @patch("deviate.core.agent.AgentBackend.invoke")
     @patch("deviate.cli.micro._run_pytest")
     def test_meso_issue_progress_reset(
         self,
         mock_pytest: MagicMock,
         mock_invoke: MagicMock,
+        mock_specify_pre: MagicMock,
+        mock_specify_post: MagicMock,
+        mock_tasks_post: MagicMock,
         tmp_git_repo: Path,
     ) -> None:
         mock_invoke.return_value = MagicMock(
@@ -187,6 +218,12 @@ class TestMesoOrchestration:
             loaded = SessionState.load(dot_dir / "session.json")
             assert loaded.current_phase == "IDLE"
 
+        mock_specify_pre.assert_called_once_with(
+            issue_id="ISS-001-001", force=False, dry_run=False
+        )
+        mock_specify_post.assert_called_once_with(force=False)
+        mock_tasks_post.assert_called_once_with(force=False, issue_id="ISS-001-001")
+
     def test_meso_completed_issue_aborts(
         self,
         tmp_git_repo: Path,
@@ -201,12 +238,18 @@ class TestMesoOrchestration:
                     _meso_run(issue_id="ISS-001-001")
             assert exc_info.value.code != 0
 
+    @patch("deviate.cli.meso._tasks_post")
+    @patch("deviate.cli.meso._specify_post")
+    @patch("deviate.cli.meso._specify_pre")
     @patch("deviate.core.agent.AgentBackend.invoke")
     @patch("deviate.cli.micro._run_pytest")
     def test_meso_dry_run_no_side_effects(
         self,
         mock_pytest: MagicMock,
         mock_invoke: MagicMock,
+        mock_specify_pre: MagicMock,
+        mock_specify_post: MagicMock,
+        mock_tasks_post: MagicMock,
         tmp_git_repo: Path,
     ) -> None:
         mock_invoke.return_value = MagicMock(
@@ -230,12 +273,19 @@ class TestMesoOrchestration:
             wt_path = tmp_git_repo / ".worktrees"
             assert not wt_path.exists(), "Dry run should not create worktrees"
 
+        mock_specify_pre.assert_not_called()
+        mock_specify_post.assert_not_called()
+        mock_tasks_post.assert_not_called()
+        mock_invoke.assert_not_called()
+
+    @patch("deviate.cli.meso._tasks_post")
     @patch("deviate.core.agent.AgentBackend.invoke")
     @patch("deviate.cli.micro._run_pytest")
     def test_meso_recovery_skip_specify(
         self,
         mock_pytest: MagicMock,
         mock_invoke: MagicMock,
+        mock_tasks_post: MagicMock,
         tmp_git_repo: Path,
     ) -> None:
         mock_invoke.return_value = MagicMock(
@@ -264,10 +314,15 @@ class TestMesoOrchestration:
             loaded = SessionState.load(dot_dir / "session.json")
             assert loaded.current_phase == "IDLE"
 
+        assert mock_invoke.call_count == 1
+        mock_tasks_post.assert_called_once_with(force=False, issue_id="ISS-001-001")
+
+    @patch("deviate.cli.meso._specify_pre")
     @patch("deviate.cli.micro._run_pytest")
     def test_meso_agent_failure_aborts(
         self,
         mock_pytest: MagicMock,
+        mock_specify_pre: MagicMock,
         tmp_git_repo: Path,
     ) -> None:
         from deviate.core.agent import AgentSubprocessError
@@ -294,6 +349,94 @@ class TestMesoOrchestration:
             assert loaded.current_phase == "IDLE", (
                 "Session should remain at initial phase on agent failure"
             )
+
+    def test_meso_blocked_issue_rejected(
+        self,
+        tmp_git_repo: Path,
+    ) -> None:
+        _setup_minimal_workspace(tmp_git_repo, issue_id="ISS-001-001")
+
+        ledger = tmp_git_repo / "specs" / "issues.jsonl"
+        blocked = IssueRecord(
+            issue_id="ISS-001-002",
+            type="feature",
+            title="Blocked Issue",
+            status="BACKLOG",
+            source_file="specs/test-epic/issues/iss-002.md",
+            timestamp=datetime.now(timezone.utc),
+            blocked_by=["ISS-001-001"],
+        )
+        append_issue_transition(blocked, ledger)
+
+        with chdir(tmp_git_repo):
+            with patch("subprocess.run", _make_mock_subprocess()):
+                with pytest.raises(SystemExit) as exc_info:
+                    _meso_run(issue_id="ISS-001-002")
+            assert exc_info.value.code != 0
+
+    def test_meso_no_unblocked_issues(
+        self,
+        tmp_git_repo: Path,
+    ) -> None:
+        _setup_minimal_workspace(
+            tmp_git_repo, issue_id="ISS-001-001", issue_status="COMPLETED"
+        )
+
+        with chdir(tmp_git_repo):
+            with patch("subprocess.run", _make_mock_subprocess()):
+                with pytest.raises(SystemExit) as exc_info:
+                    _meso_run()
+            assert exc_info.value.code != 0
+
+    @patch("deviate.cli.meso._tasks_post")
+    @patch("deviate.cli.meso._specify_post")
+    @patch("deviate.cli.meso._specify_pre")
+    @patch("deviate.core.agent.AgentBackend.invoke")
+    @patch("deviate.cli.micro._run_pytest")
+    def test_meso_force_guard_bypass(
+        self,
+        mock_pytest: MagicMock,
+        mock_invoke: MagicMock,
+        mock_specify_pre: MagicMock,
+        mock_specify_post: MagicMock,
+        mock_tasks_post: MagicMock,
+        tmp_git_repo: Path,
+    ) -> None:
+        mock_invoke.return_value = MagicMock(
+            status="PASS",
+            phase="specify",
+            next_phase="/deviate-green",
+        )
+        mock_pytest.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="1 passed", stderr=""
+        )
+
+        _setup_minimal_workspace(tmp_git_repo, issue_id="ISS-001-001")
+
+        ledger = tmp_git_repo / "specs" / "issues.jsonl"
+        blocked = IssueRecord(
+            issue_id="ISS-001-002",
+            type="feature",
+            title="Blocked Issue",
+            status="BACKLOG",
+            source_file="specs/test-epic/issues/iss-002.md",
+            timestamp=datetime.now(timezone.utc),
+            blocked_by=["ISS-001-001"],
+        )
+        append_issue_transition(blocked, ledger)
+
+        with chdir(tmp_git_repo):
+            with patch("subprocess.run", _make_mock_subprocess()):
+                _meso_run(issue_id="ISS-001-002", force=True)
+
+            loaded = SessionState.load(tmp_git_repo / ".deviate" / "session.json")
+            assert loaded.current_phase == "IDLE"
+
+        mock_specify_pre.assert_called_once_with(
+            issue_id="ISS-001-002", force=True, dry_run=False
+        )
+        mock_specify_post.assert_called_once_with(force=True)
+        mock_tasks_post.assert_called_once_with(force=True, issue_id="ISS-001-002")
 
 
 class TestBuildSlimPrompt:

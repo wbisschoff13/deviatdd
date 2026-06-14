@@ -1033,6 +1033,17 @@ def _meso_run(
 
     # Re-resolve after possible reset
     record = resolve_issue_record(issue_id, ledger_path)
+
+    # ── Blocking dependency check (explicit --issue) ─────────────────
+    if record and record.blocked_by and not force:
+        for dep_id in record.blocked_by:
+            if not _is_issue_completed(dep_id, ledger_path):
+                console.print(
+                    f"[red]BLOCKED[/] {issue_id} is blocked by {dep_id} "
+                    f"(use --force to bypass)"
+                )
+                raise SystemExit(1)
+
     epic_slug = _resolve_bucket_dir(record.source_file) if record else ""
     issue_slug = _source_stem(record.source_file) if record else ""
     issue_title = record.title if record else ""
@@ -1062,9 +1073,7 @@ def _meso_run(
 
     # ── SPECIFY phase ────────────────────────────────────────────────
     if not skip_specify:
-        session = SessionState.load(session_path)
-        session = session.force_transition_to("SPECIFY")
-        session.active_issue_id = issue_id
+        _specify_pre(issue_id=issue_id, force=force, dry_run=False)
 
         prompt = _build_slim_prompt("specify", contract)
         backend = AgentBackend()
@@ -1080,15 +1089,15 @@ def _meso_run(
             )
             raise SystemExit(1)
 
+        _specify_post(force=force)
+
+    # ── TASKS phase — advance session if needed ──────────────────────
+    session = SessionState.load(session_path)
+    if session.current_phase != "TASKS":
+        session = session.force_transition_to("TASKS")
+        session.active_issue_id = issue_id
         session.save(session_path)
 
-    # ── Advance to TASKS ─────────────────────────────────────────────
-    session = SessionState.load(session_path)
-    session = session.force_transition_to("TASKS")
-    session.active_issue_id = issue_id
-    session.save(session_path)
-
-    # ── TASKS phase ──────────────────────────────────────────────────
     _tasks_pre(force=force, dry_run=False)
 
     prompt = _build_slim_prompt("tasks", contract)
@@ -1103,10 +1112,13 @@ def _meso_run(
         console.print(f"[red]TASKS_FAILED[/] agent returned status: {manifest.status}")
         raise SystemExit(1)
 
-    # ── Advance to IDLE ──────────────────────────────────────────────
+    _tasks_post(force=force, issue_id=issue_id)
+
+    # ── Final IDLE guard ─────────────────────────────────────────────
     session = SessionState.load(session_path)
-    session = session.force_transition_to("IDLE")
-    session.save(session_path)
+    if session.current_phase != "IDLE":
+        session = session.force_transition_to("IDLE")
+        session.save(session_path)
     console.print("[green]MESO[/] pipeline complete — session at IDLE")
 
 
