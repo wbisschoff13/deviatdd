@@ -604,13 +604,9 @@ def _invoke_agent_phase(phase: str, contract: dict[str, str]) -> None:
     try:
         manifest = backend.invoke(prompt)
     except AgentSubprocessError as e:
-        console.print(f"[red]{phase.upper()}_FAILED[/] {e}")
-        raise SystemExit(1) from e
+        _halt(phase.upper(), str(e))
     if manifest.status != "PASS":
-        console.print(
-            f"[red]{phase.upper()}_FAILED[/] agent returned status: {manifest.status}"
-        )
-        raise SystemExit(1)
+        _halt(phase.upper(), f"agent returned status: {manifest.status}")
 
 
 _PHASE_ORDER = ["explore", "research", "prd", "shard"]
@@ -621,12 +617,63 @@ def _macro_discover_bucket(target: str | None) -> str:
     if target:
         bucket_path = specs_root / target
         if not bucket_path.exists():
-            console.print(
-                f"[red]MACRO_HALTED: BUCKET_NOT_FOUND: '{target}' not found in specs/[/]"
-            )
-            raise SystemExit(1)
+            _halt("MACRO", f"BUCKET_NOT_FOUND: '{target}' not found in specs/")
         return target
     return discover_latest_epic(specs_root) or ""
+
+
+def _dry_run_phases(phases: list[str], resolved: str) -> None:
+    """Emit contracts and prompts for each phase without side effects."""
+    console.print("[bold][yellow]DRY_RUN[/] — no state will be mutated[/]")
+    for phase in phases:
+        contract: dict[str, str] = {"phase": phase, "target": resolved}
+        print(json.dumps(contract, indent=2))
+        prompt = _build_slim_prompt(phase, contract)
+        print(prompt)
+
+
+def _cycle_phase(phase: str, resolved: str, specs_root: Path) -> None:
+    """Execute a single macro phase: upstream check, pre, agent, post."""
+    if phase == "research" and not (specs_root / resolved / "explore.md").exists():
+        _halt("RESEARCH", "UPSTREAM_MISSING: explore.md not found")
+
+    if phase == "explore":
+        _explore_pre(problem=f"Automated explore for {resolved}", slug=resolved)
+    elif phase == "research":
+        _research_pre(epic=resolved)
+    elif phase == "prd":
+        _prd_pre()
+    elif phase == "shard":
+        _shard_pre(epic=resolved)
+
+    agent_contract: dict[str, str] = {"phase": phase, "target": resolved}
+    _invoke_agent_phase(phase, agent_contract)
+
+    if phase == "explore":
+        _explore_post()
+    elif phase == "research":
+        _research_post()
+    elif phase == "prd":
+        manifest_path = Path(".deviate") / "artifacts" / "manifest_prd.json"
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(
+            json.dumps({"epic_slug": resolved, "phase": "prd", "status": "PASS"}),
+        )
+        _prd_post(manifest=manifest_path)
+    elif phase == "shard":
+        manifest_path = Path(".deviate") / "artifacts" / "manifest_shard.json"
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "epic_slug": resolved,
+                    "phase": "shard",
+                    "status": "PASS",
+                    "issues": [],
+                },
+            ),
+        )
+        _shard_post(manifest=manifest_path, epic=resolved)
 
 
 def _macro_run(
@@ -637,81 +684,22 @@ def _macro_run(
 ) -> None:
     if from_phase and from_phase not in _PHASE_ORDER:
         valid = ", ".join(_PHASE_ORDER)
-        console.print(
-            f"[red]MACRO_HALTED: INVALID_PHASE: '{from_phase}'. Valid phases: {valid}[/]"
-        )
-        raise SystemExit(1)
+        _halt("MACRO", f"INVALID_PHASE: '{from_phase}'. Valid phases: {valid}")
 
     resolved = _macro_discover_bucket(target)
     if not resolved:
-        console.print("[red]MACRO_HALTED: no epic discovered[/]")
-        raise SystemExit(1)
+        _halt("MACRO", "no epic discovered")
 
     start_idx = _PHASE_ORDER.index(from_phase) if from_phase else 0
     phases = _PHASE_ORDER[start_idx:]
 
-    specs_root = _resolve_specs_root()
-
     if dry_run:
-        console.print("[bold][yellow]DRY_RUN[/] — no state will be mutated[/]")
-        for phase in phases:
-            contract: dict[str, str] = {
-                "phase": phase,
-                "target": resolved,
-            }
-            print(json.dumps(contract, indent=2))
-            prompt = _build_slim_prompt(phase, contract)
-            print(prompt)
+        _dry_run_phases(phases, resolved)
         return
 
+    specs_root = _resolve_specs_root()
     for phase in phases:
-        if phase == "research":
-            if not (specs_root / resolved / "explore.md").exists():
-                console.print(
-                    "[red]RESEARCH_HALTED: UPSTREAM_MISSING: explore.md not found[/]"
-                )
-                raise SystemExit(1)
-
-        if phase == "explore":
-            _explore_pre(problem=f"Automated explore for {resolved}", slug=resolved)
-        elif phase == "research":
-            _research_pre(epic=resolved)
-        elif phase == "prd":
-            _prd_pre()
-        elif phase == "shard":
-            _shard_pre(epic=resolved)
-
-        agent_contract: dict[str, str] = {
-            "phase": phase,
-            "target": resolved,
-        }
-        _invoke_agent_phase(phase, agent_contract)
-
-        if phase == "explore":
-            _explore_post()
-        elif phase == "research":
-            _research_post()
-        elif phase == "prd":
-            manifest_path = Path(".deviate") / "artifacts" / "manifest_prd.json"
-            manifest_path.parent.mkdir(parents=True, exist_ok=True)
-            manifest_path.write_text(
-                json.dumps({"epic_slug": resolved, "phase": "prd", "status": "PASS"}),
-            )
-            _prd_post(manifest=manifest_path)
-        elif phase == "shard":
-            manifest_path = Path(".deviate") / "artifacts" / "manifest_shard.json"
-            manifest_path.parent.mkdir(parents=True, exist_ok=True)
-            manifest_path.write_text(
-                json.dumps(
-                    {
-                        "epic_slug": resolved,
-                        "phase": "shard",
-                        "status": "PASS",
-                        "issues": [],
-                    },
-                ),
-            )
-            _shard_post(manifest=manifest_path, epic=resolved)
+        _cycle_phase(phase, resolved, specs_root)
 
     session_path = Path(".deviate") / "session.json"
     session = SessionState.load(session_path)
