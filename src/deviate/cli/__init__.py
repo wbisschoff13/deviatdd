@@ -219,14 +219,27 @@ def _upsert_governance_block(target_path: Path, seed_content: str) -> None:
     console.print(f"  [green]UPDATE[/] {target_path.name} block replaced")
 
 
-def _scaffold_dotfiles(workdir: Path, agent_export_mode: str) -> None:
+def _scaffold_dotfiles(
+    workdir: Path, agent_export_mode: str, model: str | None = None
+) -> None:
     dot_dir = workdir / ".deviate"
     _ensure_dir(dot_dir)
     _ensure_dir(dot_dir / "artifacts")
 
     config = DeviateConfig(agent_export_mode=agent_export_mode)
+    if model:
+        config.agent.backend = "aider"
+        config.agent.aider.model = model
+
     config_path = dot_dir / "config.toml"
-    _write_if_missing(config_path, _dict_to_toml(config.model_dump()))
+    if model or not config_path.exists():
+        config_path.write_text(_dict_to_toml(config.model_dump()))
+    else:
+        console.print(
+            "  [yellow]SKIP[/] config.toml already exists (use --model to overwrite)"
+        )
+
+    session = SessionState()
 
     session = SessionState()
     session_path = dot_dir / "session.json"
@@ -274,6 +287,8 @@ def _get_agent_skill_dir(agent_name: str, workdir: Path) -> Path | None:
         return workdir / ".opencode" / "skills"
     if agent_name == "factory":
         return workdir / ".factory" / "skills"
+    if agent_name == "aider":
+        return None
     return None
 
 
@@ -284,7 +299,8 @@ def _install_skills_to_agents(workdir: Path, agents: list[str]) -> None:
     for agent in agents:
         target_dir = _get_agent_skill_dir(agent, workdir)
         if target_dir is None:
-            console.print(f"  [yellow]SKIP[/] Unknown agent: {agent}")
+            if agent != "aider":
+                console.print(f"  [yellow]SKIP[/] Unknown agent: {agent}")
             continue
         for skill_name in skills:
             if install_skill(skill_name, target_dir):
@@ -319,12 +335,15 @@ def init(
     agent: str | None = typer.Option(
         None, "--agent", help="Override auto-detected agent platform"
     ),
+    model: str | None = typer.Option(
+        None, "--model", help="Model override (e.g. deepseek/deepseek-v4-flash)"
+    ),
 ) -> None:
     workdir = Path.cwd()
 
     console.print("[bold]Initializing deviate workspace...[/bold]")
 
-    _scaffold_dotfiles(workdir, agent_export_mode)
+    _scaffold_dotfiles(workdir, agent_export_mode, model=model)
 
     _apply_governance(workdir)
 
