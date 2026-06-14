@@ -924,7 +924,7 @@ def _run_tdd_cycle(
     task_desc = task.get("description", "")
 
     _maybe_push_event(
-        monitor, "phase_change", id=tid, phase="RED", description=task_desc
+        monitor, "phase_change", task_id=tid, phase="RED", description=task_desc
     )
     session = _run_red_phase(
         task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
@@ -936,7 +936,7 @@ def _run_tdd_cycle(
 
     while not judge_passed:
         _maybe_push_event(
-            monitor, "phase_change", id=tid, phase="GREEN", description=task_desc
+            monitor, "phase_change", task_id=tid, phase="GREEN", description=task_desc
         )
         session = _run_green_phase(
             task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
@@ -945,7 +945,11 @@ def _run_tdd_cycle(
         if session.yellow_triggered:
             c.print("  [yellow]YELLOW requested by GREEN — running YELLOW phase[/]")
             _maybe_push_event(
-                monitor, "phase_change", id=tid, phase="YELLOW", description=task_desc
+                monitor,
+                "phase_change",
+                task_id=tid,
+                phase="YELLOW",
+                description=task_desc,
             )
             session = _run_yellow_phase(
                 task,
@@ -960,7 +964,11 @@ def _run_tdd_cycle(
             session.save(session_path)
             c.print("  [yellow]Re-running GREEN after YELLOW[/]")
             _maybe_push_event(
-                monitor, "phase_change", id=tid, phase="GREEN", description=task_desc
+                monitor,
+                "phase_change",
+                task_id=tid,
+                phase="GREEN",
+                description=task_desc,
             )
             session = _run_green_phase(
                 task,
@@ -977,7 +985,7 @@ def _run_tdd_cycle(
             break
 
         _maybe_push_event(
-            monitor, "phase_change", id=tid, phase="JUDGE", description=task_desc
+            monitor, "phase_change", task_id=tid, phase="JUDGE", description=task_desc
         )
         session = _run_judge_phase(
             task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
@@ -1003,7 +1011,11 @@ def _run_tdd_cycle(
 
     if not no_refactor:
         _maybe_push_event(
-            monitor, "phase_change", id=tid, phase="REFACTOR", description=task_desc
+            monitor,
+            "phase_change",
+            task_id=tid,
+            phase="REFACTOR",
+            description=task_desc,
         )
         session = _run_refactor_phase(
             task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
@@ -1104,7 +1116,9 @@ def _execute_task_with_retry(
     agent: str | None = None,
 ) -> bool:
     tid = task.get("id", "?")
-    monitor.push_event("task_started", id=tid, description=task.get("description", ""))
+    monitor.push_event(
+        "task_started", task_id=tid, description=task.get("description", "")
+    )
     for attempt in range(2):
         try:
             _dispatch_task(
@@ -1117,12 +1131,17 @@ def _execute_task_with_retry(
                 batch_mode=True,
                 monitor=monitor,
             )
-            monitor.push_event("task_completed", id=tid)
+            monitor.push_event(
+                "task_completed",
+                task_id=tid,
+                phase=monitor.get_task_phase(tid),
+                status="completed",
+            )
             return True
         except Exception as exc:
             if attempt == 1:
                 c.print(f"  [red]FAILED[/] {tid} after 2 attempts: {exc}")
-                monitor.push_event("task_failed", id=tid, error_reason=str(exc))
+                monitor.push_event("task_failed", task_id=tid, error_reason=str(exc))
                 _append_status_transition(task, "FAILED", ledger_file)
                 return False
             c.print(f"  [yellow]RETRY[/] {tid} (attempt {attempt + 2})")
@@ -1152,7 +1171,9 @@ def _run_all(
         raise typer.Exit(code=0)
 
     non_interactive = not is_interactive()
-    monitor = OrchestrationMonitor(c, json_mode=json_mode or non_interactive)
+    monitor = OrchestrationMonitor(
+        c, json_mode=json_mode or non_interactive, total_tasks=len(pending)
+    )
 
     any_failed = False
     try:
@@ -1171,6 +1192,20 @@ def _run_all(
     except KeyboardInterrupt:
         monitor.signal_keyboard_interrupt()
         raise typer.Exit(code=130)
+
+    total = len(pending)
+    failed_count = monitor.failed_count
+    pipeline_status = (
+        "interrupted"
+        if monitor.interrupted
+        else ("completed_with_failures" if any_failed else "completed")
+    )
+    monitor.push_event(
+        "pipeline_complete",
+        total=total,
+        failed=failed_count,
+        status=pipeline_status,
+    )
 
     if any_failed:
         raise typer.Exit(code=1)
