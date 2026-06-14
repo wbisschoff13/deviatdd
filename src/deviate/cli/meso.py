@@ -19,7 +19,11 @@ from deviate.cli._common import (
     with_json_quiet,
 )
 from deviate.cli.feature import _create_feature_branch, _derive_slug
-from deviate.core.agent import AgentBackend, AgentSubprocessError
+from deviate.core.agent import (
+    AgentSubprocessError,
+    ConstitutionMissingError,
+    get_agent_backend,
+)
 from deviate.core._shared import git_env as _git_env
 from deviate.core.commit import commit_artifact
 from deviate.core.constitution import extract_commands
@@ -35,7 +39,7 @@ from deviate.core.worktree import (
     remove_worktree,
 )
 from deviate.prompts.assembly import assemble_prompt
-from deviate.state.config import SessionState, TransitionViolationError
+from deviate.state.config import AgentConfig, SessionState, TransitionViolationError
 from deviate.state.ledger import (
     IssueRecord,
     TaskRecord,
@@ -1058,13 +1062,35 @@ def _build_slim_prompt(phase: str, contract: dict[str, str]) -> str:
     )
 
 
+def _load_agent_config() -> AgentConfig:
+    dot_dir = _resolve_dot_deviate()
+    config_path = dot_dir / "config.toml"
+    if not config_path.exists():
+        return AgentConfig()
+    import tomllib
+
+    try:
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        agent_data = data.get("agent", {})
+        if isinstance(agent_data, dict) and agent_data.get("backend"):
+            return AgentConfig(**agent_data)
+    except Exception:
+        pass
+    return AgentConfig()
+
+
 def _invoke_agent_phase(phase: str, contract: dict[str, str]) -> None:
     """Build a slim prompt, invoke the agent, and abort on failure."""
     prompt = _build_slim_prompt(phase, contract)
-    backend = AgentBackend()
+    config = _load_agent_config()
+    backend = get_agent_backend(config)
     try:
         manifest = backend.invoke(prompt)
     except AgentSubprocessError as e:
+        console.print(f"[red]{phase.upper()}_FAILED[/] {e}")
+        raise SystemExit(1) from e
+    except ConstitutionMissingError as e:
         console.print(f"[red]{phase.upper()}_FAILED[/] {e}")
         raise SystemExit(1) from e
     if manifest.status != "PASS":

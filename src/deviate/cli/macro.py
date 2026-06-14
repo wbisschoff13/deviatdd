@@ -20,7 +20,12 @@ from deviate.cli._common import (
     with_json_quiet,
 )
 from deviate.core._shared import git_env as _git_env
-from deviate.core.agent import AgentBackend, AgentSubprocessError
+from deviate.core.agent import (
+    AgentSubprocessError,
+    ConstitutionMissingError,
+    get_agent_backend,
+)
+from deviate.state.config import AgentConfig
 from deviate.core.commit import commit_artifact
 from deviate.prompts.assembly import assemble_prompt
 from deviate.core.constitution import extract_commands, resolve_constitution
@@ -598,12 +603,32 @@ def _build_slim_prompt(phase: str, contract: dict[str, str]) -> str:
     )
 
 
+def _load_agent_config() -> AgentConfig:
+    config_path = Path(".deviate") / "config.toml"
+    if not config_path.exists():
+        return AgentConfig()
+    import tomllib
+
+    try:
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+        agent_data = data.get("agent", {})
+        if isinstance(agent_data, dict) and agent_data.get("backend"):
+            return AgentConfig(**agent_data)
+    except Exception:
+        pass
+    return AgentConfig()
+
+
 def _invoke_agent_phase(phase: str, contract: dict[str, str]) -> None:
     prompt = _build_slim_prompt(phase, contract)
-    backend = AgentBackend()
+    config = _load_agent_config()
+    backend = get_agent_backend(config)
     try:
         manifest = backend.invoke(prompt)
     except AgentSubprocessError as e:
+        _halt(phase.upper(), str(e))
+    except ConstitutionMissingError as e:
         _halt(phase.upper(), str(e))
     if manifest.status != "PASS":
         _halt(phase.upper(), f"agent returned status: {manifest.status}")

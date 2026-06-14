@@ -460,3 +460,11 @@ class AiderBackend(AgentBackend):
             )
 
         return self._run_post_guard(manifest)
+
+
+def get_agent_backend(config: AgentConfig | None = None) -> AgentBackend:
+    if config is None:
+        config = AgentConfig()
+    if config.backend == "aider":
+        return AiderBackend(config)
+    return AgentBackend(config)
