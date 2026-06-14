@@ -8,15 +8,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.conftest import _git_env
+
 from deviate.cli.meso import _build_slim_prompt, _meso_discover_and_sequence, _meso_run
 from deviate.state.config import SessionState
 from deviate.state.ledger import IssueRecord, append_issue_transition
-
-
-def _git_env() -> dict[str, str]:
-    import os
-
-    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
 def _setup_minimal_workspace(

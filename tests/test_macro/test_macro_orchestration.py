@@ -7,13 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.conftest import _git_env
+
 from deviate.state.config import SessionState
-
-
-def _git_env() -> dict[str, str]:
-    import os
-
-    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
 def _setup_macro_workspace(
