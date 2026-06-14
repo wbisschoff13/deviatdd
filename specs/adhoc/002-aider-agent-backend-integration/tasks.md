@@ -112,6 +112,32 @@
     - **Acceptance**: All AiderBackend methods tested. Invocation builds correct flag combinations from config. Output parsing handles success, failure, ambiguous, and malformed cases. Post-guard runs unconditionally after successful aider exit. Missing constitution is a hard abort.
 
 - TSK-002-03: Aider backend integration test with full pipeline wiring
+  - **Judge Feedback**: The GREEN phase produced an empty commit. For TSK-002-03 ("Aider backend
+    - **Judge Feedback**: integration test with full pipeline wiring"), the GREEN phase must:
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 1. Write integration tests in tests/test_integration/test_aider_backend.py
+    - **Judge Feedback**:    that verify the AiderBackend wiring works end-to-end (US-001 through
+    - **Judge Feedback**:    US-005 from spec.md). These tests should be the ones defined in the RED
+    - **Judge Feedback**:    phase — the GREEN phase just makes them pass.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 2. The tests must cover:
+    - **Judge Feedback**:    - AiderBackend.invoke() builds correct command with --message, --yes,
+    - **Judge Feedback**:      --no-auto-commits, --model, --read flags (US-001-1)
+    - **Judge Feedback**:    - AIDER_NOT_FOUND on missing binary (US-001-2)
+    - **Judge Feedback**:    - AiderConfig defaults validate correctly (US-002-1)
+    - **Judge Feedback**:    - parse_output handles PASS, FAIL, ambiguous, and parse-error cases
+    - **Judge Feedback**:      (US-003-1 through US-003-4)
+    - **Judge Feedback**:    - --read flags for constitution/CLAUDE.md injection (US-004-1 through
+    - **Judge Feedback**:      US-004-4)
+    - **Judge Feedback**:    - Post-invocation mise run test guard (US-005-1 through US-005-3)
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 3. Implementation may require mocks for subprocess.Popen, os.path.exists,
+    - **Judge Feedback**:    and mise invocation since aider binary won't be available in test env.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 4. Verify with: pytest tests/test_integration/test_aider_backend.py -v
+    - **Judge Feedback**: 
+    - **Judge Feedback**: 5. Do NOT commit empty status-only updates. The GREEN commit must contain
+    - **Judge Feedback**:    substantive code changes under src/ or tests/.
   - **Judge Feedback**: TSK-002-03 violated the TDD cycle in two ways:
     - **Judge Feedback**: 
     - **Judge Feedback**: 1. PRE-COMMITTED TESTS: The file tests/test_integration/test_aider_backend.py was committed
