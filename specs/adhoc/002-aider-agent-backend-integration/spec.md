@@ -118,6 +118,14 @@ Aider has fundamentally different invocation semantics than opencode/claude/droi
    **When** validated with Pydantic
    **Then** `ValidationError` is raised due to `extra = "forbid"`.
 
+### US-003-MANUAL-TEST: Simple Python utility function with aider
+
+* **Upstream Requirement Traceability**: FR-ADHOC-010
+
+1. **Given** a project with `src/demo/aider_test.py`
+   **When** I run the aider backend with the prompt "Add a function `greet(name: str) -> str` that returns a greeting"
+   **Then** `src/demo/aider_test.py` is created with a `greet` function that returns a string greeting.
+
 3. **Given** an `AgentConfig` with `backend = "aider"` and custom `aider` config
    **When** serialized to TOML and deserialized back
    **Then** all fields round-trip correctly, including nested `aider` fields.
