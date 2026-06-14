@@ -17,13 +17,14 @@ from rich.console import Console
 
 from deviate.core.agent import (
     BACKEND_COMMANDS,
-    AgentBackend,
     AgentBinaryNotFoundError,
     AgentSubprocessError,
     AgentTimeoutError,
+    ConstitutionMissingError,
     EmptyOutputError,
     HandoverManifest,
     MalformedHandoverManifestError,
+    get_agent_backend,
 )
 from deviate.core.profile import resolve_profile
 from deviate.core.tamper import TamperContext, TamperGuard, TamperVerdict
@@ -208,7 +209,7 @@ def _invoke_agent(
     c.print(f"  [dim]Invoking agent ({backend_name})...[/]")
     _save_agent_log(phase, task_id, "prompt", prompt)
     try:
-        backend = AgentBackend(config=AgentConfig(backend=backend_name))
+        backend = get_agent_backend(AgentConfig(backend=backend_name))
         output_handler = _make_output_handler(c)
         raw_lines: list[str] = []
 
@@ -238,6 +239,7 @@ def _invoke_agent(
         return None, partial_output
     except (
         AgentSubprocessError,
+        ConstitutionMissingError,
         MalformedHandoverManifestError,
         EmptyOutputError,
     ) as exc:
