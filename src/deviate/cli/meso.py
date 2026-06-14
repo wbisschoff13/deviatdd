@@ -870,21 +870,65 @@ def _tasks_post(force: bool = False, issue_id: str | None = None) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _infer_issue_id_from_branch(branch_name: str, ledger_path: Path) -> str | None:
+    """Derive issue ID from a conventional feature branch name.
+
+    Patterns:
+      feat/adhoc/NNN-slug       → ISS-ADH-NNN
+      feat/NNN-epic/M-slug       → ISS-NNN-M
+
+    Verifies the derived ID exists in the ledger before returning it.
+    Returns ``None`` if the branch doesn't match or the derived ID is not found.
+    """
+    match = re.match(r"^feat/([^/]+)/(\d+)-", branch_name)
+    if not match:
+        return None
+    epic_slug = match.group(1)
+    issue_num = match.group(2)
+
+    if epic_slug == "adhoc":
+        derived = f"ISS-ADH-{issue_num}"
+    else:
+        epic_match = re.match(r"^(\d+)", epic_slug)
+        if not epic_match:
+            return None
+        derived = f"ISS-{epic_match.group(1)}-{issue_num}"
+
+    record = resolve_issue_record(derived, ledger_path)
+    if record is None:
+        return None
+    return derived
+
+
+def _resolve_pr_issue_id(
+    session_issue_id: str | None, branch_name: str, ledger_path: Path
+) -> tuple[str, IssueRecord] | None:
+    """Resolve the issue ID for PR operations.
+
+    Priority:
+    1. Branch-name derivation (e.g. feat/adhoc/NNN-slug → ISS-ADH-NNN)
+    2. Session active_issue_id fallback
+    """
+    # Try branch-based derivation first
+    branch_id = _infer_issue_id_from_branch(branch_name, ledger_path)
+    if branch_id:
+        record = resolve_issue_record(branch_id, ledger_path)
+        if record:
+            return branch_id, record
+
+    # Fall back to session active_issue_id
+    if not session_issue_id:
+        return None
+    record = resolve_issue_record(session_issue_id, ledger_path)
+    if record is None:
+        return None
+    return session_issue_id, record
+
+
 def _pr_pre() -> None:
     session, _ = _load_session_accept("TASKS", "IDLE")
     repo_root = Path.cwd()
-    issue_id = session.active_issue_id
-    if not issue_id:
-        console.print("[red]NO_ACTIVE_ISSUE[/] session has no active_issue_id")
-        raise typer.Exit(code=1)
     ledger_path = _resolve_specs_root() / "issues.jsonl"
-    record = resolve_issue_record(issue_id, ledger_path)
-    if record is None:
-        console.print(f"[red]ISSUE_NOT_FOUND[/] {issue_id}")
-        raise typer.Exit(code=1)
-    console.print(f"[green]ISSUE[/] {issue_id}: {record.title}")
-
-    git_state = gather_git_state(repo=repo_root)
 
     try:
         result = subprocess.run(
@@ -898,6 +942,18 @@ def _pr_pre() -> None:
         branch_name = result.stdout.strip()
     except Exception:
         branch_name = "detached"
+
+    resolved = _resolve_pr_issue_id(session.active_issue_id, branch_name, ledger_path)
+    if resolved is None:
+        console.print("[red]NO_ISSUE[/] could not resolve issue from branch or session")
+        raise typer.Exit(code=1)
+    issue_id, record = resolved
+    if issue_id != session.active_issue_id:
+        console.print(f"[green]BRANCH_INFERRED[/] {issue_id} derived from branch name")
+
+    console.print(f"[green]ISSUE[/] {issue_id}: {record.title}")
+
+    git_state = gather_git_state(repo=repo_root)
 
     pr_title, pr_body, base_branch = _derive_pr_metadata(
         branch_name, issue_id, record.title, record.type
@@ -923,15 +979,30 @@ def _pr_run(
     auto_merge: bool = False,
 ) -> None:
     session, session_path = _load_session_accept("TASKS", "IDLE")
-    issue_id = session.active_issue_id
-    if not issue_id:
-        console.print("[red]NO_ACTIVE_ISSUE[/] session has no active_issue_id")
-        raise typer.Exit(code=1)
+    repo_root = Path.cwd()
     ledger_path = _resolve_specs_root() / "issues.jsonl"
-    record = resolve_issue_record(issue_id, ledger_path)
-    if record is None:
-        console.print(f"[red]ISSUE_NOT_FOUND[/] {issue_id}")
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_root,
+            env=_git_env(),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        branch_name = result.stdout.strip()
+    except Exception:
+        branch_name = "detached"
+
+    resolved = _resolve_pr_issue_id(session.active_issue_id, branch_name, ledger_path)
+    if resolved is None:
+        console.print("[red]NO_ISSUE[/] could not resolve issue from branch or session")
         raise typer.Exit(code=1)
+    issue_id, record = resolved
+    if issue_id != session.active_issue_id:
+        console.print(f"[green]BRANCH_INFERRED[/] {issue_id} derived from branch name")
+
     if not body_file.exists():
         console.print(f"[red]BODY_FILE_NOT_FOUND[/] {body_file}")
         raise typer.Exit(code=1)
