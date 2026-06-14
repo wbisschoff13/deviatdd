@@ -347,3 +347,293 @@ class TestAgentBackendErrors:
         assert issubclass(MalformedHandoverManifestError, Exception)
         assert issubclass(AgentBinaryNotFoundError, Exception)
         assert issubclass(EmptyOutputError, Exception)
+
+
+class TestAiderBackendInvocation:
+    """AiderBackend: subprocess invocation, flag building, binary handling."""
+
+    def test_aider_backend_invocation_default_flags(self, tmp_path):
+        from deviate.core.agent import AiderBackend
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+        (tmp_path / "specs" / "constitution.md").write_text("# Constitution")
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        args = backend._build_aider_command(
+            prompt="test prompt",
+            aider_cfg=AiderConfig(),
+            repo_root=tmp_path,
+        )
+
+        assert args[0] == "aider"
+        assert "--message" in args
+        msg_idx = args.index("--message")
+        assert args[msg_idx + 1] == "test prompt"
+        assert "--yes" in args
+        assert "--no-suggest-shell-commands" in args
+        assert "--no-auto-commits" in args
+        assert "--model" in args
+        model_idx = args.index("--model")
+        assert args[model_idx + 1] == "claude-sonnet-4-20250514"
+
+    def test_aider_backend_custom_model(self, tmp_path):
+        from deviate.core.agent import AiderBackend
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+        (tmp_path / "specs" / "constitution.md").write_text("# Constitution")
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        cfg = AiderConfig(model="deepseek")
+        args = backend._build_aider_command("prompt", cfg, tmp_path)
+
+        model_idx = args.index("--model")
+        assert args[model_idx + 1] == "deepseek"
+
+    def test_aider_backend_auto_commits_true_omits_flag(self, tmp_path):
+        from deviate.core.agent import AiderBackend
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+        (tmp_path / "specs" / "constitution.md").write_text("# Constitution")
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        cfg = AiderConfig(auto_commits=True)
+        args = backend._build_aider_command("prompt", cfg, tmp_path)
+
+        assert "--no-auto-commits" not in args
+
+    def test_aider_backend_suggest_shell_commands_true_omits_flag(self, tmp_path):
+        from deviate.core.agent import AiderBackend
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+        (tmp_path / "specs" / "constitution.md").write_text("# Constitution")
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        cfg = AiderConfig(suggest_shell_commands=True)
+        args = backend._build_aider_command("prompt", cfg, tmp_path)
+
+        assert "--no-suggest-shell-commands" not in args
+
+    def test_aider_backend_yes_mode_false_omits_flag(self, tmp_path):
+        from deviate.core.agent import AiderBackend
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+        (tmp_path / "specs" / "constitution.md").write_text("# Constitution")
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        cfg = AiderConfig(yes_mode=False)
+        args = backend._build_aider_command("prompt", cfg, tmp_path)
+
+        assert "--yes" not in args
+
+    def test_aider_backend_not_found(self):
+        from deviate.core.agent import AiderBackend, AgentBinaryNotFoundError
+
+        with (
+            patch("subprocess.run", side_effect=FileNotFoundError),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            config = AgentConfig(backend="aider")
+            backend = AiderBackend(config=config)
+            with pytest.raises(AgentBinaryNotFoundError):
+                backend.invoke("test prompt")
+
+    def test_aider_backend_read_files_from_config(self, tmp_path):
+        from deviate.core.agent import AiderBackend
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+        (tmp_path / "specs" / "constitution.md").write_text("# Constitution")
+        (tmp_path / "notes.md").write_text("# Notes")
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        cfg = AiderConfig(read_files=["specs/constitution.md", "notes.md"])
+        args = backend._build_aider_command("prompt", cfg, tmp_path)
+
+        read_indices = [i for i, a in enumerate(args) if a == "--read"]
+        read_values = [args[i + 1] for i in read_indices]
+        assert "specs/constitution.md" in read_values
+        assert "notes.md" in read_values
+
+
+class TestAiderBackendContextInjection:
+    """AiderBackend: context injection via --read flags for constitution / CLAUDE.md."""
+
+    def test_aider_backend_context_read_both_exist(self, tmp_path):
+        from deviate.core.agent import AiderBackend
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+        (tmp_path / "specs" / "constitution.md").write_text("# Constitution")
+        (tmp_path / "CLAUDE.md").write_text("# CLAUDE")
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        args = backend._build_aider_command("prompt", AiderConfig(), tmp_path)
+
+        read_indices = [i for i, a in enumerate(args) if a == "--read"]
+        read_values = [args[i + 1] for i in read_indices]
+        assert "specs/constitution.md" in read_values
+        assert "CLAUDE.md" in read_values
+
+    def test_aider_backend_context_constitution_missing_aborts(self, tmp_path):
+        from deviate.core.agent import AiderBackend, ConstitutionMissingError
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        with pytest.raises(ConstitutionMissingError):
+            backend._build_aider_command("prompt", AiderConfig(), tmp_path)
+
+    def test_aider_backend_context_claude_missing_skips(self, tmp_path):
+        from deviate.core.agent import AiderBackend
+        from deviate.state.config import AiderConfig
+
+        (tmp_path / "specs").mkdir(parents=True)
+        (tmp_path / "specs" / "constitution.md").write_text("# Constitution")
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        args = backend._build_aider_command("prompt", AiderConfig(), tmp_path)
+
+        read_indices = [i for i, a in enumerate(args) if a == "--read"]
+        read_values = [args[i + 1] for i in read_indices]
+        assert "specs/constitution.md" in read_values
+        assert "CLAUDE.md" not in read_values
+
+
+class TestAiderBackendOutputParsing:
+    """AiderBackend: output parsing from aider's chat-style output."""
+
+    SAMPLE_SUCCESS = """\
+Aider v0.75.0
+Model: claude-sonnet-4-20250514
+Added src/deviate/core/micro.py to the chat.
+Applied edit to src/deviate/core/micro.py.
+✓ All tests passed!
+"""
+
+    SAMPLE_FAILURE = """\
+Aider v0.75.0
+Model: claude-sonnet-4-20250514
+Applied edit to src/deviate/core/micro.py.
+Tests: 1 failed
+FAILED test_micro.py::test_something - AssertionError: assert False
+"""
+
+    SAMPLE_AMBIGUOUS = """\
+Aider v0.75.0
+Model: claude-sonnet-4-20250514
+Applied edit to src/deviate/core/micro.py.
+No errors detected.
+All changes applied successfully.
+"""
+
+    SAMPLE_MALFORMED = ""
+
+    def test_aider_output_parse_all_tests_passed(self):
+        from deviate.core.agent import AiderBackend
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        manifest = backend.parse_output(self.SAMPLE_SUCCESS, "aider")
+
+        assert manifest.status == "PASS"
+
+    def test_aider_output_parse_tests_failed(self):
+        from deviate.core.agent import AiderBackend
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        manifest = backend.parse_output(self.SAMPLE_FAILURE, "aider")
+
+        assert manifest.status == "FAIL"
+
+    def test_aider_output_parse_ambiguous(self):
+        from deviate.core.agent import AiderBackend
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        manifest = backend.parse_output(self.SAMPLE_AMBIGUOUS, "aider")
+
+        assert manifest.status == "PASS"
+        assert manifest.verification_result == "UNKNOWN"
+
+    def test_aider_output_parse_malformed(self):
+        from deviate.core.agent import AiderBackend, AiderParseError
+
+        backend = AiderBackend(config=AgentConfig(backend="aider"))
+        with pytest.raises(AiderParseError):
+            backend.parse_output(self.SAMPLE_MALFORMED, "aider")
+
+
+class TestAiderBackendPostGuard:
+    """AiderBackend: post-invocation `mise run test` guard behavior."""
+
+    def test_aider_post_guard_runs_mise_test(self):
+        from deviate.core.agent import AiderBackend
+
+        aider_result = MagicMock(spec=subprocess.CompletedProcess)
+        aider_result.returncode = 0
+        aider_result.stdout = "All tests passed"
+        aider_result.stderr = ""
+
+        guard_result = MagicMock(spec=subprocess.CompletedProcess)
+        guard_result.returncode = 0
+        guard_result.stdout = "1 passed"
+        guard_result.stderr = ""
+
+        with (
+            patch("subprocess.run", side_effect=[aider_result, guard_result]) as mock_run,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            config = AgentConfig(backend="aider")
+            backend = AiderBackend(config=config)
+            manifest = backend.invoke("test prompt")
+
+        assert mock_run.call_count == 2
+        mise_call_args = mock_run.call_args_list[1][0][0]
+        assert mise_call_args == ["mise", "run", "test"]
+        assert manifest.status == "PASS"
+
+    def test_aider_post_guard_catches_false_positive(self):
+        from deviate.core.agent import AiderBackend
+
+        aider_result = MagicMock(spec=subprocess.CompletedProcess)
+        aider_result.returncode = 0
+        aider_result.stdout = "All tests passed"
+        aider_result.stderr = ""
+
+        failed_guard = MagicMock(spec=subprocess.CompletedProcess)
+        failed_guard.returncode = 1
+        failed_guard.stdout = "1 failed"
+        failed_guard.stderr = ""
+
+        with (
+            patch("subprocess.run", side_effect=[aider_result, failed_guard]),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            config = AgentConfig(backend="aider")
+            backend = AiderBackend(config=config)
+            manifest = backend.invoke("test prompt")
+
+        assert manifest.status == "FAIL"
+
+    def test_aider_nonzero_exit_aborts_immediately(self):
+        from deviate.core.agent import AiderBackend, AgentSubprocessError
+
+        failed_result = MagicMock(spec=subprocess.CompletedProcess)
+        failed_result.returncode = 1
+        failed_result.stdout = ""
+        failed_result.stderr = "Error: something went wrong"
+
+        with (
+            patch("subprocess.run", return_value=failed_result),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            config = AgentConfig(backend="aider")
+            backend = AiderBackend(config=config)
+            with pytest.raises(AgentSubprocessError) as exc_info:
+                backend.invoke("test prompt")
+
+        assert "something went wrong" in str(exc_info.value)
