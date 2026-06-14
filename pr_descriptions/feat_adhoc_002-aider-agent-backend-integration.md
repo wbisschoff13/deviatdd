@@ -1,0 +1,5 @@
+The Meso/Macro Automated Orchestration Layer introduces sequential phase pipelines for the DeviaTDD workflow — `deviate meso` chains specify→tasks, `deviate macro` chains explore→research→prd→shard — fully automating the agent invocation, output validation, and state transitions that previously required manual per-phase commands. The Aider Agent Backend Integration adds aider as a fourth code-generation backend alongside opencode/claude/droid, with aider-specific `--message` invocation, chat-style output parsing, and timeout/retry handling.
+
+Agent Backend: Added `AiderBackend` provider in `src/deviate/core/agent.py` with `AiderConfig` Pydantic model for model selection, `read_files` context injection, and post-invocation test guard. Macro/Meso orchestration: Added `deviate meso` and `deviate macro` CLI commands in `src/deviate/cli/meso.py` and `src/deviate/cli/macro.py` with slim auto-prompt templates (`src/deviate/prompts/auto/`). UI: Streaming pipeline monitor with live task status in `src/deviate/ui/monitor.py`. Config: Extended `AgentConfig.backend` Literal to include `"aider"`.
+
+Closes ISS-001-008
