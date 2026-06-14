@@ -81,7 +81,7 @@ class OrchestrationMonitor:
                 ),
                 console=self._console,
                 refresh_per_second=10,
-                transient=True,
+                transient=False,
             )
             self._live.__enter__()
         return self
