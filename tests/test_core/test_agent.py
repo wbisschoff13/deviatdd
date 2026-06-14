@@ -639,3 +639,62 @@ class TestAiderBackendPostGuard:
                 backend.invoke("test prompt")
 
         assert "something went wrong" in str(exc_info.value)
+
+
+class TestGetAgentBackend:
+    def test_factory_returns_agent_backend_by_default(self):
+        from deviate.core.agent import AgentBackend, get_agent_backend
+
+        backend = get_agent_backend()
+        assert isinstance(backend, AgentBackend)
+
+    def test_factory_returns_agent_backend_for_opencode(self):
+        from deviate.core.agent import AgentBackend, get_agent_backend
+
+        backend = get_agent_backend(AgentConfig(backend="opencode"))
+        assert isinstance(backend, AgentBackend)
+
+    def test_factory_returns_agent_backend_for_claude(self):
+        from deviate.core.agent import AgentBackend, get_agent_backend
+
+        backend = get_agent_backend(AgentConfig(backend="claude"))
+        assert isinstance(backend, AgentBackend)
+
+    def test_factory_returns_aider_backend_for_aider(self):
+        from deviate.core.agent import AiderBackend, get_agent_backend
+
+        backend = get_agent_backend(AgentConfig(backend="aider"))
+        assert isinstance(backend, AiderBackend)
+
+
+class TestInvokeAgentDispatch:
+    def test_invoke_agent_uses_factory_for_aider(self, tmp_path):
+        from rich.console import Console
+        from deviate.core.agent import HandoverManifest
+
+        with (
+            patch("deviate.cli.micro.get_agent_backend") as mock_factory,
+            patch("deviate.cli.micro._save_agent_log"),
+            patch(
+                "deviate.cli.micro._make_output_handler", return_value=lambda x: None
+            ),
+        ):
+            from deviate.cli.micro import _invoke_agent
+
+            mock_backend = MagicMock()
+            mock_manifest = HandoverManifest(phase="RED", status="TEST_WRITTEN_FAILING")
+            mock_backend.invoke.return_value = mock_manifest
+            mock_factory.return_value = mock_backend
+
+            manifest, _ = _invoke_agent(
+                "test prompt",
+                Console(),
+                backend_name="aider",
+                task_id="TSK-004-99",
+                phase="RED",
+            )
+
+            assert manifest is mock_manifest
+            mock_factory.assert_called_once()
+            call_config = mock_factory.call_args[0][0]
+            assert call_config.backend == "aider"
