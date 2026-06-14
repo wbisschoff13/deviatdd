@@ -1156,8 +1156,6 @@ def _run_all(
                             c.print(
                                 f"  [yellow]RETRY[/] {tid} (attempt {attempts + 1})"
                             )
-                if any_failed:
-                    break
     except KeyboardInterrupt:
         monitor.signal_keyboard_interrupt()
 
