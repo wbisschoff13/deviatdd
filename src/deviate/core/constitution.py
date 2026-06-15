@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -24,7 +25,15 @@ class PlaceholderAuditResult:
 
 
 def validate_placeholders(seed_path: Path) -> PlaceholderAuditResult:
-    raise NotImplementedError
+    content = seed_path.read_text()
+    found = set(re.findall(r"\$\{(\w+)\}", content))
+    variables = sorted(v for v in _REQUIRED_PLACEHOLDERS if v in found)
+    missing = sorted(_REQUIRED_PLACEHOLDERS - found)
+    return PlaceholderAuditResult(
+        all_present=len(missing) == 0,
+        variables=variables,
+        missing=missing,
+    )
 
 
 def resolve_constitution(repo_root: Path) -> Path:
