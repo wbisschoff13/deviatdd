@@ -192,6 +192,62 @@ def append_issue_record(record: IssueRecord, ledger_path: Path) -> bool:
     )
 
 
+class LedgerFilter(BaseModel):
+    entity_type: Literal["issue", "task"]
+    status_filter: str | None = None
+    limit: int = Field(default=20, gt=0)
+    offset: int = Field(default=0, ge=0)
+    sort_by: Literal["created_at", "timestamp", "status"] = "created_at"
+    sort_desc: bool = True
+    model_config = {"extra": "forbid"}
+
+
+def _read_ledger_strict(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    records: list[dict] = []
+    with path.open("r", encoding="utf-8") as f:
+        for line_no, line in enumerate(f, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                raise ValueError(f"Malformed JSONL line {line_no} in {path}")
+    return records
+
+
+def filter_tasks(ledger_path: Path, filter_obj: LedgerFilter) -> list[TaskRecord]:
+    records = _read_ledger_strict(ledger_path)
+    seen: set[str] = set()
+    deduped: list[dict] = []
+    for rec in records:
+        task_id = rec.get("id")
+        if task_id and task_id in seen:
+            continue
+        if task_id:
+            seen.add(task_id)
+        deduped.append(rec)
+    if filter_obj.status_filter:
+        deduped = [r for r in deduped if r.get("status") == filter_obj.status_filter]
+    sort_key = filter_obj.sort_by
+    deduped.sort(
+        key=lambda r: r.get(sort_key, "") or "",
+        reverse=filter_obj.sort_desc,
+    )
+    start = filter_obj.offset
+    end = start + filter_obj.limit
+    result = deduped[start:end]
+    tasks: list[TaskRecord] = []
+    for r in result:
+        try:
+            tasks.append(TaskRecord.model_validate(r))
+        except PydanticValidationError:
+            continue
+    return tasks
+
+
 class AdhocRecord(BaseModel):
     issue_id: str = Field(min_length=1)
     description: str = Field(min_length=1)
