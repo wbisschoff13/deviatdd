@@ -115,3 +115,218 @@ class TestReviewPreCore:
         assert result.exit_code == 0
         contract = json.loads(result.stdout)
         assert contract["diff"] == ""
+
+    def test_review_pre_resolves_prd_epic_first(self, tmp_git_repo: Path) -> None:
+        """UT-03: Contract prd_path points to epic PRD over adhoc PRD."""
+        subprocess.run(
+            ["git", "branch", "-m", "main"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "checkout", "-b", "feat/test-epic/test-issue"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        epic_prd_dir = tmp_git_repo / "specs" / "test-epic"
+        epic_prd_dir.mkdir(parents=True, exist_ok=True)
+        epic_prd = epic_prd_dir / "prd.md"
+        epic_prd.write_text("# Epic PRD\n", encoding="utf-8")
+
+        adhoc_prd_dir = tmp_git_repo / "specs" / "adhoc"
+        adhoc_prd_dir.mkdir(parents=True, exist_ok=True)
+        adhoc_prd = adhoc_prd_dir / "prd.md"
+        adhoc_prd.write_text("# Adhoc PRD\n", encoding="utf-8")
+
+        subprocess.run(
+            ["git", "add", "-A"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "add PRD files"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        with chdir(tmp_git_repo):
+            result = runner.invoke(cli, ["review", "pre"])
+
+        assert result.exit_code == 0
+        contract = json.loads(result.stdout)
+        assert contract["prd_path"] == str(epic_prd.resolve())
+        assert not contract.get("prd_warning", False)
+
+    def test_review_pre_falls_back_to_adhoc_prd(self, tmp_git_repo: Path) -> None:
+        """UT-04: When epic PRD absent, contract prd_path points to specs/adhoc/prd.md."""
+        subprocess.run(
+            ["git", "branch", "-m", "main"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "checkout", "-b", "feat/test-epic/test-issue"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        adhoc_prd_dir = tmp_git_repo / "specs" / "adhoc"
+        adhoc_prd_dir.mkdir(parents=True, exist_ok=True)
+        adhoc_prd = adhoc_prd_dir / "prd.md"
+        adhoc_prd.write_text("# Adhoc PRD\n", encoding="utf-8")
+
+        subprocess.run(
+            ["git", "add", "-A"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "add adhoc PRD"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        with chdir(tmp_git_repo):
+            result = runner.invoke(cli, ["review", "pre"])
+
+        assert result.exit_code == 0
+        contract = json.loads(result.stdout)
+        assert contract["prd_path"] == str(adhoc_prd.resolve())
+        assert not contract.get("prd_warning", False)
+
+    def test_review_pre_no_prd_warning(self, tmp_git_repo: Path) -> None:
+        """UT-05: When no PRD found, contract emits prd_warning: true and prd_path: null."""
+        subprocess.run(
+            ["git", "branch", "-m", "main"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "checkout", "-b", "feat/test-epic/test-issue"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        (tmp_git_repo / "dummy.txt").write_text("dummy\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "dummy.txt"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "dummy commit"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        with chdir(tmp_git_repo):
+            result = runner.invoke(cli, ["review", "pre"])
+
+        assert result.exit_code == 0
+        contract = json.loads(result.stdout)
+        assert contract["prd_warning"] is True
+        assert contract["prd_path"] is None
+
+    def test_review_pre_custom_base(self, tmp_git_repo: Path) -> None:
+        """UT-08: --base develop overrides default main merge-base."""
+        subprocess.run(
+            ["git", "branch", "-m", "main"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        (tmp_git_repo / "base.txt").write_text("base\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "base.txt"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "base on main"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        subprocess.run(
+            ["git", "checkout", "-b", "develop"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        (tmp_git_repo / "dev.txt").write_text("dev\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "dev.txt"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "dev change"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        subprocess.run(
+            ["git", "checkout", "-b", "feature-branch"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        (tmp_git_repo / "feat.txt").write_text("feat\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "feat.txt"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "feature change"],
+            cwd=tmp_git_repo,
+            env=_git_env(),
+            check=True,
+        )
+
+        with chdir(tmp_git_repo):
+            result = runner.invoke(cli, ["review", "pre", "--base", "develop"])
+
+        assert result.exit_code == 0
+        contract = json.loads(result.stdout)
+        assert contract["base_branch"] == "develop"
+        assert "feat.txt" in contract["diff"]
+        assert "dev.txt" not in contract["diff"]
+
+    def test_review_pre_existing_report_warning(self, tmp_git_repo: Path) -> None:
+        """UT-09: Contract includes report_exists: true when reports dir has files."""
+        reports_dir = tmp_git_repo / ".deviate" / "review" / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        (reports_dir / "review-report-20260615T120000.md").write_text(
+            "# Old report\n", encoding="utf-8"
+        )
+
+        subprocess.run(
+            ["git", "add", "-A"], cwd=tmp_git_repo, env=_git_env(), check=False
+        )
+
+        with chdir(tmp_git_repo):
+            result = runner.invoke(cli, ["review", "pre"])
+
+        assert result.exit_code == 0
+        contract = json.loads(result.stdout)
+        assert contract["report_exists"] is True
