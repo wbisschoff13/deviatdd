@@ -16,6 +16,8 @@ _REQUIRED_PLACEHOLDERS: frozenset[str] = frozenset(
     }
 )
 
+_PLACEHOLDER_PATTERN = re.compile(r"\$\{(\w+)\}")
+
 
 @dataclass
 class PlaceholderAuditResult:
@@ -26,8 +28,8 @@ class PlaceholderAuditResult:
 
 def validate_placeholders(seed_path: Path) -> PlaceholderAuditResult:
     content = seed_path.read_text()
-    found = set(re.findall(r"\$\{(\w+)\}", content))
-    variables = sorted(v for v in _REQUIRED_PLACEHOLDERS if v in found)
+    found = set(_PLACEHOLDER_PATTERN.findall(content))
+    variables = sorted(found & _REQUIRED_PLACEHOLDERS)
     missing = sorted(_REQUIRED_PLACEHOLDERS - found)
     return PlaceholderAuditResult(
         all_present=len(missing) == 0,
@@ -50,21 +52,29 @@ def validate_constitution(path: Path) -> bool:
     return len(content.strip()) > 0
 
 
+_COMMAND_KEYS: dict[str, str] = {
+    "TEST_COMMAND": "test_command",
+    "LINT_COMMAND": "lint_command",
+    "TYPE_CHECK_COMMAND": "type_check_command",
+}
+
+
+def _extract_value(line: str) -> str | None:
+    _, _, tail = line.partition(":")
+    value = tail.strip().strip("`").strip()
+    return value or None
+
+
 def extract_commands(path: Path) -> dict[str, str]:
     content = path.read_text()
     commands: dict[str, str] = {}
     for line in content.splitlines():
         stripped = line.strip()
-        if "TEST_COMMAND" in stripped and ":" in stripped:
-            value = stripped.split(":", 1)[1].strip().strip("`").strip()
-            if value:
-                commands["test_command"] = value
-        elif "LINT_COMMAND" in stripped and ":" in stripped:
-            value = stripped.split(":", 1)[1].strip().strip("`").strip()
-            if value:
-                commands["lint_command"] = value
-        elif "TYPE_CHECK_COMMAND" in stripped and ":" in stripped:
-            value = stripped.split(":", 1)[1].strip().strip("`").strip()
-            if value:
-                commands["type_check_command"] = value
+        if ":" not in stripped:
+            continue
+        for marker, key in _COMMAND_KEYS.items():
+            if marker in stripped:
+                value = _extract_value(stripped)
+                if value:
+                    commands[key] = value
     return commands
