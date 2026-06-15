@@ -16,8 +16,12 @@ review_app = typer.Typer(no_args_is_help=True)
 
 @review_app.command()
 def pre(
-    base: str = typer.Option("main", "--base", help="Base branch for merge-base computation"),
-    branch: str | None = typer.Option(None, "--branch", help="Target branch for self-contained review"),
+    base: str = typer.Option(
+        "main", "--base", help="Base branch for merge-base computation"
+    ),
+    branch: str | None = typer.Option(
+        None, "--branch", help="Target branch for self-contained review"
+    ),
 ) -> None:
     """Gather git state and governance context for review."""
     repo = Path.cwd()
