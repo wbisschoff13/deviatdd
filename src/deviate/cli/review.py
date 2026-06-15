@@ -130,9 +130,14 @@ def _resolve_prd(branch_name: str | None, repo: Path) -> tuple[str | None, bool]
     return None, True
 
 
+def _reports_dir(repo: Path) -> Path:
+    """Resolve the .deviate/review/reports/ directory path."""
+    return repo / ".deviate" / "review" / "reports"
+
+
 def _check_existing_reports(repo: Path) -> bool:
     """Check if review reports already exist under .deviate/review/reports/."""
-    reports_dir = repo / ".deviate" / "review" / "reports"
+    reports_dir = _reports_dir(repo)
     if not reports_dir.is_dir():
         return False
     return any(reports_dir.iterdir())
@@ -148,9 +153,10 @@ def post(
         raise typer.Exit(code=0)
 
     repo = Path.cwd()
-    reports_dir = repo / ".deviate" / "review" / "reports"
+    reports_dir = _reports_dir(repo)
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     report_file = reports_dir / f"review-report-{timestamp}.md"
     report_file.write_text(content, encoding="utf-8")
+    console.print(f"[green]OK[/] report written to {report_file}")
