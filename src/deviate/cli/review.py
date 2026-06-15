@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -114,9 +114,9 @@ def _resolve_prd(branch_name: str | None, repo: Path) -> tuple[str | None, bool]
     """Resolve PRD path with epic priority over adhoc fallback."""
     epic_slug = None
     if branch_name:
-        m = re.match(r"feat/([^/]+)/", branch_name)
-        if m:
-            epic_slug = m.group(1)
+        parts = branch_name.split("/")
+        if len(parts) > 1:
+            epic_slug = parts[1]
 
     if epic_slug:
         epic_prd = repo / "specs" / epic_slug / "prd.md"
@@ -145,9 +145,15 @@ def _check_existing_reports(repo: Path) -> bool:
 
 @review_app.command()
 def post(
-    content: str | None = typer.Argument(None, help="Report markdown content"),
+    content: str | None = typer.Argument(
+        None, help="Report markdown content. If not provided, reads from stdin."
+    ),
 ) -> None:
     """Persist review report and mark review complete."""
+    if not content:
+        if not sys.stdin.isatty():
+            content = sys.stdin.read()
+
     if not content:
         console.print("[yellow]SKIP[/] no report content provided")
         raise typer.Exit(code=0)
