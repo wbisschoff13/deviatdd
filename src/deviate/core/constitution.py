@@ -65,6 +65,11 @@ def _extract_value(line: str) -> str | None:
     return value or None
 
 
+def validate_sections(path: Path, sections: list[str]) -> list[str]:
+    headings = set(re.findall(r"^(#{1,6}\s+.+)$", path.read_text(), re.MULTILINE))
+    return [s for s in sections if s not in headings]
+
+
 def extract_commands(path: Path) -> dict[str, str]:
     content = path.read_text()
     commands: dict[str, str] = {}
