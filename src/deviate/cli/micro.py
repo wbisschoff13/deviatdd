@@ -467,7 +467,8 @@ def _collect_latest_task_records(root: Path) -> list[tuple[dict, Path]]:
     return [(latest[tid], ledger_of[tid]) for tid in latest]
 
 
-_TASK_LINE_RE = re.compile(r"^\s*-\s+(?:\[.\]\s+)?(TSK-\d{3}-\d{2}):\s*(.*)")
+_BRANCH_SLUG_RE = re.compile(r"^feat/([^/]+)/([^/]+)$")
+_TASK_LINE_RE = re.compile(r"^\s*-\s+(?:\[(.)\]\s+)?(TSK-\d{3}-\d{2}):\s*(.*)")
 _MODE_LINE_RE = re.compile(r"^\s*-\s+\*\*Mode\*\*:\s*(\S+)")
 
 
@@ -475,77 +476,98 @@ def _find_all_pending_tasks(
     root: Path, issue_id: str | None = None
 ) -> list[tuple[dict, Path]]:
     _log(f"find_all_pending_tasks: issue_id={issue_id}, root={root}")
-    latest: dict[str, dict] = {}
-    ledger_of: dict[str, Path] = {}
+
+    latest_by_issue: dict[tuple[str, str], dict] = {}
+    ledger_of_by_issue: dict[tuple[str, str], Path] = {}
     for rec, ledger_file in _collect_latest_task_records(root):
         tid = rec["id"]
         rec_issue = rec.get("issue_id", "")
-        if issue_id is not None and rec_issue and rec_issue != issue_id:
+        if not rec_issue:
+            continue
+        if issue_id is not None and rec_issue != issue_id:
             _log(f"  skipping {tid} from issue {rec_issue} (expected {issue_id})")
             continue
-        latest[tid] = rec
-        ledger_of[tid] = ledger_file
-        _log(f"  ledger record: {tid} → {rec.get('status')} ({ledger_file.name})")
+        key = (rec_issue, tid)
+        latest_by_issue[key] = rec
+        ledger_of_by_issue[key] = ledger_file
+        _log(
+            f"  ledger record: {tid} ({rec_issue})"
+            f" → {rec.get('status')} ({ledger_file.name})"
+        )
 
     seen: set[str] = set()
     results: list[tuple[dict, Path]] = []
+
+    def _process_one_tasks_md(md_path: Path, md_issue_id: str) -> None:
+        fallback = md_path.parent / "tasks.jsonl"
+        content_lines = md_path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(content_lines):
+            m = _TASK_LINE_RE.match(line)
+            if m is None:
+                continue
+            tid = m.group(2)
+            checkbox = m.group(1)
+            _log(f"  tasks.md task: {tid} (issue={md_issue_id})")
+            seen.add(tid)
+            key = (md_issue_id, tid)
+            rec = latest_by_issue.get(key)
+            if rec is not None:
+                if rec.get("status") in _TERMINAL_STATUSES:
+                    _log(f"    → terminal ({rec.get('status')}), skipping")
+                    continue
+                _log(f"    → status={rec.get('status')}, including")
+                results.append((rec, ledger_of_by_issue.get(key, fallback)))
+                continue
+            if checkbox and checkbox.lower() == "x":
+                _log("    → checked [x] in tasks.md, skipping")
+                continue
+            mode = "TDD"
+            for j in range(i + 1, min(i + 10, len(content_lines))):
+                mode_m = _MODE_LINE_RE.match(content_lines[j])
+                if mode_m:
+                    mode = mode_m.group(1)
+                    break
+            _log(f"    → no ledger entry, mode={mode}")
+            results.append(
+                (
+                    {
+                        "id": tid,
+                        "issue_id": md_issue_id,
+                        "description": m.group(3).strip(),
+                        "status": "PENDING",
+                        "execution_mode": mode,
+                    },
+                    fallback,
+                )
+            )
 
     if issue_id is not None:
         tasks_md = _find_tasks_md_for_issue(root, issue_id)
         _log(f"  tasks_md: {tasks_md}")
         if tasks_md is not None:
-            fallback = tasks_md.parent / "tasks.jsonl"
-            content = tasks_md.read_text(encoding="utf-8")
-            content_lines = content.splitlines()
-            for i, line in enumerate(content_lines):
-                m = _TASK_LINE_RE.match(line)
-                if m is None:
-                    continue
-                tid = m.group(1)
-                _log(f"  tasks.md task: {tid}")
-                seen.add(tid)
-                if tid in latest:
-                    rec = latest[tid]
-                    if (
-                        rec.get("issue_id") == issue_id
-                        and rec.get("status") in _TERMINAL_STATUSES
-                    ):
-                        _log(f"    → terminal ({rec.get('status')}), skipping")
-                        continue
-                if tid in latest and latest[tid].get("issue_id") == issue_id:
-                    _log(f"    → status={latest[tid].get('status')}, including")
-                    results.append((latest[tid], ledger_of.get(tid, fallback)))
-                else:
-                    mode = "TDD"
-                    for j in range(i + 1, min(i + 10, len(content_lines))):
-                        mode_m = _MODE_LINE_RE.match(content_lines[j])
-                        if mode_m:
-                            mode = mode_m.group(1)
-                            break
-                    _log(f"    → no ledger entry, mode={mode}")
-                    results.append(
-                        (
-                            {
-                                "id": tid,
-                                "issue_id": issue_id,
-                                "description": m.group(2).strip(),
-                                "status": "PENDING",
-                                "execution_mode": mode,
-                            },
-                            fallback,
-                        )
-                    )
+            _process_one_tasks_md(tasks_md, issue_id)
+    else:
+        for tasks_md in sorted(root.glob("specs/**/tasks.md")):
+            md_issue_id = _resolve_md_issue_id(tasks_md)
+            _log(f"  tasks_md: {tasks_md} → issue_id={md_issue_id}")
+            _process_one_tasks_md(tasks_md, md_issue_id)
 
-    for tid, rec in latest.items():
+    for (rec_issue, tid), rec in latest_by_issue.items():
         if tid in seen:
             continue
-        if issue_id is not None and rec.get("issue_id") != issue_id:
+        if issue_id is not None and rec_issue != issue_id:
             continue
         if rec.get("status") not in _TERMINAL_STATUSES:
-            _log(f"  orphan ledger task: {tid} ({rec.get('status')}), including")
-            results.append((rec, ledger_of[tid]))
+            _log(
+                f"  orphan ledger task: {tid} ({rec_issue}"
+                f", {rec.get('status')}), including"
+            )
+            results.append((rec, ledger_of_by_issue[(rec_issue, tid)]))
         else:
-            _log(f"  orphan ledger task: {tid} ({rec.get('status')}), skipping")
+            _log(
+                f"  orphan ledger task: {tid} ({rec_issue}"
+                f", {rec.get('status')}), skipping"
+            )
 
     _log(f"  total pending: {len(results)}")
     return results
@@ -575,6 +597,46 @@ def _find_tasks_md_for_issue(root: Path, issue_id: str) -> Path | None:
     tasks_md = root / "specs" / epic / slug / "tasks.md"
     if tasks_md.exists():
         return tasks_md
+    return None
+
+
+def _resolve_md_issue_id(md_path: Path) -> str:
+    """Derive issue_id from a tasks.md's sibling tasks.jsonl."""
+    ledger_path = md_path.parent / "tasks.jsonl"
+    if not ledger_path.exists():
+        return ""
+    for rec in _read_ledger_records(ledger_path):
+        iid = rec.get("issue_id", "")
+        if iid:
+            return iid
+    return ""
+
+
+def _resolve_issue_id_from_branch(root: Path) -> str | None:
+    """Derive issue_id from the current git branch via issues.jsonl."""
+    try:
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, OSError):
+        return None
+    m = _BRANCH_SLUG_RE.match(branch)
+    if not m:
+        return None
+    bucket = m.group(1)
+    slug = m.group(2)
+    target = f"{bucket}/issues/{slug}.md"
+    ledger_path = root / "specs" / "issues.jsonl"
+    if not ledger_path.exists():
+        return None
+    for rec in _read_ledger_records(ledger_path):
+        src = rec.get("source_file", "")
+        if target in src:
+            return rec.get("issue_id")
     return None
 
 
@@ -1011,6 +1073,10 @@ def _run_tdd_cycle(
     monitor: OrchestrationMonitor | None = None,
 ) -> None:
     root = Path.cwd()
+    tid = task.get("id", "?")
+    if _phase_already_done(ledger_path, tid, "COMPLETED"):
+        c.print(f"  [dim]Already completed for {tid}, skipping[/]")
+        return
     _verify_worktree_branch(root)
     dot_dir = root / ".deviate"
     session_path = dot_dir / "session.json"
@@ -1399,6 +1465,8 @@ def _run_all(
         SessionState.load(session_path) if session_path.exists() else SessionState()
     )
     issue_id = session.active_issue_id
+    if not issue_id:
+        issue_id = _resolve_issue_id_from_branch(root) or issue_id
 
     pending = _find_all_pending_tasks(root, issue_id=issue_id)
     if not pending:
