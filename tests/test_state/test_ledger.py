@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from deviate.state.ledger import (
     AdhocRecord,
     IssueRecord,
+    RollbackSnapshot,
     TaskRecord,
     append_issue_record,
     append_task_record,
@@ -316,6 +317,30 @@ class TestResolveIssueRecord:
         ledger_path = tmp_path / "issues.jsonl"
         result = resolve_issue_record("nonexistent-id", ledger_path)
         assert result is None
+
+
+class TestRollbackSnapshot:
+    def test_rollback_snapshot_tracks_red_boundary(self):
+        snapshot = RollbackSnapshot(
+            phase="JUDGE",
+            branch="main",
+            commit_sha="a" * 40,
+            red_sha="b" * 40,
+            reason="test rollback",
+        )
+        assert snapshot.red_sha == "b" * 40
+        assert snapshot.commit_sha == "a" * 40
+        assert snapshot.phase == "JUDGE"
+
+    def test_rollback_snapshot_red_sha_validation(self):
+        with pytest.raises(ValidationError):
+            RollbackSnapshot(
+                phase="JUDGE",
+                branch="main",
+                commit_sha="a" * 40,
+                red_sha="invalid",
+                reason="test",
+            )
 
 
 class TestAdhocRecord:
