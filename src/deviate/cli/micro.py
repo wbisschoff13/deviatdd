@@ -875,6 +875,70 @@ def _append_judge_feedback(tasks_md: Path, task_id: str, feedback: str) -> None:
         tasks_md.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
+def _resolve_red_boundary_sha(root: Path) -> str:
+    root_sha = subprocess.run(
+        ["git", "rev-list", "--max-parents=0", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=_git_env(),
+    ).stdout.strip()
+    has_content = subprocess.run(
+        ["git", "ls-tree", "-r", root_sha],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=_git_env(),
+    ).stdout.strip()
+    if has_content:
+        return root_sha
+    children = (
+        subprocess.run(
+            ["git", "rev-list", "--reverse", f"{root_sha}..HEAD"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            env=_git_env(),
+        )
+        .stdout.strip()
+        .splitlines()
+    )
+    return children[0] if children else root_sha
+
+
+def _execute_rollback(root: Path, reason: str) -> str:
+    branch = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=_git_env(),
+    ).stdout.strip()
+    red_sha = _resolve_red_boundary_sha(root)
+    commit_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=_git_env(),
+    ).stdout.strip()
+    snapshot = RollbackSnapshot(
+        phase="JUDGE",
+        branch=branch,
+        commit_sha=commit_sha,
+        red_sha=red_sha,
+        reason=reason[:500],
+    )
+    append_rollback_snapshot(snapshot, root / ".deviate")
+    subprocess.run(
+        ["git", "revert", "--no-edit", f"{red_sha}..HEAD"],
+        cwd=root,
+        capture_output=True,
+        env=_git_env(),
+    )
+    return red_sha
+
+
 def _run_judge_phase(
     task: dict,
     ledger_path: Path,
@@ -927,64 +991,7 @@ def _run_judge_phase(
             if hasattr(manifest, "train_feedback") and manifest.train_feedback:
                 feedback = manifest.train_feedback
 
-            branch = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                env=_git_env(),
-            ).stdout.strip()
-            root_sha = subprocess.run(
-                ["git", "rev-list", "--max-parents=0", "HEAD"],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                env=_git_env(),
-            ).stdout.strip()
-            has_root_content = subprocess.run(
-                ["git", "ls-tree", "-r", root_sha],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                env=_git_env(),
-            ).stdout.strip()
-            if has_root_content:
-                red_sha = root_sha
-            else:
-                children = (
-                    subprocess.run(
-                        ["git", "rev-list", "--reverse", f"{root_sha}..HEAD"],
-                        cwd=root,
-                        capture_output=True,
-                        text=True,
-                        env=_git_env(),
-                    )
-                    .stdout.strip()
-                    .splitlines()
-                )
-                red_sha = children[0] if children else root_sha
-            if red_sha:
-                snapshot = RollbackSnapshot(
-                    phase="JUDGE",
-                    branch=branch,
-                    commit_sha=red_sha,
-                    red_sha=red_sha,
-                    reason=feedback[:500],
-                )
-                append_rollback_snapshot(snapshot, root / ".deviate")
-                subprocess.run(
-                    ["git", "revert", "--no-edit", f"{red_sha}..HEAD"],
-                    cwd=root,
-                    capture_output=True,
-                    env=_git_env(),
-                )
-            else:
-                subprocess.run(
-                    ["git", "reset", "--hard", "HEAD~1"],
-                    cwd=root,
-                    capture_output=True,
-                    env=_git_env(),
-                )
+            _execute_rollback(root, feedback)
 
             tasks_md = _resolve_tasks_md(root, task)
             if tasks_md is not None:
@@ -1140,7 +1147,6 @@ def _run_tdd_cycle(
     session_path = dot_dir / "session.json"
     session = SessionState.load(session_path)
 
-    tid = task.get("id", "?")
     task_desc = task.get("description", "")
 
     _maybe_push_event(
@@ -1351,71 +1357,7 @@ def _run_execute_phase(
 
                 c.print(f"  [red]JUDGE_REJECTED[/] {tid}: {feedback[:200]}")
 
-                branch = subprocess.run(
-                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                    cwd=root,
-                    capture_output=True,
-                    text=True,
-                    env=_git_env(),
-                ).stdout.strip()
-                commit_sha = subprocess.run(
-                    ["git", "rev-parse", "HEAD"],
-                    cwd=root,
-                    capture_output=True,
-                    text=True,
-                    env=_git_env(),
-                ).stdout.strip()
-                root_sha_exec = subprocess.run(
-                    ["git", "rev-list", "--max-parents=0", "HEAD"],
-                    cwd=root,
-                    capture_output=True,
-                    text=True,
-                    env=_git_env(),
-                ).stdout.strip()
-                has_root_content_exec = subprocess.run(
-                    ["git", "ls-tree", "-r", root_sha_exec],
-                    cwd=root,
-                    capture_output=True,
-                    text=True,
-                    env=_git_env(),
-                ).stdout.strip()
-                if has_root_content_exec:
-                    red_sha_exec = root_sha_exec
-                else:
-                    children_exec = (
-                        subprocess.run(
-                            ["git", "rev-list", "--reverse", f"{root_sha_exec}..HEAD"],
-                            cwd=root,
-                            capture_output=True,
-                            text=True,
-                            env=_git_env(),
-                        )
-                        .stdout.strip()
-                        .splitlines()
-                    )
-                    red_sha_exec = children_exec[0] if children_exec else root_sha_exec
-                if commit_sha and red_sha_exec:
-                    snapshot = RollbackSnapshot(
-                        phase="JUDGE",
-                        branch=branch,
-                        commit_sha=commit_sha,
-                        red_sha=red_sha_exec,
-                        reason=feedback[:500],
-                    )
-                    append_rollback_snapshot(snapshot, root / ".deviate")
-                    subprocess.run(
-                        ["git", "revert", "--no-edit", f"{red_sha_exec}..HEAD"],
-                        cwd=root,
-                        capture_output=True,
-                        env=_git_env(),
-                    )
-                else:
-                    subprocess.run(
-                        ["git", "reset", "--hard", "HEAD~1"],
-                        cwd=root,
-                        capture_output=True,
-                        env=_git_env(),
-                    )
+                _execute_rollback(root, feedback)
 
                 if attempt < max_judge_attempts - 1:
                     train_feedback = feedback
