@@ -1017,7 +1017,7 @@ def _run_yellow_phase(
     c: Console,
     agent: str | None = None,
     monitor: OrchestrationMonitor | None = None,
-) -> SessionState:
+) -> tuple[SessionState, str]:
     tid = task.get("id", "?")
     c.print(f"  [bold magenta]YELLOW →[/] {tid}")
 
@@ -1047,17 +1047,20 @@ def _run_yellow_phase(
                 check=False,
             )
             c.print("  [dim]Reverted test changes, re-running GREEN[/]")
+            session = session.force_transition_to("YELLOW")
+            session.save(session_path)
+            _append_status_transition(task, "YELLOW_REJECTED", ledger_path)
+            return session, "rejected"
 
     session = session.force_transition_to("YELLOW")
     session.save(session_path)
-    _append_status_transition(task, "YELLOW", ledger_path)
-    return session
+    _append_status_transition(task, "YELLOW_APPROVED", ledger_path)
+    return session, "approved"
 
 
 _PHASE_MAP: dict[str, Callable] = {
     "RED": _run_red_phase,
     "GREEN": _run_green_phase,
-    "YELLOW": _run_yellow_phase,
     "JUDGE": _run_judge_phase,
     "REFACTOR": _run_refactor_phase,
 }
@@ -1105,7 +1108,6 @@ def _run_tdd_cycle(
         )
 
         if session.yellow_triggered:
-            c.print("  [yellow]YELLOW requested by GREEN — running YELLOW phase[/]")
             _maybe_push_event(
                 monitor,
                 "phase_change",
@@ -1113,7 +1115,7 @@ def _run_tdd_cycle(
                 phase="YELLOW",
                 description=task_desc,
             )
-            session = _run_yellow_phase(
+            session, decision = _run_yellow_phase(
                 task,
                 ledger_path,
                 session,
@@ -1124,23 +1126,24 @@ def _run_tdd_cycle(
             )
             session.yellow_triggered = False
             session.save(session_path)
-            c.print("  [yellow]Re-running GREEN after YELLOW[/]")
-            _maybe_push_event(
-                monitor,
-                "phase_change",
-                task_id=tid,
-                phase="GREEN",
-                description=task_desc,
-            )
-            session = _run_green_phase(
-                task,
-                ledger_path,
-                session,
-                session_path,
-                c,
-                agent=agent,
-                monitor=monitor,
-            )
+            if decision == "rejected":
+                c.print("  [yellow]Re-running GREEN after YELLOW[/]")
+                _maybe_push_event(
+                    monitor,
+                    "phase_change",
+                    task_id=tid,
+                    phase="GREEN",
+                    description=task_desc,
+                )
+                session = _run_green_phase(
+                    task,
+                    ledger_path,
+                    session,
+                    session_path,
+                    c,
+                    agent=agent,
+                    monitor=monitor,
+                )
 
         if session.train_feedback:
             train_attempts += 1
@@ -1834,6 +1837,19 @@ def green_post() -> None:
 
     if tamper_verdict == TamperVerdict.TAMPER_DETECTED:
         console.print("[yellow]TAMPER_DETECTED[/]")
+        console.print("[yellow]YELLOW_TRIGGERED[/]")
+        # Transition to YELLOW and append YELLOW to ledger,
+        # bypassing the normal GREEN commit flow.
+        try:
+            record = TaskRecord.model_validate(red_task[0])
+            record.status = "YELLOW"  # type: ignore[assignment]
+            append_task_transition(record, red_task[1])
+        except Exception as e:
+            console.print(f"[red]LEDGER_UPDATE_FAILED[/] {e}")
+            raise typer.Exit(code=1)
+        session = session.force_transition_to("YELLOW")
+        session.save(session_path)
+        raise typer.Exit(code=0)
 
     # Append GREEN transition for this specific task
     try:
@@ -1947,14 +1963,25 @@ def yellow_post(
         console.print("NO_CHANGES_PROPOSED")
         raise typer.Exit(code=0)
 
+    # Find latest YELLOW or GREEN task across all ledger files
+    latest_task: tuple[dict, Path] | None = None
+    for ledger_file in sorted(root.glob(_LEDGER_GLOB)):
+        for rec in _read_ledger_records(ledger_file):
+            if rec.get("status") in ("GREEN", "YELLOW"):
+                latest_task = (rec, ledger_file)
+
     if approved:
         _commit_phase("feat: YELLOW phase — approved amendments", root)
-        session = session.force_transition_to("GREEN")
+        if latest_task is not None:
+            _append_status_transition(latest_task[0], "YELLOW_APPROVED", latest_task[1])
+        session = session.force_transition_to("JUDGE")
         session.save(session_path)
         console.print("[green]YELLOW_POST_OK[/]")
 
     if rejected:
         subprocess.run(["git", "restore", "."], cwd=root, env=_git_env(), check=False)
+        if latest_task is not None:
+            _append_status_transition(latest_task[0], "YELLOW_REJECTED", latest_task[1])
         session = session.force_transition_to("GREEN")
         session.save(session_path)
         console.print("[yellow]YELLOW_REVERTED[/]")
