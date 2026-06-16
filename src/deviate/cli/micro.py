@@ -1136,7 +1136,8 @@ def _finish_tdd_cycle(
     c: Console,
     no_refactor: bool,
     monitor: OrchestrationMonitor | None = None,
-) -> None:
+    agent: str | None = None,
+) -> SessionState:
     tid = task.get("id", "?")
     if not no_refactor:
         _maybe_push_event(
@@ -1146,8 +1147,8 @@ def _finish_tdd_cycle(
             phase="REFACTOR",
             description=task.get("description", ""),
         )
-        _run_refactor_phase(
-            task, ledger_path, session, session_path, c, agent=None, monitor=monitor
+        session = _run_refactor_phase(
+            task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
         )
     else:
         _append_status_transition(task, "COMPLETED", ledger_path)
@@ -1156,6 +1157,7 @@ def _finish_tdd_cycle(
         session.yellow_triggered = False
         session.train_feedback = ""
         session.save(session_path)
+    return session
 
 
 def _run_tdd_cycle(
@@ -1191,7 +1193,9 @@ def _run_tdd_cycle(
         session = _run_judge_phase(
             task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
         )
-        _finish_tdd_cycle(task, ledger_path, session, session_path, c, no_refactor)
+        session = _finish_tdd_cycle(
+            task, ledger_path, session, session_path, c, no_refactor, agent=agent
+        )
         return
 
     if start_phase == "YELLOW":
@@ -1215,7 +1219,16 @@ def _run_tdd_cycle(
         session = _run_judge_phase(
             task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
         )
-        _finish_tdd_cycle(task, ledger_path, session, session_path, c, no_refactor)
+        session = _finish_tdd_cycle(
+            task,
+            ledger_path,
+            session,
+            session_path,
+            c,
+            no_refactor,
+            monitor=monitor,
+            agent=agent,
+        )
         return
 
     _maybe_push_event(
@@ -1319,25 +1332,16 @@ def _run_tdd_cycle(
         else:
             judge_passed = True
 
-    if not no_refactor:
-        _maybe_push_event(
-            monitor,
-            "phase_change",
-            task_id=tid,
-            phase="REFACTOR",
-            description=task_desc,
-        )
-        session = _run_refactor_phase(
-            task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
-        )
-    else:
-        _append_status_transition(task, "COMPLETED", ledger_path)
-        c.print(f"  [bold green]COMPLETED[/] {task.get('id', '?')}")
-
-        session = session.force_transition_to("IDLE")
-        session.yellow_triggered = False
-        session.train_feedback = ""
-        session.save(session_path)
+    session = _finish_tdd_cycle(
+        task,
+        ledger_path,
+        session,
+        session_path,
+        c,
+        no_refactor,
+        monitor=monitor,
+        agent=agent,
+    )
 
 
 def _run_execute_phase(
