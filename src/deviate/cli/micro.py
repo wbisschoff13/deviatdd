@@ -2051,6 +2051,10 @@ def yellow_pre(
     root = Path.cwd()
     _resolve_task_context(task, root)
 
+    skill = _load_skill_content("YELLOW")
+    if not skill:
+        console.print("[yellow]SKILL_NOT_FOUND[/] deviate-yellow")
+
     changed = _detect_phase_changes(root)
     test_files = [str(f) for f in _find_test_files(root)]
 
@@ -2075,6 +2079,11 @@ def yellow_post(
         raise typer.Exit(code=1)
 
     root = Path.cwd()
+
+    skill = _load_skill_content("YELLOW")
+    if not skill:
+        console.print("[yellow]SKILL_NOT_FOUND[/] deviate-yellow")
+
     dot_dir = root / ".deviate"
     session_path = dot_dir / "session.json"
     session = SessionState.load(session_path)
@@ -2131,6 +2140,11 @@ def _find_protected_modules(root: Path) -> list[str]:
 @judge_app.command(name="pre")
 def judge_pre() -> None:
     root = Path.cwd()
+
+    skill = _load_skill_content("JUDGE")
+    if not skill:
+        console.print("[yellow]SKILL_NOT_FOUND[/] deviate-judge")
+
     changed = _detect_phase_changes(root)
 
     protected = _find_protected_modules(root)
