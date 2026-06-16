@@ -708,3 +708,107 @@ class TestJudgeTrainRollback:
         assert log_before == log_after, (
             "git log must be unchanged when no violation detected"
         )
+
+
+class TestFindTaskRecord:
+    """_find_task_record returns the latest (last) matching record."""
+
+    def test_find_task_record_returns_latest_status(self, tmp_path: Path):
+        from deviate.cli.micro import _find_task_record
+
+        records = [
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "test",
+                "status": "PENDING",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "test",
+                "status": "RED",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "test",
+                "status": "GREEN",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "test",
+                "status": "JUDGE",
+            },
+        ]
+        ledger_path = tmp_path / "specs" / "005-micro-layer" / "tasks.jsonl"
+        ledger_path.parent.mkdir(parents=True)
+        for r in records:
+            ledger_path.open("a").write(json.dumps(r) + "\n")
+
+        result = _find_task_record(tmp_path, "TSK-005-07")
+        assert result is not None, "Expected to find the task record"
+        task, ledger_file = result
+        assert task["status"] == "JUDGE", (
+            f"Expected latest status JUDGE, got {task['status']}"
+        )
+        assert ledger_file == ledger_path
+
+    def test_find_task_record_multiple_entries_returns_last(self, tmp_path: Path):
+        from deviate.cli.micro import _find_task_record
+
+        ledger_path = tmp_path / "specs" / "adhoc" / "tasks.jsonl"
+        ledger_path.parent.mkdir(parents=True)
+        for r in [
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "first",
+                "status": "PENDING",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "first",
+                "status": "RED",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "first",
+                "status": "GREEN",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "first",
+                "status": "YELLOW",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "first",
+                "status": "YELLOW_APPROVED",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "first",
+                "status": "JUDGE",
+            },
+            {
+                "id": "TSK-005-07",
+                "issue_id": "ISS-002-005",
+                "description": "first",
+                "status": "COMPLETED",
+            },
+        ]:
+            ledger_path.open("a").write(json.dumps(r) + "\n")
+
+        result = _find_task_record(tmp_path, "TSK-005-07")
+        assert result is not None
+        task, ledger_file = result
+        assert task["status"] == "COMPLETED", (
+            f"Expected COMPLETED as last record, got {task['status']}"
+        )
