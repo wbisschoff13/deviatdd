@@ -328,6 +328,10 @@ def _invoke_agent(
         return None, ""
 
 
+_YELLOW_DECISION_REJECTED = "rejected"
+_YELLOW_DECISION_APPROVED = "approved"
+
+
 _TIMEOUT_SUMMARY_PROMPT = """\
 The previous agent attempt for the GREEN (implementation) phase timed out.
 Partial output from that attempt is below.
@@ -1047,15 +1051,14 @@ def _run_yellow_phase(
                 check=False,
             )
             c.print("  [dim]Reverted test changes, re-running GREEN[/]")
-            session = session.force_transition_to("YELLOW")
-            session.save(session_path)
             _append_status_transition(task, "YELLOW_REJECTED", ledger_path)
-            return session, "rejected"
+            return session, _YELLOW_DECISION_REJECTED
 
     session = session.force_transition_to("YELLOW")
+    session.yellow_triggered = False
     session.save(session_path)
     _append_status_transition(task, "YELLOW_APPROVED", ledger_path)
-    return session, "approved"
+    return session, _YELLOW_DECISION_APPROVED
 
 
 _PHASE_MAP: dict[str, Callable] = {
@@ -1124,9 +1127,7 @@ def _run_tdd_cycle(
                 agent=agent,
                 monitor=monitor,
             )
-            session.yellow_triggered = False
-            session.save(session_path)
-            if decision == "rejected":
+            if decision == _YELLOW_DECISION_REJECTED:
                 c.print("  [yellow]Re-running GREEN after YELLOW[/]")
                 _maybe_push_event(
                     monitor,
