@@ -64,6 +64,27 @@
     - **Edge Cases**: Existing sessions in SPECIFY phase — the stub should print a clear migration message pointing to the new workflow
     - **Acceptance**: `ls src/deviate/prompts/skills/deviate-specify/SKILL.md` returns non-zero exit code; `deviate specify --help` shows deprecation notice; full test suite passes
 
+- TSK-003-07: Restore `_specify_pre` worktree creation + issue claiming functionality
+  - **Type**: Bug
+  - **Mode**: IMMEDIATE
+  - **Verification**: `uv run pytest tests/test_meso/test_specify.py -v && uv run pytest tests/test_cli/test_meso.py -v`
+  - **Estimated Time**: 45 minutes
+  - **Dependency**: None
+  - **Files**:
+    - `src/deviate/cli/meso.py`
+    - `tests/test_meso/test_specify.py`
+  - **Rationale**: PR review thread C01 identified that `_specify_pre` was stubbed to a deprecation notice in TSK-003-03, removing the only caller of `_try_claim_issue`. This breaks the Meso-layer workflow: `_meso_run` no longer creates worktrees or claims issues, violating the Git Isolation Principle. The worktree+claim logic in `_try_claim_issue` (lines 318-441) is complete and functional — it just needs a surviving caller.
+  - **Details**:
+    - **Implementation**: Restore `_specify_pre` (line 445) to resolve the issue record from ledger and call `_try_claim_issue`, returning the worktree metadata dict (or failing gracefully). The flow: load record from `issue_id`, call `_try_claim_issue(record, repo_root=Path.cwd(), ledger_path=..., force=force, dry_run=dry_run)`, print worktree path on success, raise `typer.Exit(code=1)` on failure.
+    - **Implementation**: Keep `_specify_post` as a no-op stub (post-phase no longer needed — setup is a single pre step).
+    - **Implementation**: Update `_meso_run` to call the restored setup step before `_tasks_pre`. Insert the call between the dry-run check (line 905) and the worktree path resolution (line 907). Save the returned `worktree_path` and use it for the `chdir` context — do NOT derive the path a second time.
+    - **Implementation**: Update the `deviate specify` Typer CLI entry (line 955) — change its docstring and help text from `"Deprecated: specify has been merged into shard"` to `"Setup: create worktree and claim issue for the given issue ID"`. The command remains `deviate specify` but now represents the worktree+claim step, not spec enrichment.
+    - **Implementation**: Update `meso_run_command` docstring from `"Run the meso automated pipeline (specify → tasks)"` to `"Run the meso automated pipeline (setup → tasks)"`.
+    - **Implementation**: In `_meso_run`, after the worktree setup call succeeds, transition the session to `"TASKS"` (retaining the existing session advancement logic at line 911-915). The worktree setup step implicitly transitions to `"SPECIFY"` — `_meso_run` should accept `"SPECIFY"` in the subsequent `_load_session_accept` call; or, more robustly, let `_meso_run` handle the session transition directly and not require a `_load_session` guard in the setup step.
+    - **Edge Cases**: If `_try_claim_issue` returns `None` (branch on remote, worktree error, push race), `_meso_run` should abort with a clear error message and NOT proceed to tasks. If worktree already exists, `_try_claim_issue` returns the existing worktree path — `_meso_run` should use it normally.
+    - **Acceptance**: `deviate specify pre ISS-ADH-003` creates a worktree and claims the issue; `deviate meso run --issue ISS-ADH-003` creates worktree, claims, transitions session, and proceeds to tasks phase; `deviate specify --help` shows setup description, not deprecation notice.
+  - **Regression Notes**: TSK-003-03 stubbed `_specify_pre` which broke `_meso_run`'s isolation guarantee. Reverting the stub is intentional — the specify SKILL.md is still removed (TSK-003-03 deleted it), and the shard+plan workflow remains. The only change is that `deviate specify` now does what its pre-phase always did: create a worktree and claim the issue. The spec enrichment and agent invocation that used to happen in specify is absorbed by shard.
+
 - TSK-003-04: Create deviate-plan skill for per-issue localized research
   - **Type**: Feature_Batch
   - **Mode**: IMMEDIATE
@@ -144,15 +165,16 @@
 - TSK-003-01 (Shard enrichment) → TSK-003-05 (Tasks fallback — needs to know embedded format)
 - TSK-003-03 (Specify removal) → TSK-003-04 (Plan creation — execution order)
 - TSK-003-03 (Specify removal) → TSK-003-06 (Docs — must describe removal)
+- TSK-003-07 (Worktree+claim restore) — no dependency, can be done in parallel with other tasks
 
 **Risk Hotspots**:
 - Tests in `tests/test_meso/test_specify.py` will fail after TSK-003-03 removes the specify CLI entry — this is expected and handled within that task
-- The meso orchestration pipeline `_meso_run` references `_specify_pre` and `_specify_post` — keep those helpers as deprecated stubs to avoid breaking the orchestration until the plan CLI entries are created in a follow-up issue
+- TSK-003-07 re-enables `_specify_pre` to call `_try_claim_issue`, reverting the stub from TSK-003-03. This is intentional — the SKILL.md is still removed; the CLI command now does setup (worktree+claim) instead of spec enrichment. The `_meso_run` integration tests must be updated to expect worktree creation as part of the pipeline.
 
 **Merge Conflict Boundaries**:
 - `src/deviate/prompts/skills/deviate-shard/SKILL.md` — touched only by TSK-003-01
 - `src/deviate/prompts/skills/deviate-adhoc/SKILL.md` — touched only by TSK-003-02
-- `src/deviate/cli/meso.py` — touched only by TSK-003-03 (specify entry stub)
+- `src/deviate/cli/meso.py` — touched by TSK-003-03 (specify entry stub) AND TSK-003-07 (restore worktree+claim)
 - `src/deviate/prompts/skills/deviate-specify/SKILL.md` — deleted in TSK-003-03
 - `src/deviate/prompts/skills/deviate-plan/SKILL.md` — created in TSK-003-04
 - `src/deviate/prompts/skills/deviate-tasks/SKILL.md` — touched only by TSK-003-05
