@@ -1128,6 +1128,36 @@ _PHASE_MAP: dict[str, Callable] = {
 }
 
 
+def _finish_tdd_cycle(
+    task: dict,
+    ledger_path: Path,
+    session: SessionState,
+    session_path: Path,
+    c: Console,
+    no_refactor: bool,
+    monitor: OrchestrationMonitor | None = None,
+) -> None:
+    tid = task.get("id", "?")
+    if not no_refactor:
+        _maybe_push_event(
+            monitor,
+            "phase_change",
+            task_id=tid,
+            phase="REFACTOR",
+            description=task.get("description", ""),
+        )
+        _run_refactor_phase(
+            task, ledger_path, session, session_path, c, agent=None, monitor=monitor
+        )
+    else:
+        _append_status_transition(task, "COMPLETED", ledger_path)
+        c.print(f"  [bold green]COMPLETED[/] {tid}")
+        session = session.force_transition_to("IDLE")
+        session.yellow_triggered = False
+        session.train_feedback = ""
+        session.save(session_path)
+
+
 def _run_tdd_cycle(
     task: dict,
     ledger_path: Path,
@@ -1136,6 +1166,7 @@ def _run_tdd_cycle(
     no_refactor: bool = False,
     agent: str | None = None,
     monitor: OrchestrationMonitor | None = None,
+    start_phase: str | None = None,
 ) -> None:
     root = Path.cwd()
     tid = task.get("id", "?")
@@ -1148,6 +1179,44 @@ def _run_tdd_cycle(
     session = SessionState.load(session_path)
 
     task_desc = task.get("description", "")
+
+    if start_phase == "JUDGE":
+        _maybe_push_event(
+            monitor,
+            "phase_change",
+            task_id=tid,
+            phase="JUDGE",
+            description=task_desc,
+        )
+        session = _run_judge_phase(
+            task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
+        )
+        _finish_tdd_cycle(task, ledger_path, session, session_path, c, no_refactor)
+        return
+
+    if start_phase == "YELLOW":
+        _maybe_push_event(
+            monitor,
+            "phase_change",
+            task_id=tid,
+            phase="YELLOW",
+            description=task_desc,
+        )
+        session, _ = _run_yellow_phase(
+            task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
+        )
+        _maybe_push_event(
+            monitor,
+            "phase_change",
+            task_id=tid,
+            phase="JUDGE",
+            description=task_desc,
+        )
+        session = _run_judge_phase(
+            task, ledger_path, session, session_path, c, agent=agent, monitor=monitor
+        )
+        _finish_tdd_cycle(task, ledger_path, session, session_path, c, no_refactor)
+        return
 
     _maybe_push_event(
         monitor, "phase_change", task_id=tid, phase="RED", description=task_desc
@@ -1392,6 +1461,7 @@ def _dispatch_task(
     agent: str | None = None,
     batch_mode: bool = False,
     monitor: OrchestrationMonitor | None = None,
+    start_phase: str | None = None,
 ) -> None:
     mode = task.get("execution_mode", "TDD")
     c.print(f"[cyan]Processing {task.get('id', '?')} ({mode})[/]")
@@ -1412,6 +1482,7 @@ def _dispatch_task(
             no_refactor=no_refactor,
             agent=agent,
             monitor=monitor,
+            start_phase=start_phase,
         )
     else:
         _run_execute_phase(task, ledger_path, c, agent=agent, monitor=monitor)
@@ -1429,9 +1500,24 @@ def _run_single(
     task, ledger_file = result
     status = task.get("status", "PENDING")
 
-    if status in ("COMPLETED", "REFACTOR"):
+    dot_dir = root / ".deviate"
+    session_path = dot_dir / "session.json"
+    session = (
+        SessionState.load(session_path) if session_path.exists() else SessionState()
+    )
+
+    if session.current_phase == "IDLE" and status in (
+        "COMPLETED",
+        "REFACTOR",
+        "JUDGE",
+        "YELLOW",
+    ):
         c.print(f"[yellow]TASK_ALREADY_DONE[/] {task_id} is already completed")
         raise typer.Exit(code=0)
+
+    start_phase = (
+        session.current_phase if session.current_phase not in ("IDLE", "RED") else None
+    )
 
     _dispatch_task(
         task,
@@ -1441,6 +1527,7 @@ def _run_single(
         no_refactor=no_refactor,
         agent=agent,
         batch_mode=False,
+        start_phase=start_phase,
     )
 
 
