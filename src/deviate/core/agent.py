@@ -294,9 +294,9 @@ class AgentBackend:
         return self.parse_output(stdout, backend_name)
 
 
-class StubAgentBackend:
+class StubAgentBackend(AgentBackend):
     def __init__(self, config: AgentConfig | None = None) -> None:
-        self.config = config or AgentConfig()
+        super().__init__(config)
         self._invoked = False
 
     def invoke(
