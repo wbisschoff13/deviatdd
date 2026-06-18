@@ -186,6 +186,13 @@ def _resolve_seed(content: str) -> str:
     return re.sub(r"\$\{(\w+)\}", _resolve_placeholder_match, content)
 
 
+def _extract_section_heading(content: str) -> str | None:
+    match = re.search(r"^## (.+)$", content, re.MULTILINE)
+    if match:
+        return f"## {match.group(1)}"
+    return None
+
+
 def _read_seed(module: str, filename: str) -> str | None:
     try:
         seed = importlib.resources.files(module).joinpath(filename)
@@ -196,6 +203,11 @@ def _read_seed(module: str, filename: str) -> str | None:
 
 
 def _upsert_governance_block(target_path: Path, seed_content: str) -> None:
+    section_header = _extract_section_heading(seed_content)
+    if section_header is None:
+        console.print("  [red]ERROR[/] Could not extract section heading from seed")
+        return
+
     if not target_path.exists():
         target_path.write_text(seed_content, encoding="utf-8")
         console.print(f"  [green]CREATE[/] {target_path.name}")
@@ -208,15 +220,13 @@ def _upsert_governance_block(target_path: Path, seed_content: str) -> None:
         console.print(f"  [green]CREATE[/] {target_path.name}")
         return
 
-    section_header = "## DeviaTDD Orchestration Rules"
-
     if section_header not in existing:
         target_path.write_text(existing + "\n\n" + seed_content, encoding="utf-8")
         console.print(f"  [green]APPEND[/] {target_path.name}")
         return
 
     pattern = re.compile(
-        r"^## DeviaTDD Orchestration Rules.*?(?=^## |\Z)",
+        rf"^{re.escape(section_header)}.*?(?=^## |\Z)",
         re.MULTILINE | re.DOTALL,
     )
     existing = pattern.sub(lambda _: seed_content.strip(), existing)
@@ -228,14 +238,38 @@ def _detect_context() -> bool:
     return shutil.which("context") is not None
 
 
+_GRAPHITE_GOVERNANCE_SECTION = """\
+## Graphite Stacked Changes Workflow
+
+When Graphite integration is enabled (`.deviate/config.toml` contains `graphite = true`):
+
+### Branch Creation
+- Use `gt create -am "<message>"` to create a branch with an automatic commit
+- If the working tree is clean, use `gt create -m "<message>"` instead
+
+### PR Submission
+- Use `gt submit --stack` to submit the entire stack for review
+
+### Syncing
+- Use `gt sync` to sync your stack with the remote
+
+### Anti-Patterns
+- Do NOT use `git checkout -b` alongside `gt` — it bypasses Graphite's stack tracking
+- Do NOT use `gh pr create` when Graphite is enabled — use `gt submit --stack`
+- Do NOT run `gt` commands outside a Graphite-tracked repository
+"""
+
+
 def _scaffold_dotfiles(
-    workdir: Path, agent_export_mode: str, use_context: bool = False
+    workdir: Path, agent_export_mode: str, use_context: bool = False, graphite: bool = False
 ) -> None:
     dot_dir = workdir / ".deviate"
     _ensure_dir(dot_dir)
     _ensure_dir(dot_dir / "artifacts")
 
-    config = DeviateConfig(agent_export_mode=agent_export_mode, use_context=use_context)
+    config = DeviateConfig(
+        agent_export_mode=agent_export_mode, use_context=use_context, graphite=graphite
+    )
     config_path = dot_dir / "config.toml"
     _write_if_missing(config_path, _dict_to_toml(config.model_dump()))
 
@@ -262,7 +296,7 @@ def _provision_constitution(workdir: Path) -> None:
     console.print("  [green]CREATE[/] specs/constitution.md")
 
 
-def _apply_governance(workdir: Path) -> None:
+def _apply_governance(workdir: Path, graphite: bool = False) -> None:
     content = _read_seed("deviate.prompts.governance", "claudemd_seed.md")
     if content is None:
         return
@@ -276,6 +310,10 @@ def _apply_governance(workdir: Path) -> None:
 
     agents_path = workdir / "AGENTS.md"
     _upsert_governance_block(agents_path, agents_content)
+
+    if graphite:
+        _upsert_governance_block(claude_path, _GRAPHITE_GOVERNANCE_SECTION)
+        _upsert_governance_block(agents_path, _GRAPHITE_GOVERNANCE_SECTION)
 
 
 def _get_agent_skill_dir(agent_name: str, workdir: Path) -> Path | None:
@@ -333,6 +371,9 @@ def init(
     generate_constitution: bool = typer.Option(
         False, "--generate-constitution", help="Generate constitution boilerplate"
     ),
+    graphite: bool = typer.Option(
+        False, "--graphite", help="Enable Graphite CLI integration for stacked changes"
+    ),
     agent: str | None = typer.Option(
         None, "--agent", help="Override auto-detected agent platform"
     ),
@@ -341,9 +382,9 @@ def init(
 
     console.print("[bold]Initializing deviate workspace...[/bold]")
 
-    _scaffold_dotfiles(workdir, agent_export_mode, use_context=_detect_context())
+    _scaffold_dotfiles(workdir, agent_export_mode, use_context=_detect_context(), graphite=graphite)
 
-    _apply_governance(workdir)
+    _apply_governance(workdir, graphite=graphite)
 
     _provision_constitution(workdir)
 
