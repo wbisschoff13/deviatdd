@@ -26,28 +26,21 @@ def _create_feature_directory(slug: str, repo_path: Path) -> Path:
 
 def _create_feature_branch(slug: str, repo_path: Path) -> None:
     branch_name = f"feat/{slug}"
+
+    def _run(*args, **kwargs):
+        return subprocess.run(*args, cwd=repo_path, env=git_env(), **kwargs)
+
     if resolve_graphite_config(repo_path):
-        subprocess.run(
-            ["gt", "create", "-am", branch_name],
-            cwd=repo_path,
-            env=git_env(),
-            check=True,
-        )
+        _run(["gt", "create", "-am", branch_name], check=True)
         return
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", branch_name],
-        cwd=repo_path,
-        env=git_env(),
-        capture_output=True,
+
+    result = _run(
+        ["git", "rev-parse", "--verify", "--quiet", branch_name], capture_output=True
     )
     if result.returncode == 0:
         return
-    subprocess.run(
-        ["git", "branch", branch_name],
-        cwd=repo_path,
-        env=git_env(),
-        check=True,
-    )
+
+    _run(["git", "branch", branch_name], check=True)
 
 
 @feature_app.command()
