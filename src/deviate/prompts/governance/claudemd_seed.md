@@ -73,7 +73,7 @@ The `context` CLI (`~/.local/share/mise/installs/node/24.14.0/bin/context`) is a
 ### Usage Rules
 - **Discovery first**: Run `context list` to see available documentation packages before querying a library.
 - **Primary lookup**: Use `context query <library@version> "<topic>"` as the first and primary documentation mechanism for all library/framework API questions.
-- **Registration**: When a dependency is not yet indexed, use `context add <source>` (git repo URL) to register its documentation. See `/Users/werner/Development/tools/context/` for the tool source.
+- **Registration**: When a dependency is not yet indexed, use `context add <source>` (git repo URL) to register its documentation.
 - **Fallback hierarchy**: `context query` → training data → web fetch (last resort). Web fetching is only acceptable when `context` has no documentation for the required library.
 
 ### Quick-Start Workflow
