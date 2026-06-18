@@ -6,6 +6,7 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from deviate.cli import _resolve_placeholder, cli
+from deviate.cli.__init__ import resolve_graphite_config
 
 runner = CliRunner()
 
@@ -212,3 +213,27 @@ class TestInitCommand:
             assert agents_path.exists()
             agents_content = agents_path.read_text()
             assert "## Offline Context Documentation System" in agents_content
+
+    def test_resolve_graphite_config_true(self, tmp_path: Path) -> None:
+        dot_dir = tmp_path / ".deviate"
+        dot_dir.mkdir(parents=True)
+        config_path = dot_dir / "config.toml"
+        config_path.write_text("graphite = true\n", encoding="utf-8")
+        assert resolve_graphite_config(tmp_path) is True
+
+    def test_resolve_graphite_config_false(self, tmp_path: Path) -> None:
+        dot_dir = tmp_path / ".deviate"
+        dot_dir.mkdir(parents=True)
+        config_path = dot_dir / "config.toml"
+        config_path.write_text("graphite = false\n", encoding="utf-8")
+        assert resolve_graphite_config(tmp_path) is False
+
+    def test_resolve_graphite_config_key_absent(self, tmp_path: Path) -> None:
+        dot_dir = tmp_path / ".deviate"
+        dot_dir.mkdir(parents=True)
+        config_path = dot_dir / "config.toml"
+        config_path.write_text('profile = "default"\n', encoding="utf-8")
+        assert resolve_graphite_config(tmp_path) is False
+
+    def test_resolve_graphite_config_no_config(self, tmp_path: Path) -> None:
+        assert resolve_graphite_config(tmp_path) is False
