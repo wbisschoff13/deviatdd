@@ -974,7 +974,7 @@ def _run_green_phase(
         boundary_sha = session.red_commit_sha or "HEAD~1"
         subprocess.run(
             ["git", "reset", "--hard", boundary_sha],
-            cwd=Path.cwd(),
+            cwd=root,
             capture_output=True,
             env=_git_env(),
         )
@@ -1613,6 +1613,8 @@ def _run_execute_phase(
                     f"  [yellow]TEST_FAILURE on EXECUTE ({attempt + 2}/{max_judge_attempts})[/]"
                 )
                 continue
+            session.train_feedback = train_feedback
+            session.save(session_path)
             raise PhaseFailedError(
                 f"EXECUTE phase tests failed for {tid} "
                 f"after {max_judge_attempts} attempts"
