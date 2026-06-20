@@ -1166,6 +1166,7 @@ def _invoke_agent_phase(
 
     if phase == "plan":
         appendix = _build_file_structure_appendix(contract)
+        contract["file_structure_appendix"] = appendix
         if appendix:
             prompt += f"\n\n{appendix}"
 
