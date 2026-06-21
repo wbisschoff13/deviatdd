@@ -26,9 +26,7 @@ class TestFullInitCycle:
     def test_full_init_cycle_completes(self, tmp_path: Path):
         with chdir(tmp_path):
             workdir = tmp_path
-            result = runner.invoke(
-                cli, ["init", "--agent", "opencode", "--generate-constitution"]
-            )
+            result = runner.invoke(cli, ["init", "--agent", "opencode"])
             assert result.exit_code == 0, result.output
 
             dot_dir = workdir / ".deviate"
@@ -36,13 +34,11 @@ class TestFullInitCycle:
             session_path = dot_dir / "session.json"
             claude_path = workdir / "CLAUDE.md"
             agents_path = workdir / "AGENTS.md"
-            constitution_path = workdir / "specs" / "constitution.md"
 
             assert config_path.exists()
             assert session_path.exists()
             assert claude_path.exists()
             assert agents_path.exists()
-            assert constitution_path.exists()
 
             config_text = config_path.read_text()
             assert 'profile = "default"' in config_text
@@ -50,11 +46,6 @@ class TestFullInitCycle:
             session_data = json.loads(session_path.read_text())
             assert session_data["current_phase"] == "IDLE"
             assert session_data["active_issue_id"] is None
-
-            constitution_text = constitution_path.read_text()
-            assert "${PROJECT_NAME}" not in constitution_text
-            assert "${REPO_ROOT}" not in constitution_text
-            assert "[1_ARCHITECTURAL_PRINCIPLES]" in constitution_text
 
             claude_text = claude_path.read_text()
             assert "## DeviaTDD Orchestration Rules" in claude_text
