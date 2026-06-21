@@ -175,36 +175,83 @@ def _read_seed(module: str, filename: str) -> str | None:
         return None
 
 
-def _upsert_governance_block(target_path: Path, seed_content: str) -> None:
-    section_header = _extract_section_heading(seed_content)
+def _split_governance_sections(content: str) -> list[str]:
+    """Split multi-section governance content into individual ``##`` sections."""
+    parts = re.split(r"^(?=## )", content, flags=re.MULTILINE)
+    return [p.strip() for p in parts if p.strip() and p.startswith("## ")]
+
+
+def _normalize_heading(text: str) -> str:
+    """Lowercase heading text with emojis, punctuation, and parentheticals stripped."""
+    h = re.sub(r"^##\s*", "", text)
+    h = re.sub(r"\([^)]*\)", "", h)
+    h = re.sub(r"[^\w\s-]", "", h)
+    return " ".join(h.lower().split())
+
+
+def _find_section_heading(content: str, seed_header: str) -> str | None:
+    """Return the heading line in *content* that matches *seed_header*.
+
+    Tries exact match first (line-boundary aware), then normalized
+    (ignore emoji/parentheticals). Returns ``None`` when no match is found.
+    """
+    for line in content.split("\n"):
+        if line.strip().startswith(seed_header):
+            return seed_header
+
+    seed_norm = _normalize_heading(seed_header)
+    if not seed_norm:
+        return None
+
+    for heading in re.findall(r"^## .+$", content, re.MULTILINE):
+        if _normalize_heading(heading) == seed_norm:
+            return heading
+
+    return None
+
+
+def _upsert_section(target_path: Path, section_content: str) -> None:
+    section_header = _extract_section_heading(section_content)
     if section_header is None:
         console.print("  [red]ERROR[/] Could not extract section heading from seed")
         return
 
     if not target_path.exists():
-        target_path.write_text(seed_content, encoding="utf-8")
+        target_path.write_text(section_content + "\n", encoding="utf-8")
         console.print(f"  [green]CREATE[/] {target_path.name}")
         return
 
     existing = target_path.read_text(encoding="utf-8")
 
     if not existing.strip():
-        target_path.write_text(seed_content, encoding="utf-8")
+        target_path.write_text(section_content + "\n", encoding="utf-8")
         console.print(f"  [green]CREATE[/] {target_path.name}")
         return
 
-    if section_header not in existing:
-        target_path.write_text(existing + "\n\n" + seed_content, encoding="utf-8")
+    target_heading = _find_section_heading(existing, section_header)
+    if target_heading is None:
+        target_path.write_text(
+            existing.rstrip("\n") + "\n\n" + section_content + "\n", encoding="utf-8"
+        )
         console.print(f"  [green]APPEND[/] {target_path.name}")
         return
 
     pattern = re.compile(
-        rf"^{re.escape(section_header)}.*?(?=^## |\Z)",
+        rf"^{re.escape(target_heading)}.*?(?=^## |\Z)",
         re.MULTILINE | re.DOTALL,
     )
-    existing = pattern.sub(lambda _: seed_content.strip(), existing)
+    existing = pattern.sub(lambda _: section_content.strip() + "\n", existing)
     target_path.write_text(existing, encoding="utf-8")
     console.print(f"  [green]UPDATE[/] {target_path.name} block replaced")
+
+
+def _upsert_governance_block(target_path: Path, seed_content: str) -> None:
+    sections = _split_governance_sections(seed_content)
+    if not sections:
+        console.print("  [red]ERROR[/] No valid governance sections found in seed")
+        return
+    for section in sections:
+        _upsert_section(target_path, section)
 
 
 def _detect_libref() -> bool:
@@ -419,6 +466,11 @@ def _apply_governance(workdir: Path, graphite: bool = False) -> None:
     if agents_content is None:
         return
     _upsert_governance_block(agents_path, agents_content)
+
+    libref_content = _read_seed(_GOVERNANCE_MODULE, "libref_seed.md")
+    if libref_content:
+        _upsert_governance_block(claude_path, libref_content)
+        _upsert_governance_block(agents_path, libref_content)
 
     if graphite:
         content = _read_seed(_GOVERNANCE_MODULE, "graphite_seed.md")

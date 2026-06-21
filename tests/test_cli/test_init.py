@@ -53,6 +53,56 @@ class TestInitCommand:
             assert "## DeviaTDD Orchestration Rules" in content
             assert "## Other Section" in content
 
+    def test_init_replaces_multi_section_governance_block(self, tmp_path: Path):
+        """Seed has multiple sections; each is replaced independently without duplication."""
+        with chdir(tmp_path):
+            workdir = tmp_path
+            claude_path = workdir / "CLAUDE.md"
+            existing_content = (
+                "# My Project\n\n"
+                "## DeviaTDD Orchestration Rules\n"
+                "Old orchestration content\n\n"
+                "## Offline Documentation System\n"
+                "Old docs content\n\n"
+                "## Other Section\n"
+                "Preserved content\n"
+            )
+            claude_path.write_text(existing_content)
+
+            result = runner.invoke(cli, ["init", "--agent", "opencode"])
+            assert result.exit_code == 0, result.output
+
+            content = claude_path.read_text()
+            assert "Old orchestration content" not in content
+            assert "Old docs content" not in content
+            assert "Preserved content" in content
+            assert "## Other Section" in content
+            assert content.count("## DeviaTDD Orchestration Rules") == 1
+            assert content.count("## Offline Documentation System") == 1
+
+    def test_init_normalized_heading_replaces_annotated_heading(self, tmp_path: Path):
+        """Existing heading has emoji/parenthetical that seed lacks; normalized match finds it."""
+        with chdir(tmp_path):
+            workdir = tmp_path
+            claude_path = workdir / "CLAUDE.md"
+            existing_content = (
+                "# Project\n\n"
+                "## \U0001f4da Offline Documentation System (MANDATORY)\n"
+                "Old docs content\n\n"
+                "## Other Section\n"
+                "Preserved\n"
+            )
+            claude_path.write_text(existing_content)
+
+            result = runner.invoke(cli, ["init", "--agent", "opencode"])
+            assert result.exit_code == 0, result.output
+
+            content = claude_path.read_text()
+            assert "Old docs content" not in content
+            assert "Preserved" in content
+            assert "## Other Section" in content
+            assert content.count("## Offline Documentation System") == 1
+
     def test_init_skip_existing_dotfiles(self, tmp_path: Path):
         with chdir(tmp_path):
             workdir = tmp_path
