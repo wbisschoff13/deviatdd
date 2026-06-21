@@ -54,8 +54,24 @@ AGENT_TO_BACKEND: dict[str, str] = {
 }
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        from importlib.metadata import version
+
+        typer.echo(f"deviate {version('deviate')}")
+        raise typer.Exit()
+
+
 @cli.callback()
-def main() -> None:
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the version and exit",
+    ),
+) -> None:
     """DeviaTDD CLI — agent orchestration framework"""
 
 

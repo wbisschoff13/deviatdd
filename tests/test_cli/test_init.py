@@ -666,3 +666,11 @@ class TestInitAgentFlag:
         assert AGENT_TO_BACKEND["droid"] == "droid"
         assert AGENT_TO_BACKEND["claude"] == "claude"
         assert AGENT_TO_BACKEND["opencode"] == "opencode"
+
+
+def test_version():
+    from importlib.metadata import version
+
+    result = runner.invoke(cli, ["--version"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == f"deviate {version('deviate')}"
