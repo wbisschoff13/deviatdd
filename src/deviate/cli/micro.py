@@ -8,7 +8,6 @@ import re
 import subprocess
 import sys
 import warnings
-from datetime import datetime, timezone
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
@@ -68,15 +67,7 @@ def _log_run(event: str, **kwargs: object) -> None:
         logger.log(event, **kwargs)
 
 
-def _save_agent_log(phase: str, task_id: str, label: str, content: str) -> None:
-    log_dir = Path.cwd() / ".deviate"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / "prompts.log"
-    timestamp = datetime.now(timezone.utc).isoformat()
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(f"=== {timestamp} | {phase} | {task_id} | {label} ===\n")
-        f.write(content)
-        f.write("\n\n")
+
 
 
 def _phase_already_done(ledger_path: Path, task_id: str, phase: str) -> bool:
@@ -316,8 +307,8 @@ def _invoke_agent(
         phase=phase,
         backend=backend_name,
         model=model or "(default)",
+        prompt=prompt,
     )
-    _save_agent_log(phase, task_id, "prompt", prompt)
     try:
         backend = AgentBackend(config=AgentConfig(backend=backend_name))
         output_handler = _make_output_handler(c, verbose=_verbose)
@@ -335,12 +326,22 @@ def _invoke_agent(
         c.print("")
         status = getattr(manifest, "status", "?")
         verdict = getattr(manifest, "verdict", "")
+        manifest_json = manifest.model_dump_json()
         _log_run(
-            "AGENT_RESULT", task_id=task_id, phase=phase, status=status, verdict=verdict
+            "AGENT_RESULT",
+            task_id=task_id,
+            phase=phase,
+            status=status,
+            verdict=verdict,
+            manifest=manifest_json,
         )
-        _save_agent_log(phase, task_id, "manifest", manifest.model_dump_json())
         if raw_lines:
-            _save_agent_log(phase, task_id, "raw_output", "\n".join(raw_lines))
+            _log_run(
+                "AGENT_RAW_OUTPUT",
+                task_id=task_id,
+                phase=phase,
+                raw_output="\n".join(raw_lines),
+            )
         return manifest, ""
     except AgentBinaryNotFoundError:
         c.print(
@@ -352,12 +353,15 @@ def _invoke_agent(
         return None, ""
     except AgentTimeoutError as exc:
         partial_output = exc.partial_stdout or ""
-        if exc.partial_stderr:
-            _save_agent_log(phase, task_id, "timeout_stderr", exc.partial_stderr)
-        if partial_output:
-            _save_agent_log(phase, task_id, "timeout_stdout", partial_output)
         c.print(f"  [yellow]AGENT_ERROR[/] {exc}")
-        _log_run("AGENT_TIMEOUT", task_id=task_id, phase=phase, error=str(exc))
+        _log_run(
+            "AGENT_TIMEOUT",
+            task_id=task_id,
+            phase=phase,
+            error=str(exc),
+            partial_stderr=exc.partial_stderr,
+            partial_stdout=partial_output,
+        )
         return None, partial_output
     except (
         AgentSubprocessError,
@@ -2066,16 +2070,13 @@ def _verify_clean_worktree(root: Path, phase: str, tid: str) -> None:
     )
     if status.stdout.strip():
         files = status.stdout.strip().splitlines()
-        log_dir = root / ".deviate"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_path = log_dir / "prompts.log"
-        timestamp = datetime.now(timezone.utc).isoformat()
-        with log_path.open("a", encoding="utf-8") as f:
-            f.write(f"=== {timestamp} | {phase} | {tid} | POST_CMD_FAILURE ===\n")
-            f.write(f"{len(files)} uncommitted file(s):\n")
-            for line in files:
-                f.write(f"  {line}\n")
-            f.write("\n")
+        _log_run(
+            "POST_CMD_FAILURE",
+            phase=phase,
+            task_id=tid,
+            uncommitted_count=len(files),
+            files="\n".join(files),
+        )
         raise PhaseFailedError(
             f"{phase} phase agent for {tid} did not commit all files \u2014 "
             f"{len(files)} uncommitted file(s) remain after post-command"
