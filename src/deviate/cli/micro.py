@@ -1937,7 +1937,15 @@ def _commit_phase(message: str, root: Path, no_verify: bool = False) -> bool:
         ["git", "diff", "--cached", "--quiet"], cwd=root, env=_git_env()
     )
     unstaged = subprocess.run(["git", "diff", "--quiet"], cwd=root, env=_git_env())
-    if staged.returncode != 0 or unstaged.returncode != 0:
+    untracked = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env=_git_env(),
+    )
+    has_untracked = bool(untracked.stdout.strip())
+    if staged.returncode != 0 or unstaged.returncode != 0 or has_untracked:
         subprocess.run(["git", "add", "-A"], cwd=root, env=_git_env(), check=False)
         cmd = ["git", "commit", "-m", message]
         if no_verify:
