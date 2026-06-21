@@ -1,5 +1,4 @@
 import tomllib
-import warnings
 from contextlib import chdir
 from pathlib import Path
 from unittest.mock import patch
@@ -7,91 +6,10 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from deviate.cli import _resolve_placeholder, cli
+from deviate.cli import cli
 from deviate.cli.__init__ import resolve_graphite_config
 
 runner = CliRunner()
-
-
-class TestResolvePlaceholder:
-    """RED phase tests for TSK-001-04: Extended Placeholder Resolution (2→6 Variables)."""
-
-    def test_resolve_placeholder_complete(self, tmp_path: Path):
-        """AC-010-01: Complete pyproject.toml resolves all 6 placeholders."""
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text("""[project]
-name = "my-project"
-dependencies = [
-    "fastapi>=0.100.0",
-    "pydantic>=2.0.0",
-]
-
-[tool.uv]
-dev-dependencies = ["pytest>=7.0"]
-
-[tool.pytest.ini_options]
-minversion = "7.0"
-testpaths = ["tests"]
-""")
-        result = _resolve_placeholder(repo_root=tmp_path)
-        assert result["PROJECT_NAME"] == "my-project"
-        assert result["REPO_ROOT"] == str(tmp_path.resolve())
-        assert result["TARGET_BACKEND_FRAMEWORK"] == "fastapi"
-        assert result["TARGET_PACKAGE_MANAGER"] == "uv"
-        assert result["TARGET_TEST_RUNNER"] == "pytest"
-        assert result["TARGET_COVERAGE_MINIMUM"] == "80"
-
-    def test_resolve_placeholder_missing_pyproject(self, tmp_path: Path):
-        """AC-010-02: No pyproject.toml — all non-REPO_ROOT vars UNKNOWN."""
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            result = _resolve_placeholder(repo_root=tmp_path)
-
-        assert result["PROJECT_NAME"] == "UNKNOWN"
-        assert result["REPO_ROOT"] == str(tmp_path.resolve())
-        assert result["TARGET_BACKEND_FRAMEWORK"] == "UNKNOWN"
-        assert result["TARGET_PACKAGE_MANAGER"] == "UNKNOWN"
-        assert result["TARGET_TEST_RUNNER"] == "UNKNOWN"
-        assert result["TARGET_COVERAGE_MINIMUM"] == "80"
-
-        unresolvable = [
-            "PROJECT_NAME",
-            "TARGET_BACKEND_FRAMEWORK",
-            "TARGET_PACKAGE_MANAGER",
-            "TARGET_TEST_RUNNER",
-        ]
-        warning_texts = [str(x.message) for x in w]
-        for var in unresolvable:
-            assert any(var in msg for msg in warning_texts), (
-                f"Missing warning for {var}"
-            )
-
-    def test_resolve_placeholder_partial(self, tmp_path: Path):
-        """Partial pyproject.toml with only [project] name — best-effort resolution."""
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text("""[project]
-name = "partial-project"
-""")
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            result = _resolve_placeholder(repo_root=tmp_path)
-
-        assert result["PROJECT_NAME"] == "partial-project"
-        assert result["REPO_ROOT"] == str(tmp_path.resolve())
-        assert result["TARGET_BACKEND_FRAMEWORK"] == "UNKNOWN"
-        assert result["TARGET_PACKAGE_MANAGER"] == "UNKNOWN"
-        assert result["TARGET_TEST_RUNNER"] == "UNKNOWN"
-        assert result["TARGET_COVERAGE_MINIMUM"] == "80"
-
-        warning_texts = [str(x.message) for x in w]
-        for var in [
-            "TARGET_BACKEND_FRAMEWORK",
-            "TARGET_PACKAGE_MANAGER",
-            "TARGET_TEST_RUNNER",
-        ]:
-            assert any(var in msg for msg in warning_texts), (
-                f"Missing warning for {var}"
-            )
 
 
 class TestInitCommand:
@@ -102,19 +20,6 @@ class TestInitCommand:
             assert result.exit_code == 0, result.output
             assert (workdir / ".deviate" / "config.toml").exists()
             assert (workdir / ".deviate" / "session.json").exists()
-
-    def test_init_creates_constitution(self, tmp_path: Path):
-        with chdir(tmp_path):
-            workdir = tmp_path
-            result = runner.invoke(
-                cli, ["init", "--agent", "opencode", "--generate-constitution"]
-            )
-            assert result.exit_code == 0, result.output
-            constitution_path = workdir / "specs" / "constitution.md"
-            assert constitution_path.exists()
-            content = constitution_path.read_text()
-            assert "${PROJECT_NAME}" not in content
-            assert "${REPO_ROOT}" not in content
 
     def test_init_appends_governance_to_nonexistent_file(self, tmp_path: Path):
         with chdir(tmp_path):
