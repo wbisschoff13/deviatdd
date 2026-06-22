@@ -67,8 +67,9 @@ After completion:
 ### STEP_1: INGEST_CONTEXT
 
 1. Receive the `git diff` context and `spec.md` invariants appended by the orchestrator.
-2. Parse `spec.md` for protected module definitions, interface contracts, and architectural constraints.
-3. Load the `git diff` to identify all changed files, added lines, and removed lines.
+2. The optional `## Structured Diff Summary` section provides a concise, language-agnostic view of changed symbols (functions, classes, interfaces, structs). Cross-reference it with the raw `<diff>` for complete context.
+3. Parse `spec.md` for protected module definitions, interface contracts, and architectural constraints.
+4. Load the `git diff` to identify all changed files, added lines, and removed lines.
 
 ### STEP_2: ANALYZE_DIFF
 
