@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -13,6 +14,8 @@ from deviate.cli._common import console
 from deviate.core._shared import git_env as _git_env
 
 logger = logging.getLogger(__name__)
+
+_CHUNK_HEADER_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 review_app = typer.Typer(no_args_is_help=True)
 
@@ -159,16 +162,141 @@ def _parse_diff_filepaths(diff_text: str) -> list[str]:
     return paths
 
 
-def _symbol_to_dict(symbol) -> dict[str, str]:
-    return {"kind": symbol.kind, "name": symbol.name, "change": symbol.change}
-
-
-def _build_file_entry(filepath: str, language: str, symbols) -> dict:
+def _compute_file_stats(diff_text: str, target_filepath: str) -> dict:
+    """Compute file-level stats: net_lines_changed, chunks_changed, chunks."""
+    added = 0
+    removed = 0
+    chunks = 0
+    in_target = False
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git"):
+            parts = line.split()
+            b_path = parts[-1].lstrip("b/") if len(parts) >= 4 else ""
+            in_target = b_path == target_filepath
+            continue
+        if not in_target:
+            continue
+        if line.startswith("@@"):
+            chunks += 1
+            continue
+        if (
+            line.startswith("--- ")
+            or line.startswith("+++ ")
+            or line.startswith("index ")
+        ):
+            continue
+        if line.startswith("new file"):
+            continue
+        if line.startswith("deleted file"):
+            continue
+        if line.startswith("+"):
+            added += 1
+        elif line.startswith("-"):
+            removed += 1
+    net_str = f"+{added}/-{removed}"
     return {
+        "net_lines_changed": net_str,
+        "lines_added": added,
+        "lines_removed": removed,
+        "chunks_changed": chunks,
+    }
+
+
+def _parse_diff_imports(
+    diff_text: str, target_filepath: str, extract_imports_fn
+) -> dict:
+    """Parse added/removed import lines from diff for target filepath."""
+    added: list[str] = []
+    removed: list[str] = []
+    in_target = False
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git"):
+            parts = line.split()
+            b_path = parts[-1].lstrip("b/") if len(parts) >= 4 else ""
+            in_target = b_path == target_filepath
+            continue
+        if not in_target:
+            continue
+        if (
+            line.startswith("--- ")
+            or line.startswith("+++ ")
+            or line.startswith("index ")
+        ):
+            continue
+        if line.startswith("@@"):
+            continue
+        content = line[1:] if len(line) > 1 else ""
+        stripped = content.strip()
+        if not stripped:
+            continue
+        if line.startswith("+"):
+            if extract_imports_fn(stripped):
+                added.append(stripped)
+        elif line.startswith("-"):
+            if extract_imports_fn(stripped):
+                removed.append(stripped)
+    return {"imports_added": added, "imports_removed": removed}
+
+
+def _is_import_line(line: str) -> bool:
+    """Heuristic check if a line looks like an import/include/using directive."""
+    lower = line.lower().strip()
+    if lower.startswith(
+        (
+            "import ",
+            "from ",
+            "using ",
+            "include ",
+            "#include",
+            "use ",
+            "extern crate",
+            "require(",
+            "const ",
+        )
+    ):
+        return True
+    if lower.startswith("#") and "include" in lower:
+        return True
+    return False
+
+
+def _symbol_to_dict(symbol) -> dict[str, str | int]:
+    d: dict[str, str | int] = {
+        "kind": symbol.kind,
+        "name": symbol.name,
+        "change": symbol.change,
+        "language": symbol.language,
+        "start_line": symbol.start_line,
+        "end_line": symbol.end_line,
+    }
+    if symbol.old_name:
+        d["old_name"] = symbol.old_name
+    if symbol.old_start_line or symbol.old_end_line:
+        d["old_start_line"] = symbol.old_start_line
+        d["old_end_line"] = symbol.old_end_line
+    if symbol.old_signature:
+        d["old_signature"] = symbol.old_signature
+    if symbol.new_signature:
+        d["new_signature"] = symbol.new_signature
+    if symbol.old_line_count or symbol.new_line_count:
+        d["old_line_count"] = symbol.old_line_count
+        d["new_line_count"] = symbol.new_line_count
+    return d
+
+
+def _build_file_entry(filepath: str, language: str, symbols, diff_text: str) -> dict:
+    entry: dict = {
         "file": filepath,
         "language": language,
         "symbols": [_symbol_to_dict(s) for s in symbols],
     }
+    stats = _compute_file_stats(diff_text, filepath)
+    entry.update(stats)
+    imports = _parse_diff_imports(diff_text, filepath, _is_import_line)
+    if imports["imports_added"] or imports["imports_removed"]:
+        entry["imports_added"] = imports["imports_added"]
+        entry["imports_removed"] = imports["imports_removed"]
+    return entry
 
 
 def _compute_structured_diff(repo: Path, base: str, target: str) -> list[dict]:
@@ -194,7 +322,7 @@ def _compute_structured_diff(repo: Path, base: str, target: str) -> list[dict]:
             symbols = extract_changed_symbols(diff_text, filepath)
             if symbols:
                 structured.append(
-                    _build_file_entry(filepath, symbols[0].language, symbols)
+                    _build_file_entry(filepath, symbols[0].language, symbols, diff_text)
                 )
         except (LookupError, TypeError, ValueError):
             logger.warning("Failed to compute structured diff for: %s", filepath)

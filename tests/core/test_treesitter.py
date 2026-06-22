@@ -582,12 +582,28 @@ class TestSymbolChangeDataClass:
             name="foo",
             change="modified",
             old_name="bar",
+            start_line=10,
+            end_line=25,
+            old_start_line=8,
+            old_end_line=22,
+            old_signature="def bar(x)",
+            new_signature="def foo(x, y)",
+            old_line_count=14,
+            new_line_count=16,
         )
         assert sc.language == "python"
         assert sc.kind == "function"
         assert sc.name == "foo"
         assert sc.change == "modified"
         assert sc.old_name == "bar"
+        assert sc.start_line == 10
+        assert sc.end_line == 25
+        assert sc.old_start_line == 8
+        assert sc.old_end_line == 22
+        assert sc.old_signature == "def bar(x)"
+        assert sc.new_signature == "def foo(x, y)"
+        assert sc.old_line_count == 14
+        assert sc.new_line_count == 16
 
 
 class TestDuplicateBlockDataClass:
@@ -615,12 +631,22 @@ class TestFileStructureDataClass:
         fs = FileStructure(
             filepath="/path/to/mod.py",
             language="python",
-            symbols=[{"kind": "function", "name": "foo"}],
+            symbols=[
+                {
+                    "kind": "function",
+                    "name": "foo",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "body_size": 3,
+                }
+            ],
             imports=["os", "sys"],
         )
         assert fs.filepath == "/path/to/mod.py"
         assert fs.language == "python"
         assert len(fs.symbols) == 1
+        assert fs.symbols[0]["start_line"] == 1
+        assert fs.symbols[0]["end_line"] == 5
         assert len(fs.imports) == 2
 
 

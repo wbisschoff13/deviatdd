@@ -1139,13 +1139,32 @@ def _build_structured_diff_section(diff_text: str) -> str:
     if diff_text.strip():
         for fp in _parse_diff_filepaths(diff_text):
             for sc in extract_changed_symbols(diff_text, fp):
-                rows.append(f"| {sc.language} | {sc.kind} | {sc.name} | {sc.change} |")
+                lines = (
+                    f"{sc.start_line}-{sc.end_line}"
+                    if sc.start_line or sc.end_line
+                    else "-"
+                )
+                old_lines = (
+                    f"{sc.old_start_line}-{sc.old_end_line}"
+                    if sc.old_start_line or sc.old_end_line
+                    else "-"
+                )
+                sig = sc.new_signature or sc.old_signature or "-"
+                sz = (
+                    f"{sc.old_line_count}→{sc.new_line_count}"
+                    if sc.old_line_count or sc.new_line_count
+                    else "-"
+                )
+                rows.append(
+                    f"| {sc.language} | {sc.kind} | {sc.name} | {sc.change} "
+                    f"| {lines} | {old_lines} | {sz} | `{sig[:60]}` |"
+                )
     if not rows:
         return ""
     table = (
         "## Structured Diff Summary\n\n"
-        "| Language | Kind | Name | Change |\n"
-        "| --- | --- | --- | --- |\n"
+        "| Language | Kind | Name | Change | Lines (new) | Lines (old) | Body Δ | Signature |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
     )
     table += "\n".join(rows)
     return "\n\n" + table
