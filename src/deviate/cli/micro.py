@@ -1118,7 +1118,6 @@ def _execute_rollback(root: Path, reason: str, phase: str = "JUDGE") -> str:
 
 
 def _parse_diff_filepaths(diff_text: str) -> list[str]:
-    """Extract file paths from git diff output."""
     paths: list[str] = []
     for line in diff_text.splitlines():
         if line.startswith("diff --git"):
@@ -1127,6 +1126,23 @@ def _parse_diff_filepaths(diff_text: str) -> list[str]:
                 b_path = parts[-1].lstrip("b/")
                 paths.append(b_path)
     return paths
+
+
+def _build_structured_diff_section(diff_text: str) -> str:
+    rows: list[str] = []
+    if diff_text.strip():
+        for fp in _parse_diff_filepaths(diff_text):
+            for sc in extract_changed_symbols(diff_text, fp):
+                rows.append(f"| {sc.language} | {sc.kind} | {sc.name} | {sc.change} |")
+    if not rows:
+        return ""
+    table = (
+        "## Structured Diff Summary\n\n"
+        "| Language | Kind | Name | Change |\n"
+        "| --- | --- | --- | --- |\n"
+    )
+    table += "\n".join(rows)
+    return "\n\n" + table
 
 
 def _run_judge_phase(
@@ -1156,21 +1172,7 @@ def _run_judge_phase(
 
     prompt = _build_auto_prompt("judge", task, root)
 
-    structured_diff_rows: list[str] = []
-    if diff.strip():
-        for fp in _parse_diff_filepaths(diff):
-            for sc in extract_changed_symbols(diff, fp):
-                structured_diff_rows.append(
-                    f"| {sc.language} | {sc.kind} | {sc.name} | {sc.change} |"
-                )
-    if structured_diff_rows:
-        table = (
-            "## Structured Diff Summary\n\n"
-            "| Language | Kind | Name | Change |\n"
-            "| --- | --- | --- | --- |\n"
-        )
-        table += "\n".join(structured_diff_rows)
-        prompt += "\n\n" + table
+    prompt += _build_structured_diff_section(diff)
 
     prompt += f"\n\n<diff>\n{diff}\n</diff>\n"
     if session.train_feedback:
