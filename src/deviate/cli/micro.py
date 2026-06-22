@@ -28,6 +28,7 @@ from deviate.core.agent import (
 from deviate.core.profile import resolve_profile
 from deviate.core.run_logger import RunLogger, get_run_logger, set_run_logger
 from deviate.core.tamper import TamperContext, TamperGuard, TamperVerdict
+from deviate.core.treesitter import extract_changed_symbols
 from deviate.core.worktree import find_worktree_for_branch
 from deviate.prompts.assembly import assemble_prompt
 from deviate.state.config import (
@@ -1116,6 +1117,18 @@ def _execute_rollback(root: Path, reason: str, phase: str = "JUDGE") -> str:
     return red_sha
 
 
+def _parse_diff_filepaths(diff_text: str) -> list[str]:
+    """Extract file paths from git diff output."""
+    paths: list[str] = []
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git"):
+            parts = line.split()
+            if len(parts) >= 4:
+                b_path = parts[-1].lstrip("b/")
+                paths.append(b_path)
+    return paths
+
+
 def _run_judge_phase(
     task: dict,
     ledger_path: Path,
@@ -1142,6 +1155,23 @@ def _run_judge_phase(
     ).stdout
 
     prompt = _build_auto_prompt("judge", task, root)
+
+    structured_diff_rows: list[str] = []
+    if diff.strip():
+        for fp in _parse_diff_filepaths(diff):
+            for sc in extract_changed_symbols(diff, fp):
+                structured_diff_rows.append(
+                    f"| {sc.language} | {sc.kind} | {sc.name} | {sc.change} |"
+                )
+    if structured_diff_rows:
+        table = (
+            "## Structured Diff Summary\n\n"
+            "| Language | Kind | Name | Change |\n"
+            "| --- | --- | --- | --- |\n"
+        )
+        table += "\n".join(structured_diff_rows)
+        prompt += "\n\n" + table
+
     prompt += f"\n\n<diff>\n{diff}\n</diff>\n"
     if session.train_feedback:
         prompt += f"\n\n<test_feedback>\n{session.train_feedback}\n</test_feedback>\n"
