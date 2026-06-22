@@ -178,14 +178,69 @@ Format:
 | PRD Alignment | 🟢 PASS | All added symbols traceable to AC-ADHOC-008 |
 
 ## Quick Fix Summary
-- **src/db.py:25** — parameterize SQL query (security)
-- **src/config.ts:10** — make `apiKey` optional with default (backward compat)
-- **src/utils.py:7** — update callers or add deprecation shim
+
+Each item is tagged with its category so the agent can filter by type:
+
+| Category | Prefix | Description |
+|----------|--------|-------------|
+| Critical | `[CRITICAL]` | Must-fix: security, data loss, broken builds |
+| Suggestion | `[SUGGESTION]` | Worth fixing: clean code, idiomacy, minor issues |
+| Opportunity | `[OPPORTUNITY]` | Deferrable: future work, nice-to-have improvements |
+
+### Critical
+- `[CRITICAL]` **src/db.py:25** — parameterize SQL query (security)
+- `[CRITICAL]` **src/config.ts:10** — make `apiKey` optional with default (backward compat)
+
+### Suggestions
+- `[SUGGESTION]` **src/utils.py:7** — update callers or add deprecation shim
+
+### Opportunities
+- `[OPPORTUNITY]` **src/mod.py:50-65** — extract duplicated validation block into shared helper
 ```
 
 If all six domains are CLEAN:
 ```
 /deviate-review: CLEAN — no issues across 6 domains
+```
+
+### STEP 4: APPLY — Interactive Fix Selection
+
+After surfacing findings, offer the user a choice of which changes to apply. This is a **HITL interaction** — the user selects the scope of fixes.
+
+Use the `question` tool to present these options:
+
+```
+/questions:
+  - header: "Apply review fixes"
+    question: "Which changes should I apply?"
+    options:
+      - label: "Critical only"
+        description: "Apply only [CRITICAL] items (must-fix: security, data loss, broken builds)"
+      - label: "Quick fixes only"
+        description: "Apply only the Quick Fix Summary items (critical + suggestions)"
+      - label: "Critical + Suggestions"
+        description: "Apply [CRITICAL] and [SUGGESTION] items, skip [OPPORTUNITY]"
+      - label: "All changes"
+        description: "Apply all items from Critical, Suggestions, and Opportunities"
+```
+
+Wait for the user's selection, then:
+
+1. **Parse the Quick Fix Summary** — filter items by the selected category
+2. **Apply each fix** — one at a time, using the `edit` tool on the target file path
+3. **Report results** — list what was applied and what was skipped
+
+```
+Applied 3 of 4 fixes:
+  ✓ src/db.py:25 — parameterize SQL query
+  ✓ src/config.ts:10 — made apiKey optional
+  ✓ src/utils.py:7 — updated callers
+  - src/mod.py:50-65 — skipped (opportunity, not in selected scope)
+```
+
+If no items match the selected category:
+```
+No fixes to apply in the "Critical only" category — no [CRITICAL] items found.
 ```
 
 </execution_sequence>
@@ -202,6 +257,10 @@ If all six domains are CLEAN:
 | Binary files in diff | Skip binary files, note count in output |
 | Unknown language in structured_diff | Skip language-specific idiomacy checks for that file — use generic analysis |
 | Merge-base not reachable | `structured_diff` will be empty — review proceeds with raw diff only |
+| CLEAN review (all domains pass) | Skip STEP 4 — output CLEAN message and exit; no fixes to offer |
+| SKIP condition met (empty diff) | Skip STEP 4 — exit after SKIP message |
+| No `[CRITICAL]` or `[SUGGESTION]` items in findings | Note "no items in this category" and skip the apply step for that category |
+| Edit tool fails on a fix | Log the error, continue with remaining fixes, report failures in summary |
 
 </edge_case_handling>
 

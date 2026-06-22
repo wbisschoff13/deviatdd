@@ -49,7 +49,8 @@ When you run `deviate review pre`, the emitted JSON contract includes:
 | Field | Type | Description |
 |-------|------|-------------|
 | `diff` | string | Raw unified git diff (merge-base vs HEAD) |
-| `structured_diff` | list[dict] | Per-file symbol-level change metadata |
+| `structured_diff` | list[dict] | Per-file symbol-level change metadata (ALL changed files) |
+| `structured_diff_markdown` | string | Compact markdown table rendering of structured_diff for LLM prompts |
 | `constitution_path` | str/null | Path to `specs/constitution.md` |
 | `prd_path` | str/null | Path to PRD file (epic first, adhoc fallback) |
 | `base_branch` | string | Base branch for merge-base computation |
@@ -63,13 +64,19 @@ Each entry in `structured_diff` has:
     {"kind": "function", "name": "greet", "change": "modified"},
     {"kind": "function", "name": "add_func", "change": "added"},
     {"kind": "class", "name": "OldClass", "change": "removed"}
-  ]
+  ],
+  "net_lines_changed": "+5/-3",
+  "lines_added": 5,
+  "lines_removed": 3,
+  "chunks_changed": 2
 }
 ```
 
+Non-source files appear in `structured_diff` with empty `symbols` and `language: "unknown"`.
+
 Change types: `added`, `removed`, `modified`, `renamed`.
 
-Use the structured diff to identify per-language concerns (signature shifts, dead code, complexity spikes, renames) that raw text diffs may hide.
+Use the structured diff to identify per-language concerns (signature shifts, dead code, complexity spikes, renames) that raw text diffs may hide. The `structured_diff_markdown` field provides a pre-rendered compact table for direct inclusion in LLM prompts.
 
 ## Scan Focus — Six Domains
 
@@ -120,7 +127,7 @@ Evaluate ALL six domains in a single pass:
 
 ## Domain-Specific Structured Diff Analysis
 
-For each `structured_diff` entry, evaluate specific patterns by language:
+For each `structured_diff` entry (and corresponding section in `structured_diff_markdown`), evaluate specific patterns by language:
 
 **Python**: `added`/`modified` functions without type annotations, `removed` functions with no replacement callers
 **TypeScript**: `modified` interfaces adding required fields (breaking change), `removed` exports without deprecation
@@ -140,11 +147,11 @@ Run from the workspace root:
 deviate review pre
 ```
 
-Parse the JSON contract: `diff`, `structured_diff`, `constitution_path`, `prd_path`, `base_branch`.
+Parse the JSON contract: `diff`, `structured_diff`, `structured_diff_markdown`, `constitution_path`, `prd_path`, `base_branch`.
 
 If `diff` is empty, emit `SKIP: no changes since {base_branch}` and exit.
 
-If `structured_diff` is non-empty, evaluate it for per-language symbol-level issues (dead code, renames, signature shifts, complexity spikes) alongside the raw text `diff`.
+If `structured_diff_markdown` is non-empty, evaluate it for per-language symbol-level issues (dead code, renames, signature shifts, complexity spikes) alongside the raw text `diff`. Non-source files appear in `structured_diff` with empty symbols — note their presence in the review.
 
 Read `constitution_path` for governance invariants and `prd_path` for PRD context.
 
@@ -194,14 +201,69 @@ Format:
 | PRD Alignment | 🟢 PASS | All added symbols traceable to AC-ADHOC-008 |
 
 ## Quick Fix Summary
-- **src/db.py:25** — parameterize SQL query (security)
-- **src/config.ts:10** — make `apiKey` optional with default (backward compat)
-- **src/utils.py:7** — update callers or add deprecation shim
+
+Each item is tagged with its category so the agent can filter by type:
+
+| Category | Prefix | Description |
+|----------|--------|-------------|
+| Critical | `[CRITICAL]` | Must-fix: security, data loss, broken builds |
+| Suggestion | `[SUGGESTION]` | Worth fixing: clean code, idiomacy, minor issues |
+| Opportunity | `[OPPORTUNITY]` | Deferrable: future work, nice-to-have improvements |
+
+### Critical
+- `[CRITICAL]` **src/db.py:25** — parameterize SQL query (security)
+- `[CRITICAL]` **src/config.ts:10** — make `apiKey` optional with default (backward compat)
+
+### Suggestions
+- `[SUGGESTION]` **src/utils.py:7** — update callers or add deprecation shim
+
+### Opportunities
+- `[OPPORTUNITY]` **src/mod.py:50-65** — extract duplicated validation block into shared helper
 ```
 
 If all six domains are CLEAN:
 ```
 /deviate-review: CLEAN — no issues across 6 domains
+```
+
+### STEP 4: APPLY — Interactive Fix Selection
+
+After surfacing findings, offer the user a choice of which changes to apply. This is a **HITL interaction** — the user selects the scope of fixes.
+
+Use the `question` tool to present these options:
+
+```
+/questions:
+  - header: "Apply review fixes"
+    question: "Which changes should I apply?"
+    options:
+      - label: "Critical only"
+        description: "Apply only [CRITICAL] items (must-fix: security, data loss, broken builds)"
+      - label: "Quick fixes only"
+        description: "Apply only the Quick Fix Summary items (critical + suggestions)"
+      - label: "Critical + Suggestions"
+        description: "Apply [CRITICAL] and [SUGGESTION] items, skip [OPPORTUNITY]"
+      - label: "All changes"
+        description: "Apply all items from Critical, Suggestions, and Opportunities"
+```
+
+Wait for the user's selection, then:
+
+1. **Parse the Quick Fix Summary** — filter items by the selected category
+2. **Apply each fix** — one at a time, using the `edit` tool on the target file path
+3. **Report results** — list what was applied and what was skipped
+
+```
+Applied 3 of 4 fixes:
+  ✓ src/db.py:25 — parameterize SQL query
+  ✓ src/config.ts:10 — made apiKey optional
+  ✓ src/utils.py:7 — updated callers
+  - src/mod.py:50-65 — skipped (opportunity, not in selected scope)
+```
+
+If no items match the selected category:
+```
+No fixes to apply in the "Critical only" category — no [CRITICAL] items found.
 ```
 
 </execution_sequence>
@@ -211,13 +273,17 @@ If all six domains are CLEAN:
 | Condition | Action |
 |-----------|--------|
 | Empty diff (no changes vs base_branch) | Output `SKIP: no changes since {base_branch}` and exit |
-| `structured_diff` is empty or absent | Proceed with raw text diff only — note "no structured diff available" |
+| `structured_diff` is empty or `structured_diff_markdown` absent | Proceed with raw text diff only — note "no structured diff available" |
 | constitution_path is null | Note "no constitution to check" — evaluate remaining 5 domains |
 | prd_path is null | Note "no PRD for traceability context" — skip PRD Alignment domain |
 | External repo (no specs/) | Restrict to Security, Clean Code, Pragmatism, Idiomacy — note limited scope |
 | Binary files in diff | Skip binary files, note count in output |
 | Unknown language in structured_diff | Skip language-specific idiomacy checks for that file — use generic analysis |
 | Merge-base not reachable | `structured_diff` will be empty — review proceeds with raw diff only |
+| CLEAN review (all domains pass) | Skip STEP 4 — output CLEAN message and exit; no fixes to offer |
+| SKIP condition met (empty diff) | Skip STEP 4 — exit after SKIP message |
+| No `[CRITICAL]` or `[SUGGESTION]` items in findings | Note "no items in this category" and skip the apply step for that category |
+| Edit tool fails on a fix | Log the error, continue with remaining fixes, report failures in summary |
 
 </edge_case_handling>
 
