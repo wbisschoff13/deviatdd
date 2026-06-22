@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ import typer
 
 from deviate.cli._common import console
 from deviate.core._shared import git_env as _git_env
+
+logger = logging.getLogger(__name__)
 
 review_app = typer.Typer(no_args_is_help=True)
 
@@ -33,10 +36,12 @@ def pre(
     constitution_path = _resolve_constitution_path(repo)
     prd_path, prd_warning = _resolve_prd(branch_name, repo)
     report_exists = _check_existing_reports(repo)
+    structured_diff = _compute_structured_diff(repo, base, target)
 
     contract = {
         "status": "READY",
         "diff": diff,
+        "structured_diff": structured_diff,
         "constitution_path": constitution_path,
         "constitution_warning": constitution_path is None,
         "prd_path": prd_path,
@@ -141,6 +146,59 @@ def _check_existing_reports(repo: Path) -> bool:
     if not reports_dir.is_dir():
         return False
     return any(reports_dir.iterdir())
+
+
+def _parse_diff_filepaths(diff_text: str) -> list[str]:
+    paths: list[str] = []
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git"):
+            parts = line.split()
+            if len(parts) >= 4:
+                b_path = parts[-1].lstrip("b/")
+                paths.append(b_path)
+    return paths
+
+
+def _compute_structured_diff(repo: Path, base: str, target: str) -> list[dict]:
+    merge_base = _compute_merge_base(base, target, repo)
+    if not merge_base:
+        return []
+
+    diff_text = _gather_diff(merge_base, target, repo)
+    if not diff_text.strip():
+        return []
+
+    try:
+        from deviate.core.treesitter import extract_changed_symbols
+    except ImportError:
+        logger.warning("tree-sitter not available — skipping structured diff")
+        return []
+
+    filepaths = _parse_diff_filepaths(diff_text)
+    structured: list[dict] = []
+
+    for filepath in filepaths:
+        try:
+            symbols = extract_changed_symbols(diff_text, filepath)
+            if symbols:
+                structured.append(
+                    {
+                        "file": filepath,
+                        "language": symbols[0].language,
+                        "symbols": [
+                            {
+                                "kind": s.kind,
+                                "name": s.name,
+                                "change": s.change,
+                            }
+                            for s in symbols
+                        ],
+                    }
+                )
+        except Exception:
+            logger.warning("Failed to compute structured diff for: %s", filepath)
+
+    return structured
 
 
 @review_app.command()
