@@ -18,3 +18,5 @@
 {"id":"TSK-008-05","issue_id":"ISS-ADH-008","description":"Replace `ast` with tree-sitter in `_check_return_type_mismatch` and add extended checks","status":"COMPLETED","execution_mode":"TDD","created_at":"2026-06-22T10:02:43.506829Z"}
 {"id":"TSK-008-06","issue_id":"ISS-ADH-008","description":"Inject merge-base structured diff into REVIEW contract and update all prompt templates","status":"RED","execution_mode":"TDD","created_at":"2026-06-22T10:06:58.073459Z"}
 {"id":"TSK-008-06","issue_id":"ISS-ADH-008","description":"Inject merge-base structured diff into REVIEW contract and update all prompt templates","status":"GREEN","execution_mode":"TDD","created_at":"2026-06-22T10:11:46.360986Z"}
+{"id":"TSK-008-06","issue_id":"ISS-ADH-008","description":"Inject merge-base structured diff into REVIEW contract and update all prompt templates","status":"JUDGE","execution_mode":"TDD","created_at":"2026-06-22T10:12:44.118463Z"}
+{"id":"TSK-008-06","issue_id":"ISS-ADH-008","description":"Inject merge-base structured diff into REVIEW contract and update all prompt templates","status":"COMPLETED","execution_mode":"TDD","created_at":"2026-06-22T10:16:21.657356Z"}
