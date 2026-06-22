@@ -479,7 +479,7 @@ def detect_duplicate_blocks(filepath: str, min_lines: int = 5) -> list[Duplicate
 
         while stack:
             node = stack.pop()
-            line_count = node.end_point.row - node.start_point.row
+            line_count = node.end_point.row - node.start_point.row + 1
             if node.child_count > 1 and line_count >= min_lines:
                 children_types = tuple(c.type for c in node.children)
                 if children_types:
