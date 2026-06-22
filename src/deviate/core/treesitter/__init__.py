@@ -116,6 +116,14 @@ class SymbolChange:
     name: str
     change: str
     old_name: str = ""
+    start_line: int = 0
+    end_line: int = 0
+    old_start_line: int = 0
+    old_end_line: int = 0
+    old_signature: str = ""
+    new_signature: str = ""
+    old_line_count: int = 0
+    new_line_count: int = 0
 
 
 @dataclass
@@ -129,7 +137,7 @@ class DuplicateBlock:
 class FileStructure:
     filepath: str
     language: str
-    symbols: list[dict[str, str]] = field(default_factory=list)
+    symbols: list[dict[str, str | int]] = field(default_factory=list)
     imports: list[str] = field(default_factory=list)
 
 
@@ -211,8 +219,8 @@ def _load_queries(grammar_id: str) -> Any | None:
 
 def _extract_symbols_from_parsed(
     tree: Any, grammar_id: str
-) -> tuple[list[dict[str, str]], list[str]]:
-    symbols: list[dict[str, str]] = []
+) -> tuple[list[dict[str, str | int]], list[str]]:
+    symbols: list[dict[str, str | int]] = []
     imports: list[str] = []
 
     query = _load_queries(grammar_id)
@@ -230,7 +238,20 @@ def _extract_symbols_from_parsed(
             if cap_name == "import":
                 imports.append(text)
             elif cap_name in _CAP_KIND:
-                symbols.append({"kind": _CAP_KIND[cap_name], "name": text})
+                fn = _fn_node(node)
+                srow = fn.start_point.row
+                erow = fn.end_point.row
+                signature = _extract_fn_signature(fn)
+                entry: dict[str, str | int] = {
+                    "kind": _CAP_KIND[cap_name],
+                    "name": text,
+                    "start_line": srow,
+                    "end_line": erow,
+                    "line_count": max(0, erow - srow + 1),
+                }
+                if signature:
+                    entry["signature"] = signature
+                symbols.append(entry)
 
     return symbols, imports
 
@@ -329,17 +350,85 @@ def _reconstruct_sources_from_diff(
     return old_src, new_src
 
 
-def _extract_fn_names(tree: Any, query: Any) -> set[str]:
-    names: set[str] = set()
+def _fn_node(node: Any) -> Any:
+    """Navigate from a captured name/identifier node to its enclosing definition node.
+
+    For queries that capture the identifier (e.g. ``(identifier) @function``),
+    the capture node is just the name.  This function walks up to the parent
+    ``function_definition``, ``class_definition``, ``function_item``, etc.
+    """
+    if Query is None:
+        return node
+    parent = getattr(node, "parent", None)
+    if parent is None:
+        return node
+    ptype = getattr(parent, "type", "")
+    if (
+        "function" in ptype
+        or "class" in ptype
+        or "struct" in ptype
+        or "interface" in ptype
+        or ptype in ("trait_item", "impl_item")
+    ):
+        return parent
+    grand = getattr(parent, "parent", None)
+    if grand is not None:
+        gtype = getattr(grand, "type", "")
+        if (
+            "function" in gtype
+            or "class" in gtype
+            or "struct" in gtype
+            or "interface" in gtype
+            or gtype in ("trait_item", "impl_item")
+        ):
+            return grand
+    return node
+
+
+def _extract_fn_signature(node: Any) -> str:
+    """Extract the first line (signature) of a function/class/struct node."""
+    if not _tree_sitter_available:
+        return ""
+    try:
+        text = node.text.decode("utf-8", errors="replace")
+        lines = text.splitlines()
+        if lines:
+            return lines[0].strip()[:80]
+        return text[:80].strip()
+    except Exception:
+        return ""
+
+
+def _extract_fn_metadata(tree: Any, query: Any) -> dict[str, dict]:
+    """Extract function/class/struct metadata: kind, line range, signature, body size.
+
+    Returns a dict keyed by symbol name:
+      {name: {"kind": str, "start_line": int, "end_line": int,
+              "signature": str, "line_count": int}}
+    """
+    meta: dict[str, dict] = {}
     if QueryCursor is None:
-        return names
+        return meta
     cursor = QueryCursor(query)
     captures = cursor.captures(tree.root_node)
     for cap_name, nodes in captures.items():
-        if cap_name in ("function", "method", "class", "struct", "interface"):
-            for node in nodes:
-                names.add(node.text.decode("utf-8", errors="replace"))
-    return names
+        if cap_name not in ("function", "method", "class", "struct", "interface"):
+            continue
+        for node in nodes:
+            text = node.text.decode("utf-8", errors="replace")
+            fn = _fn_node(node)
+            srow = fn.start_point.row
+            erow = fn.end_point.row
+            line_count = max(0, erow - srow + 1)
+            signature = _extract_fn_signature(fn)
+            meta[text] = {
+                "kind": _CAP_KIND.get(cap_name, "function"),
+                "start_line": srow,
+                "end_line": erow,
+                "signature": signature,
+                "line_count": line_count,
+            }
+    return meta
 
 
 def extract_changed_symbols(diff_text: str, filepath: str) -> list[SymbolChange]:
@@ -367,16 +456,12 @@ def extract_changed_symbols(diff_text: str, filepath: str) -> list[SymbolChange]
     try:
         old_tree = parser.parse(old_src) if old_src is not None else None
         new_tree = parser.parse(new_src) if new_src is not None else None
-        src = new_src or old_src
 
-        old_names = _extract_fn_names(old_tree, query) if old_tree else set()
-        new_names = _extract_fn_names(new_tree, query) if new_tree else set()
+        old_meta = _extract_fn_metadata(old_tree, query) if old_tree else {}
+        new_meta = _extract_fn_metadata(new_tree, query) if new_tree else {}
 
-        kind_map: dict[str, str] = {}
-        if src:
-            kind_tree = new_tree or old_tree
-            if kind_tree:
-                kind_map = _build_kind_map(kind_tree, query)
+        old_names = set(old_meta)
+        new_names = set(new_meta)
 
         all_names = old_names | new_names
 
@@ -387,9 +472,27 @@ def extract_changed_symbols(diff_text: str, filepath: str) -> list[SymbolChange]
                 ch = "added"
             else:
                 ch = "modified"
-            kind = kind_map.get(name, "function")
+
+            o = old_meta.get(name, {})
+            n = new_meta.get(name, {})
+            kind = n.get("kind") or o.get("kind", "function")
+
             changes.append(
-                SymbolChange(language=lang_id, kind=kind, name=name, change=ch)
+                SymbolChange(
+                    language=lang_id,
+                    kind=kind,
+                    name=name,
+                    change=ch,
+                    old_name=o.get("signature", ""),
+                    start_line=n.get("start_line", 0),
+                    end_line=n.get("end_line", 0),
+                    old_start_line=o.get("start_line", 0),
+                    old_end_line=o.get("end_line", 0),
+                    old_signature=o.get("signature", ""),
+                    new_signature=n.get("signature", ""),
+                    old_line_count=o.get("line_count", 0),
+                    new_line_count=n.get("line_count", 0),
+                )
             )
     except Exception:
         pass
