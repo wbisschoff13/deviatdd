@@ -159,6 +159,18 @@ def _parse_diff_filepaths(diff_text: str) -> list[str]:
     return paths
 
 
+def _symbol_to_dict(symbol) -> dict[str, str]:
+    return {"kind": symbol.kind, "name": symbol.name, "change": symbol.change}
+
+
+def _build_file_entry(filepath: str, language: str, symbols) -> dict:
+    return {
+        "file": filepath,
+        "language": language,
+        "symbols": [_symbol_to_dict(s) for s in symbols],
+    }
+
+
 def _compute_structured_diff(repo: Path, base: str, target: str) -> list[dict]:
     merge_base = _compute_merge_base(base, target, repo)
     if not merge_base:
@@ -182,20 +194,9 @@ def _compute_structured_diff(repo: Path, base: str, target: str) -> list[dict]:
             symbols = extract_changed_symbols(diff_text, filepath)
             if symbols:
                 structured.append(
-                    {
-                        "file": filepath,
-                        "language": symbols[0].language,
-                        "symbols": [
-                            {
-                                "kind": s.kind,
-                                "name": s.name,
-                                "change": s.change,
-                            }
-                            for s in symbols
-                        ],
-                    }
+                    _build_file_entry(filepath, symbols[0].language, symbols)
                 )
-        except Exception:
+        except (LookupError, TypeError, ValueError):
             logger.warning("Failed to compute structured diff for: %s", filepath)
 
     return structured
