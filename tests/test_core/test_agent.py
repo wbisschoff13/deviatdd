@@ -457,3 +457,235 @@ class TestAgentModelRouting:
         assert "--model" not in cmd, (
             f"Expected no --model for claude backend, got {cmd}"
         )
+
+
+class TestPiBackendRegistration:
+    """TSK-009-01: Register Pi backend in config model, command registry,
+    model-flag dispatch, error handling, and test fixtures.
+
+    Covers AC-009-08 (AgentConfig Literal accepts Pi), AC-009-07
+    (BACKEND_COMMANDS includes Pi), AC-009-01 (Pi backend dispatches
+    correctly), AC-009-09 (YAML extraction is backend-agnostic), and the
+    `StubPiBackend` fixture contract.
+    """
+
+    def test_agent_config_literal_accepts_pi(self):
+        """AC-009-08: ``AgentConfig(backend='pi')`` validates without error."""
+        config = AgentConfig(backend="pi")
+        assert config.backend == "pi"
+        assert config.model_dump()["backend"] == "pi"
+
+    def test_agent_config_pi_round_trip_via_toml(self, tmp_path):
+        """AC-009-08: ``backend='pi'`` survives model_dump → model_validate."""
+        import tomllib
+
+        config = AgentConfig(backend="pi")
+        dumped = config.model_dump()
+        toml_str = (
+            f'[agent]\nbackend = "{dumped["backend"]}"\ntimeout = {dumped["timeout"]}\n'
+        )
+        (tmp_path / "config.toml").write_text(toml_str, encoding="utf-8")
+        parsed = tomllib.loads((tmp_path / "config.toml").read_text())
+        reloaded = AgentConfig(**parsed["agent"])
+        assert reloaded.backend == "pi"
+
+    def test_agent_config_literal_rejects_unknown(self):
+        """AC-009-08: ``AgentConfig(backend='unknown')`` raises ValidationError."""
+        with pytest.raises(ValidationError):
+            AgentConfig(backend="unknown")
+
+    def test_pi_rpc_field_defaults_to_false(self):
+        """Opt-in RPC mode must default off (print mode is the default)."""
+        config = AgentConfig(backend="pi")
+        assert getattr(config, "pi_rpc", False) is False
+
+    def test_pi_rpc_field_opt_in(self):
+        """Setting ``pi_rpc=True`` persists on the model."""
+        config = AgentConfig(backend="pi", pi_rpc=True)
+        assert config.pi_rpc is True
+
+    def test_backend_commands_includes_pi(self):
+        """AC-009-07: ``BACKEND_COMMANDS['pi'] == 'pi -p'``."""
+        assert "pi" in BACKEND_COMMANDS
+        assert BACKEND_COMMANDS["pi"] == "pi -p"
+
+    def test_pi_backend_subprocess_contract(self):
+        """AC-009-01: Pi backend spawns ``['pi', '-p']`` with prompt via stdin."""
+        yaml_output = "phase: RED\nstatus: TEST_WRITTEN_FAILING\n"
+        mock_proc = MagicMock(spec=subprocess.Popen)
+        mock_proc.communicate.return_value = (yaml_output.encode("utf-8"), b"")
+        mock_proc.returncode = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
+            config = AgentConfig(backend="pi")
+            backend = AgentBackend(config=config)
+            backend.invoke("test prompt")
+
+        args, kwargs = mock_popen.call_args
+        cmd = args[0]
+        assert cmd[0] == "pi", f"Expected first argv 'pi', got {cmd[0]!r}"
+        assert cmd[1] == "-p", f"Expected second argv '-p', got {cmd[1]!r}"
+        assert kwargs.get("stdin") is not None, "Expected stdin=PIPE for prompt"
+
+    def test_pi_backend_model_flag_not_injected(self):
+        """AC-009-02 / US-009-02: Pi print mode rejects ``--model`` — skip injection."""
+        yaml_output = "phase: RED\nstatus: TEST_WRITTEN_FAILING\n"
+        mock_proc = MagicMock(spec=subprocess.Popen)
+        mock_proc.communicate.return_value = (yaml_output.encode("utf-8"), b"")
+        mock_proc.returncode = 0
+
+        with patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
+            config = AgentConfig(backend="pi")
+            backend = AgentBackend(config=config)
+            backend.invoke("test prompt", model="anthropic/claude-sonnet-4-5")
+
+        args, _ = mock_popen.call_args
+        cmd = args[0]
+        assert "--model" not in cmd, (
+            f"Pi print mode must NOT receive --model flag (got {cmd})"
+        )
+
+    def test_pi_backend_missing_binary(self):
+        """Edge case: ``pi`` not on PATH → ``AgentBinaryNotFoundError``."""
+        with patch("subprocess.Popen", side_effect=FileNotFoundError):
+            config = AgentConfig(backend="pi")
+            backend = AgentBackend(config=config)
+            with pytest.raises(Exception) as exc_info:
+                backend.invoke("test prompt")
+
+        from deviate.core.agent import AgentBinaryNotFoundError
+
+        assert isinstance(exc_info.value, AgentBinaryNotFoundError)
+        assert "pi" in str(exc_info.value).lower()
+
+    def test_pi_backend_yaml_extraction_fenced(self):
+        """AC-009-09: Pi-shaped stdout (fenced YAML) parses via existing pipeline."""
+        pi_output = (
+            "Some preamble\n"
+            "```yaml\n"
+            "phase: RED\n"
+            "status: TEST_WRITTEN_FAILING\n"
+            "task_id: TSK-009-01\n"
+            "```\n"
+        )
+        manifest = AgentBackend.parse_output(pi_output, "pi")
+        assert manifest.phase == "RED"
+        assert manifest.status == "TEST_WRITTEN_FAILING"
+        assert manifest.task_id == "TSK-009-01"
+
+    def test_pi_backend_yaml_extraction_handover_marker(self):
+        """AC-009-09: Pi-shaped stdout with ``<handover_manifest>`` tag parses."""
+        pi_output = (
+            "<handover_manifest>\n```yaml\n"
+            "phase: GREEN\n"
+            "status: IMPLEMENTED\n"
+            "task_id: TSK-009-01\n"
+            "```\n"
+        )
+        manifest = AgentBackend.parse_output(pi_output, "pi")
+        assert manifest.phase == "GREEN"
+        assert manifest.status == "IMPLEMENTED"
+        assert manifest.task_id == "TSK-009-01"
+
+    def test_pi_backend_parse_output_empty_raises(self):
+        """Empty Pi stdout surfaces ``EmptyOutputError`` (backend-agnostic guard)."""
+        from deviate.core.agent import EmptyOutputError
+
+        with pytest.raises(EmptyOutputError):
+            AgentBackend.parse_output("", "pi")
+
+
+class TestStubPiBackend:
+    """TSK-009-01: ``StubPiBackend`` mirrors ``StubAgentBackend`` for downstream
+    Pi-specific test isolation.
+    """
+
+    def test_stub_pi_backend_registered_in_commands(self):
+        """The Pi stub must be reachable via ``BACKEND_COMMANDS['stub']`` (or
+        a dedicated ``pi_stub`` key) — verify it is importable and exposes
+        a canonical command prefix."""
+        from deviate.core.agent import StubPiBackend
+
+        assert StubPiBackend is not None
+        assert "stub" in BACKEND_COMMANDS
+
+    def test_stub_pi_backend_yields_canonical_manifest(self):
+        """``StubPiBackend().invoke(...)`` returns a valid ``HandoverManifest``."""
+        from deviate.core.agent import HandoverManifest, StubPiBackend
+
+        backend = StubPiBackend()
+        manifest = backend.invoke("test prompt")
+
+        assert isinstance(manifest, HandoverManifest)
+        assert manifest.phase == "RED"
+        assert manifest.status == "success"
+
+    def test_stub_pi_backend_no_subprocess(self):
+        """``StubPiBackend`` must not spawn a real subprocess."""
+        from deviate.core.agent import StubPiBackend
+
+        with patch("subprocess.Popen") as mock_popen:
+            backend = StubPiBackend()
+            backend.invoke("test prompt")
+
+        mock_popen.assert_not_called()
+
+    def test_stub_pi_backend_fires_output_callback(self):
+        """``StubPiBackend`` invokes the output_callback when provided."""
+        from deviate.core.agent import StubPiBackend
+
+        callback_calls: list[str] = []
+
+        def callback(text: str) -> None:
+            callback_calls.append(text)
+
+        backend = StubPiBackend()
+        backend.invoke("test prompt", output_callback=callback)
+
+        assert len(callback_calls) == 1
+        assert "test prompt" in callback_calls[0]
+
+    def test_stub_pi_backend_inherits_from_stub_agent_backend(self):
+        """``StubPiBackend`` must subclass ``StubAgentBackend`` to share test
+        plumbing (communal ``_invoked`` flag, callable surface)."""
+        from deviate.core.agent import StubAgentBackend, StubPiBackend
+
+        assert issubclass(StubPiBackend, StubAgentBackend)
+
+
+class TestModelFlagsRegistry:
+    """TSK-009-01: per-backend model-flag dispatch via ``MODEL_FLAGS`` map.
+
+    The dispatch table maps backend names to the flag prefix used for
+    model injection. ``pi`` is mapped to ``None`` (print mode rejects
+    ``--model``); ``opencode`` and ``droid`` use ``['--model']``; ``claude``
+    ignores model config (existing behavior).
+    """
+
+    def test_model_flags_map_contains_pi(self):
+        from deviate.core.agent import MODEL_FLAGS
+
+        assert "pi" in MODEL_FLAGS
+
+    def test_model_flags_pi_is_none(self):
+        """Pi print mode must NOT receive ``--model`` — entry is ``None``."""
+        from deviate.core.agent import MODEL_FLAGS
+
+        assert MODEL_FLAGS["pi"] is None
+
+    def test_model_flags_opencode_uses_model_flag(self):
+        from deviate.core.agent import MODEL_FLAGS
+
+        assert MODEL_FLAGS["opencode"] == ["--model"]
+
+    def test_model_flags_droid_uses_model_flag(self):
+        from deviate.core.agent import MODEL_FLAGS
+
+        assert MODEL_FLAGS["droid"] == ["--model"]
+
+    def test_pi_model_flag_lookup_returns_none(self):
+        """``AgentBackend.invoke()`` consults ``MODEL_FLAGS[backend]`` —
+        when the entry is ``None``, ``--model`` is skipped entirely."""
+        from deviate.core.agent import MODEL_FLAGS
+
+        assert MODEL_FLAGS.get("pi") is None
