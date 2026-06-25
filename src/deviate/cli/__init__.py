@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.resources
+import json
 import re
 import shutil
 from pathlib import Path
@@ -11,6 +12,7 @@ from rich.prompt import Prompt
 
 from deviate.state.config import DeviateConfig, SessionState
 from deviate.state.config import resolve_graphite_config as resolve_graphite_config  # noqa: F401
+from deviate.state.config import resolve_model_for_phase
 from deviate.cli.macro import explore_app, macro_app, research_app, prd_app, shard_app
 from deviate.cli.meso import meso_app, plan, pr, specify, tasks
 from deviate.cli.micro import (
@@ -41,16 +43,18 @@ _GOVERNANCE_MODULE = "deviate.prompts.governance"
 # User-facing agent platform choices (selectable via --agent and the
 # interactive init prompt). Order is intentional: factory/droid (Droid
 # ecosystem) come first, then the third-party CLIs.
-AGENT_CHOICES: tuple[str, ...] = ("factory", "droid", "claude", "opencode")
+AGENT_CHOICES: tuple[str, ...] = ("factory", "droid", "claude", "opencode", "pi")
 
 # Map a user-facing agent name to the underlying backend that meso/micro
 # layers invoke. ``factory`` is the Factory Droid IDE — the meso/micro
-# commands still drive the ``droid`` binary under the hood.
+# commands still drive the ``droid`` binary under the hood. ``pi`` is
+# the @earendil-works/pi-coding-agent CLI binary.
 AGENT_TO_BACKEND: dict[str, str] = {
     "factory": "droid",
     "droid": "droid",
     "claude": "claude",
     "opencode": "opencode",
+    "pi": "pi",
 }
 
 
@@ -553,6 +557,134 @@ def _ensure_gitignore(workdir: Path) -> None:
         gitignore.write_text("\n".join(entries) + "\n", encoding="utf-8")
 
 
+_DEFAULT_PI_PROVIDER = "anthropic"
+_DEFAULT_PI_MODEL = "claude-sonnet-4-5"
+
+
+def _resolve_pi_provider_model(workdir: Path) -> tuple[str, str]:
+    """Resolve ``(provider, model)`` for ``~/.pi/agent/settings.json``.
+
+    Reads the ``[models]`` section of ``.deviate/config.toml`` and uses
+    the ``default`` key as the initial settings value. Splits the value
+    on the first ``/`` (``provider/model-id`` shorthand) and falls back
+    to ``anthropic/claude-sonnet-4-5`` when no ``[models]`` entry exists.
+    """
+    default_model = resolve_model_for_phase("default", workdir)
+    if not default_model:
+        return _DEFAULT_PI_PROVIDER, _DEFAULT_PI_MODEL
+    provider, sep, model_id = default_model.partition("/")
+    if not sep or not model_id:
+        return _DEFAULT_PI_PROVIDER, default_model
+    return provider, model_id
+
+
+def _pi_skill_target(skill_name: str) -> Path:
+    """Return the absolute target path for a Pi skill symlink.
+
+    Resolves through the same importlib.resources path that
+    :func:`deviate.core.skills.discover_skills` uses, so Pi discovers
+    the DeviaTDD skill catalogue at its canonical install location.
+    """
+    from deviate.core.skills import _resolve_skills_root
+
+    return _resolve_skills_root() / skill_name
+
+
+def _link_pi_skill(
+    skill_name: str,
+    pi_skills_dir: Path,
+    target: Path,
+) -> None:
+    """Create or skip a single Pi skill symlink with idempotency guard.
+
+    - Existing symlink pointing at *target*: SKIP (idempotent).
+    - Existing symlink pointing elsewhere: SKIP (preserve user-managed).
+    - Existing real directory at the path: SKIP (preserve user-managed).
+    - Missing entry: create new symlink.
+    """
+    link_path = pi_skills_dir / skill_name
+    if link_path.is_symlink():
+        try:
+            if link_path.resolve() == target.resolve():
+                console.print(f"  [yellow]SKIP[/] {skill_name} symlink already correct")
+                return
+        except (OSError, RuntimeError):
+            pass
+        console.print(
+            f"  [yellow]SKIP[/] {skill_name} existing symlink with different target"
+        )
+        return
+    if link_path.exists():
+        console.print(f"  [yellow]SKIP[/] {skill_name} real directory at target")
+        return
+    link_path.symlink_to(target)
+    console.print(f"  [green]LINK[/] {skill_name} -> {target}")
+
+
+def _write_pi_settings_json(
+    settings_path: Path,
+    provider: str,
+    model: str,
+    skill_paths: list[str],
+) -> None:
+    """Write ``~/.pi/agent/settings.json``, merging with user-managed keys.
+
+    Preserves any top-level keys not prefixed with ``deviate_`` so
+    user-customised settings survive re-runs of ``deviate init``.
+    Only writes when the merged content differs from the on-disk file.
+    """
+    user_settings: dict = {}
+    if settings_path.exists():
+        try:
+            raw = settings_path.read_text(encoding="utf-8")
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                user_settings = parsed
+        except (json.JSONDecodeError, OSError):
+            user_settings = {}
+
+    merged = dict(user_settings)
+    merged["provider"] = provider
+    merged["model"] = model
+    merged["skillPaths"] = skill_paths
+
+    if merged == user_settings:
+        console.print("  [yellow]SKIP[/] settings.json up to date")
+        return
+
+    settings_path.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+    console.print("  [green]CREATE[/] settings.json")
+
+
+def _setup_pi_backend(workdir: Path) -> None:
+    """Pi-specific setup: skill symlinks and ``~/.pi/agent/settings.json``.
+
+    Called by ``setup`` when ``agent.backend == "pi"``. Mirrors Pi's
+    native skill discovery contract — symlinks under
+    ``~/.pi/agent/skills/<name>`` pointing back to the project's
+    installed skill catalogue plus a settings file that maps the
+    DeviaTDD ``[models].default`` onto Pi's provider/model selector.
+    """
+    pi_agent_dir = Path.home() / ".pi" / "agent"
+    pi_skills_dir = pi_agent_dir / "skills"
+    pi_skills_dir.mkdir(parents=True, exist_ok=True)
+
+    from deviate.core.skills import discover_skills
+
+    skills = discover_skills()
+    for skill_name in skills:
+        _link_pi_skill(skill_name, pi_skills_dir, _pi_skill_target(skill_name))
+
+    provider, model = _resolve_pi_provider_model(workdir)
+    skill_paths = [str(_pi_skill_target(skill_name).parent) for skill_name in skills]
+    _write_pi_settings_json(
+        pi_agent_dir / "settings.json",
+        provider,
+        model,
+        skill_paths,
+    )
+
+
 @cli.command(name="setup")
 def setup(
     agent_export_mode: str = typer.Option(
@@ -611,15 +743,22 @@ def setup(
 
     # ``droid`` and ``factory`` share the Factory Droid IDE skills directory
     # (``.factory/skills/``); ``droid`` is the underlying backend binary that
-    # both user-facing names dispatch to.
+    # both user-facing names dispatch to. ``pi`` takes a separate branch
+    # below — Pi uses global symlinks under ``~/.pi/agent/skills/`` and
+    # ``~/.pi/agent/settings.json`` rather than project-local skill copies.
     if selected_agent and selected_agent in ("claude", "opencode", "factory", "droid"):
         skills_agent = "factory" if selected_agent == "droid" else selected_agent
         active_agents = [skills_agent]
+    elif selected_agent == "pi":
+        active_agents = []
     else:
         active_agents = detect_agents(workdir)
 
     if active_agents:
         _install_skills_to_agents(workdir, active_agents)
+
+    if backend == "pi":
+        _setup_pi_backend(workdir)
 
     _ensure_gitignore(workdir)
 

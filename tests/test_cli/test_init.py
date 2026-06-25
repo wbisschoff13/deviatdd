@@ -784,7 +784,7 @@ class TestInitAgentFlag:
     def test_init_agent_choice_constant_exposes_supported_set(self):
         from deviate.cli import AGENT_CHOICES
 
-        assert set(AGENT_CHOICES) == {"factory", "droid", "claude", "opencode"}
+        assert set(AGENT_CHOICES) == {"factory", "droid", "claude", "opencode", "pi"}
 
     def test_init_agent_to_backend_mapping(self):
         from deviate.cli import AGENT_TO_BACKEND
