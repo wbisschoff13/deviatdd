@@ -10,10 +10,15 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class AgentConfig(BaseModel):
-    # Agent backend: "opencode", "claude", or "droid"
-    backend: Literal["opencode", "claude", "droid"] = "opencode"
+    # Agent backend: "opencode", "claude", "droid", or "pi"
+    backend: Literal["opencode", "claude", "droid", "pi"] = "opencode"
     # Agent invocation timeout in seconds (must be > 0)
     timeout: int = Field(default=600, gt=0)
+    # Opt-in RPC mode for Pi — spawns `pi --mode rpc --no-session` instead of `pi -p`
+    pi_rpc: bool = Field(
+        default=False,
+        description="Opt-in RPC mode for Pi (spawns pi --mode rpc --no-session instead of pi -p)",
+    )
 
     model_config = {"extra": "forbid"}
 

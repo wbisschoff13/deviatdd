@@ -61,7 +61,20 @@ BACKEND_COMMANDS: dict[str, str] = {
     "opencode": "opencode run",
     "claude": "claude -p --permission-mode auto",
     "droid": "droid exec",
+    "pi": "pi -p",
     "stub": "stub",
+}
+
+
+# Per-backend model-flag dispatch. ``None`` means the backend does not
+# accept ``--model`` on the CLI (model routing happens via other channels —
+# Pi routes via ``~/.pi/agent/settings.json``; claude ignores model config).
+# ``["--model"]`` means the backend accepts the ``--model <id>`` flag.
+MODEL_FLAGS: dict[str, list[str] | None] = {
+    "pi": None,
+    "claude": None,
+    "opencode": ["--model"],
+    "droid": ["--model"],
 }
 
 
@@ -288,8 +301,9 @@ class AgentBackend:
             raise AgentBinaryNotFoundError(f"Unknown backend: {backend_name}")
 
         cmd = backend_cmd.split()
-        if model is not None and backend_name != "claude":
-            cmd.extend(["--model", model])
+        model_flag = MODEL_FLAGS.get(backend_name, ["--model"])
+        if model is not None and model_flag is not None:
+            cmd.extend([model_flag[0], model])
         effective_timeout = timeout or self.config.timeout
 
         popen_kwargs: dict[str, Any] = dict(
@@ -354,3 +368,30 @@ class StubAgentBackend(AgentBackend):
         if output_callback is not None:
             output_callback(prompt)
         return HandoverManifest(phase="RED", status="success")
+
+
+class StubPiBackend(StubAgentBackend):
+    """Pi-shaped stub backend for downstream test isolation.
+
+    Mirrors :class:`StubAgentBackend` so the ``_invoked`` flag, callable
+    surface, and :class:`HandoverManifest` contract are inherited. Used by
+    Pi-specific tests that need a no-subprocess stand-in.
+    """
+
+    def invoke(
+        self,
+        prompt: str,
+        backend: Literal["opencode", "claude", "droid", "pi", "stub"] | None = None,
+        timeout: int | None = None,
+        output_callback: OutputCallback | None = None,
+        cwd: str | None = None,
+        model: str | None = None,
+    ) -> HandoverManifest:
+        return super().invoke(
+            prompt,
+            backend=backend,
+            timeout=timeout,
+            output_callback=output_callback,
+            cwd=cwd,
+            model=model,
+        )
