@@ -384,44 +384,49 @@ class AgentBackend:
             )
 
         try:
-            if use_rpc:
-                stdout, stderr = self._invoke_rpc_blocking(
-                    proc, cmd, prompt, effective_timeout, backend_name
-                )
-            elif output_callback is not None:
-                stdout, stderr = self._invoke_streaming(
-                    proc, cmd, prompt, effective_timeout, backend_name, output_callback
-                )
-            else:
-                stdout, stderr = self._invoke_blocking(
-                    proc, cmd, prompt, effective_timeout, backend_name
-                )
+            stdout, stderr = self._dispatch_invocation(
+                proc,
+                cmd,
+                prompt,
+                effective_timeout,
+                backend_name,
+                output_callback,
+                use_rpc,
+            )
         except AgentTimeoutError:
             time.sleep(30)
             retry_proc = subprocess.Popen(cmd, **popen_kwargs)
-            if use_rpc:
-                stdout, stderr = self._invoke_rpc_blocking(
-                    retry_proc,
-                    cmd,
-                    prompt,
-                    effective_timeout,
-                    backend_name,
-                )
-            elif output_callback is not None:
-                stdout, stderr = self._invoke_streaming(
-                    retry_proc,
-                    cmd,
-                    prompt,
-                    effective_timeout,
-                    backend_name,
-                    output_callback,
-                )
-            else:
-                stdout, stderr = self._invoke_blocking(
-                    retry_proc, cmd, prompt, effective_timeout, backend_name
-                )
+            stdout, stderr = self._dispatch_invocation(
+                retry_proc,
+                cmd,
+                prompt,
+                effective_timeout,
+                backend_name,
+                output_callback,
+                use_rpc,
+            )
 
         return self.parse_output(stdout, backend_name)
+
+    def _dispatch_invocation(
+        self,
+        proc: subprocess.Popen[bytes],
+        cmd: list[str],
+        prompt: str,
+        timeout_secs: int,
+        backend_name: str,
+        output_callback: OutputCallback | None,
+        use_rpc: bool,
+    ) -> tuple[str, str]:
+        if use_rpc:
+            return self._invoke_rpc_blocking(
+                proc, cmd, prompt, timeout_secs, backend_name
+            )
+        if output_callback is not None:
+            return self._invoke_streaming(
+                proc, cmd, prompt, timeout_secs, backend_name, output_callback
+            )
+        return self._invoke_blocking(proc, cmd, prompt, timeout_secs, backend_name)
 
 
 class StubAgentBackend(AgentBackend):
