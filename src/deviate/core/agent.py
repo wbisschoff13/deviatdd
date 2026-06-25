@@ -14,6 +14,8 @@ from deviate.state.config import AgentConfig
 
 OutputCallback = Callable[[str], None]
 
+BackendName = Literal["opencode", "claude", "droid", "pi", "stub"]
+
 
 class HandoverManifest(BaseModel):
     phase: str
@@ -287,15 +289,13 @@ class AgentBackend:
     def invoke(
         self,
         prompt: str,
-        backend: Literal["opencode", "claude", "droid"] | None = None,
+        backend: BackendName | None = None,
         timeout: int | None = None,
         output_callback: OutputCallback | None = None,
         cwd: str | None = None,
         model: str | None = None,
     ) -> HandoverManifest:
-        backend_name: Literal["opencode", "claude", "droid"] = (
-            backend or self.config.backend
-        )
+        backend_name: BackendName = backend or self.config.backend
         backend_cmd = BACKEND_COMMANDS.get(backend_name)
         if backend_cmd is None:
             raise AgentBinaryNotFoundError(f"Unknown backend: {backend_name}")
@@ -358,7 +358,7 @@ class StubAgentBackend(AgentBackend):
     def invoke(
         self,
         prompt: str,
-        backend: Literal["opencode", "claude", "droid", "stub"] | None = None,
+        backend: BackendName | None = None,
         timeout: int | None = None,
         output_callback: OutputCallback | None = None,
         cwd: str | None = None,
@@ -373,25 +373,8 @@ class StubAgentBackend(AgentBackend):
 class StubPiBackend(StubAgentBackend):
     """Pi-shaped stub backend for downstream test isolation.
 
-    Mirrors :class:`StubAgentBackend` so the ``_invoked`` flag, callable
-    surface, and :class:`HandoverManifest` contract are inherited. Used by
-    Pi-specific tests that need a no-subprocess stand-in.
+    Marker subclass of :class:`StubAgentBackend` — shares the inherited
+    ``invoke()``, ``_invoked`` flag, callable surface, and
+    :class:`HandoverManifest` contract. Provides Pi-specific identity for
+    downstream fixtures that need to distinguish Pi-stub from generic stub.
     """
-
-    def invoke(
-        self,
-        prompt: str,
-        backend: Literal["opencode", "claude", "droid", "pi", "stub"] | None = None,
-        timeout: int | None = None,
-        output_callback: OutputCallback | None = None,
-        cwd: str | None = None,
-        model: str | None = None,
-    ) -> HandoverManifest:
-        return super().invoke(
-            prompt,
-            backend=backend,
-            timeout=timeout,
-            output_callback=output_callback,
-            cwd=cwd,
-            model=model,
-        )
