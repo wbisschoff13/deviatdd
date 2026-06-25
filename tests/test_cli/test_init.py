@@ -1,3 +1,4 @@
+import json
 import tomllib
 from contextlib import chdir
 from pathlib import Path
@@ -792,6 +793,220 @@ class TestInitAgentFlag:
         assert AGENT_TO_BACKEND["droid"] == "droid"
         assert AGENT_TO_BACKEND["claude"] == "claude"
         assert AGENT_TO_BACKEND["opencode"] == "opencode"
+
+
+class TestInitPiBackend:
+    """RED phase tests for TSK-009-02: Pi-specific init flow.
+
+    Validates that ``deviate init --agent pi``:
+        1. Exposes 'pi' in the AGENT_CHOICES / AGENT_TO_BACKEND constants.
+        2. Creates a symlink for each DeviaTDD skill under
+           ``~/.pi/agent/skills/<skill-name>`` pointing back to the project
+           skill directory so Pi discovers skills natively.
+        3. Generates ``~/.pi/agent/settings.json`` with
+           ``provider``/``model``/``skillPaths`` resolved from the
+           ``[models]`` config.
+        4. Is idempotent — re-running does not duplicate symlinks and does
+           not corrupt the settings file.
+        5. Preserves user-managed keys in ``settings.json`` across re-runs.
+        6. Skips skill symlinks when a real directory already exists at the
+           target path (does not overwrite or delete user-managed skills).
+    """
+
+    def test_agent_choices_includes_pi(self):
+        """AC-ADHOC-009-05: ``AGENT_CHOICES`` exposes 'pi' to users."""
+        from deviate.cli import AGENT_CHOICES
+
+        assert "pi" in AGENT_CHOICES
+
+    def test_agent_to_backend_maps_pi(self):
+        """AC-ADHOC-009-05: ``AGENT_TO_BACKEND['pi'] == 'pi'``."""
+        from deviate.cli import AGENT_TO_BACKEND
+
+        assert AGENT_TO_BACKEND["pi"] == "pi"
+
+    def test_resolve_agent_to_backend_pi_passthrough(self):
+        """``_resolve_agent_to_backend('pi')`` returns 'pi' (identity mapping)."""
+        from deviate.cli import _resolve_agent_to_backend
+
+        assert _resolve_agent_to_backend("pi") == "pi"
+
+    def test_init_agent_pi_persists_pi_backend(self, tmp_path: Path):
+        """``--agent pi`` persists ``backend = 'pi'`` in ``.deviate/config.toml``."""
+        with chdir(tmp_path):
+            result = runner.invoke(cli, ["setup", "--agent", "pi"])
+            assert result.exit_code == 0, result.output
+            config_path = tmp_path / ".deviate" / "config.toml"
+            parsed = tomllib.loads(config_path.read_text())
+            assert parsed["agent"]["backend"] == "pi"
+
+    def test_init_creates_pi_skill_symlinks(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """AC-ADHOC-009-02: ``--agent pi`` creates one symlink per DeviaTDD skill.
+
+        Each symlink under ``~/.pi/agent/skills/<skill-name>`` must resolve to
+        the absolute path of ``src/deviate/prompts/skills/<skill-name>`` so Pi
+        can discover the skills natively.
+        """
+        from deviate.core.skills import discover_skills
+
+        skills = discover_skills()
+        assert skills, "No skills discovered — test invariant violated"
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        with chdir(tmp_path):
+            result = runner.invoke(cli, ["setup", "--agent", "pi"])
+            assert result.exit_code == 0, result.output
+
+            pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
+            assert pi_skills_dir.is_dir(), (
+                f"Pi skills directory not created: {pi_skills_dir}"
+            )
+
+            for skill_name in skills:
+                link = pi_skills_dir / skill_name
+                assert link.is_symlink(), (
+                    f"Missing or non-symlink entry for skill '{skill_name}' at {link}"
+                )
+                target = link.resolve()
+                assert target.is_dir(), (
+                    f"Symlink {link} does not resolve to a directory (target: {target})"
+                )
+                assert (target / "SKILL.md").exists(), (
+                    f"Symlink target missing SKILL.md: {target}"
+                )
+
+    def test_init_generates_pi_settings_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """AC-ADHOC-009-03: ``settings.json`` content matches ``[models]`` + skillPaths."""
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        with chdir(tmp_path):
+            result = runner.invoke(cli, ["setup", "--agent", "pi"])
+            assert result.exit_code == 0, result.output
+
+            settings_path = tmp_path / ".pi" / "agent" / "settings.json"
+            assert settings_path.exists(), (
+                f"settings.json not generated at {settings_path}"
+            )
+
+            settings = json.loads(settings_path.read_text())
+            assert "provider" in settings, (
+                f"settings.json missing 'provider' key; got: {settings}"
+            )
+            assert "model" in settings, (
+                f"settings.json missing 'model' key; got: {settings}"
+            )
+            assert "skillPaths" in settings, (
+                f"settings.json missing 'skillPaths' key; got: {settings}"
+            )
+            assert isinstance(settings["skillPaths"], list)
+            assert len(settings["skillPaths"]) >= 1, (
+                "settings.json skillPaths must reference the project skills directory"
+            )
+
+    def test_init_idempotent_pi_setup(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """AC-ADHOC-009-04: Re-running init does not duplicate setup artifacts."""
+        from deviate.core.skills import discover_skills
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        skills = discover_skills()
+
+        with chdir(tmp_path):
+            r1 = runner.invoke(cli, ["setup", "--agent", "pi"])
+            assert r1.exit_code == 0, r1.output
+
+            pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
+            first_run_links = sorted(p.name for p in pi_skills_dir.iterdir())
+            assert len(first_run_links) == len(skills)
+
+            r2 = runner.invoke(cli, ["setup", "--agent", "pi"])
+            assert r2.exit_code == 0, r2.output
+
+            second_run_links = sorted(p.name for p in pi_skills_dir.iterdir())
+            assert second_run_links == first_run_links, (
+                f"Idempotent re-run changed skill entries: "
+                f"{first_run_links!r} -> {second_run_links!r}"
+            )
+
+            symlink_count = sum(1 for p in pi_skills_dir.iterdir() if p.is_symlink())
+            assert symlink_count == len(skills), (
+                f"Expected {len(skills)} symlinks after re-run, found {symlink_count}"
+            )
+
+            settings_path = tmp_path / ".pi" / "agent" / "settings.json"
+            assert settings_path.exists()
+            # Re-running must leave settings.json as valid JSON (no truncation).
+            settings = json.loads(settings_path.read_text())
+            assert isinstance(settings, dict)
+
+    def test_init_preserves_user_managed_settings_keys(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """AC: User-managed keys in settings.json preserved across re-runs.
+
+        Init must merge only its own keys (provider/model/skillPaths);
+        any user-managed top-level keys must be preserved untouched.
+        """
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        pi_agent_dir = tmp_path / ".pi" / "agent"
+        pi_agent_dir.mkdir(parents=True)
+        settings_path = pi_agent_dir / "settings.json"
+        user_settings = {
+            "userCustomKey": "user-value",
+            "ui": {"theme": "dark"},
+        }
+        settings_path.write_text(json.dumps(user_settings), encoding="utf-8")
+
+        with chdir(tmp_path):
+            result = runner.invoke(cli, ["setup", "--agent", "pi"])
+            assert result.exit_code == 0, result.output
+
+            settings = json.loads(settings_path.read_text())
+            assert settings.get("userCustomKey") == "user-value", (
+                f"User key 'userCustomKey' was clobbered; got: {settings}"
+            )
+            assert settings.get("ui") == {"theme": "dark"}, (
+                f"User key 'ui' was clobbered; got: {settings}"
+            )
+
+    def test_init_pi_skill_symlinks_skip_existing_directories(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """AC: Real directories at skill symlink targets are skipped, not overwritten.
+
+        When ``~/.pi/agent/skills/<name>`` exists as a real directory (a
+        user-managed skill), init must not replace it with a symlink or delete
+        its contents.
+        """
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
+        pi_skills_dir.mkdir(parents=True)
+
+        user_skill_name = "user-managed-skill"
+        user_dir = pi_skills_dir / user_skill_name
+        user_dir.mkdir()
+        user_skill_content = "# User-managed skill\n\nThis is a user skill.\n"
+        (user_dir / "SKILL.md").write_text(user_skill_content, encoding="utf-8")
+
+        with chdir(tmp_path):
+            result = runner.invoke(cli, ["setup", "--agent", "pi"])
+            assert result.exit_code == 0, result.output
+
+            assert user_dir.is_dir(), "User-managed directory was removed"
+            assert not user_dir.is_symlink(), (
+                "User-managed directory was replaced with a symlink"
+            )
+            assert (user_dir / "SKILL.md").read_text() == user_skill_content, (
+                "User-managed SKILL.md was overwritten"
+            )
 
 
 def test_version():
