@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import threading
@@ -66,6 +67,8 @@ BACKEND_COMMANDS: dict[str, str] = {
     "pi": "pi -p",
     "stub": "stub",
 }
+
+PI_RPC_COMMAND: list[str] = ["pi", "--mode", "rpc", "--no-session"]
 
 
 # Per-backend model-flag dispatch. ``None`` means the backend does not
@@ -286,6 +289,60 @@ class AgentBackend:
             )
         return stdout, stderr
 
+    def _invoke_rpc_blocking(
+        self,
+        proc: subprocess.Popen[bytes],
+        cmd: list[str],
+        prompt: str,
+        timeout_secs: int,
+        backend_name: str,
+    ) -> tuple[str, str]:
+        payload = (json.dumps({"type": "prompt", "content": prompt}) + "\n").encode(
+            "utf-8"
+        )
+        try:
+            stdout_bytes, stderr_bytes = proc.communicate(
+                input=payload, timeout=timeout_secs
+            )
+        except subprocess.TimeoutExpired as e:
+            proc.kill()
+            proc.wait()
+            partial_out = e.output.decode("utf-8") if e.output else ""
+            partial_err = e.stderr.decode("utf-8") if e.stderr else ""
+            raise AgentTimeoutError(
+                f"Agent backend '{backend_name}' timed out after {timeout_secs}s",
+                partial_stdout=partial_out,
+                partial_stderr=partial_err,
+            )
+        stdout = stdout_bytes.decode("utf-8") if stdout_bytes else ""
+        stderr = stderr_bytes.decode("utf-8") if stderr_bytes else ""
+        if proc.returncode != 0:
+            raise AgentSubprocessError(
+                message=stderr or f"Agent exited with code {proc.returncode}",
+                exit_code=proc.returncode,
+            )
+        manifest_text = ""
+        for raw_line in stdout.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            if event.get("type") != "agent_end":
+                continue
+            message = event.get("message")
+            if not isinstance(message, dict):
+                continue
+            content = message.get("content", "")
+            if isinstance(content, str):
+                manifest_text = content
+                break
+        return manifest_text, stderr
+
     def invoke(
         self,
         prompt: str,
@@ -296,14 +353,19 @@ class AgentBackend:
         model: str | None = None,
     ) -> HandoverManifest:
         backend_name: BackendName = backend or self.config.backend
-        backend_cmd = BACKEND_COMMANDS.get(backend_name)
-        if backend_cmd is None:
-            raise AgentBinaryNotFoundError(f"Unknown backend: {backend_name}")
+        use_rpc = backend_name == "pi" and self.config.pi_rpc
 
-        cmd = backend_cmd.split()
-        model_flag = MODEL_FLAGS.get(backend_name, ["--model"])
-        if model is not None and model_flag is not None:
-            cmd.extend([model_flag[0], model])
+        if use_rpc:
+            cmd = list(PI_RPC_COMMAND)
+        else:
+            backend_cmd = BACKEND_COMMANDS.get(backend_name)
+            if backend_cmd is None:
+                raise AgentBinaryNotFoundError(f"Unknown backend: {backend_name}")
+
+            cmd = backend_cmd.split()
+            model_flag = MODEL_FLAGS.get(backend_name, ["--model"])
+            if model is not None and model_flag is not None:
+                cmd.extend([model_flag[0], model])
         effective_timeout = timeout or self.config.timeout
 
         popen_kwargs: dict[str, Any] = dict(
@@ -322,7 +384,11 @@ class AgentBackend:
             )
 
         try:
-            if output_callback is not None:
+            if use_rpc:
+                stdout, stderr = self._invoke_rpc_blocking(
+                    proc, cmd, prompt, effective_timeout, backend_name
+                )
+            elif output_callback is not None:
                 stdout, stderr = self._invoke_streaming(
                     proc, cmd, prompt, effective_timeout, backend_name, output_callback
                 )
@@ -333,7 +399,15 @@ class AgentBackend:
         except AgentTimeoutError:
             time.sleep(30)
             retry_proc = subprocess.Popen(cmd, **popen_kwargs)
-            if output_callback is not None:
+            if use_rpc:
+                stdout, stderr = self._invoke_rpc_blocking(
+                    retry_proc,
+                    cmd,
+                    prompt,
+                    effective_timeout,
+                    backend_name,
+                )
+            elif output_callback is not None:
                 stdout, stderr = self._invoke_streaming(
                     retry_proc,
                     cmd,
