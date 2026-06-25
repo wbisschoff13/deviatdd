@@ -32,7 +32,12 @@ from deviate.cli.feature import feature_app
 from deviate.cli.inspect import inspect_app
 from deviate.cli.init import init_app
 from deviate.cli.review import review_app
-from deviate.core.skills import detect_agents, discover_skills, install_skill
+from deviate.core.skills import (
+    _resolve_skills_root,
+    detect_agents,
+    discover_skills,
+    install_skill,
+)
 from deviate.ui.render import is_interactive
 
 cli = typer.Typer(no_args_is_help=True)
@@ -585,8 +590,6 @@ def _pi_skill_target(skill_name: str) -> Path:
     :func:`deviate.core.skills.discover_skills` uses, so Pi discovers
     the DeviaTDD skill catalogue at its canonical install location.
     """
-    from deviate.core.skills import _resolve_skills_root
-
     return _resolve_skills_root() / skill_name
 
 
@@ -668,8 +671,6 @@ def _setup_pi_backend(workdir: Path) -> None:
     pi_agent_dir = Path.home() / ".pi" / "agent"
     pi_skills_dir = pi_agent_dir / "skills"
     pi_skills_dir.mkdir(parents=True, exist_ok=True)
-
-    from deviate.core.skills import discover_skills
 
     skills = discover_skills()
     for skill_name in skills:
