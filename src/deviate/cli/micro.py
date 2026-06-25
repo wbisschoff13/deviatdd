@@ -306,12 +306,10 @@ def _extract_pi_session_stats(stdout: str) -> dict[str, int] | None:
     token fields are present so the caller can distinguish "absent" from
     "present with zero values".
     """
-    if not stdout:
-        return None
-    stats: dict[str, int] = {}
-    for match in _PI_TOKEN_FIELD_RE.finditer(stdout):
-        field_name = match.group(1)
-        stats[field_name] = int(match.group(2))
+    stats: dict[str, int] = {
+        match.group(1): int(match.group(2))
+        for match in _PI_TOKEN_FIELD_RE.finditer(stdout)
+    }
     return stats or None
 
 
