@@ -294,6 +294,27 @@ def _make_output_handler(c: Console, verbose: bool = False) -> Callable[[str], N
     return handler
 
 
+_PI_TOKEN_FIELD_RE = re.compile(r"^tokens\.(\w+):\s*(\d+)\s*$", re.MULTILINE)
+
+
+def _extract_pi_session_stats(stdout: str) -> dict[str, int] | None:
+    """Parse Pi agent token usage from stdout into a dict with camelCase keys.
+
+    Recognises lines matching ``tokens.<field>: <integer>`` and returns a
+    dict keyed by the field name with the ``tokens.`` prefix stripped
+    (e.g. ``tokens.cacheRead`` → ``cacheRead``). Returns ``None`` when no
+    token fields are present so the caller can distinguish "absent" from
+    "present with zero values".
+    """
+    if not stdout:
+        return None
+    stats: dict[str, int] = {}
+    for match in _PI_TOKEN_FIELD_RE.finditer(stdout):
+        field_name = match.group(1)
+        stats[field_name] = int(match.group(2))
+    return stats or None
+
+
 def _invoke_agent(
     prompt: str,
     c: Console,
@@ -333,14 +354,18 @@ def _invoke_agent(
         status = getattr(manifest, "status", "?")
         verdict = getattr(manifest, "verdict", "")
         manifest_json = manifest.model_dump_json()
-        _log_run(
-            "AGENT_RESULT",
-            task_id=task_id,
-            phase=phase,
-            status=status,
-            verdict=verdict,
-            manifest=manifest_json,
-        )
+        agent_result_kwargs: dict[str, object] = {
+            "task_id": task_id,
+            "phase": phase,
+            "status": status,
+            "verdict": verdict,
+            "manifest": manifest_json,
+        }
+        if backend_name == "pi":
+            agent_result_kwargs["pi_session_stats"] = _extract_pi_session_stats(
+                "\n".join(raw_lines)
+            )
+        _log_run("AGENT_RESULT", **agent_result_kwargs)
         if raw_lines:
             _log_run(
                 "AGENT_RAW_OUTPUT",
