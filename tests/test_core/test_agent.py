@@ -689,3 +689,214 @@ class TestModelFlagsRegistry:
         from deviate.core.agent import MODEL_FLAGS
 
         assert MODEL_FLAGS.get("pi") is None
+
+
+class TestPiSessionStatsLogging:
+    """TSK-009-04: Extract ``pi.session_stats`` from Pi agent output and
+    enrich ``prompts.log`` AGENT_RESULT entries with token statistics.
+
+    Covers AC-ADHOC-009-04 (Token stats captured in prompts.log), US-009-03
+    (cache-hit ratio observability), and the ``_extract_pi_session_stats``
+    helper contract. Tests fail in RED phase because:
+
+    1. ``_extract_pi_session_stats`` does not exist in
+       ``deviate.cli.micro`` — tests that import it raise ``ImportError``.
+    2. ``_invoke_agent`` does not pass ``pi_session_stats`` kwarg to
+       ``_log_run("AGENT_RESULT", ...)`` — the kwarg lookup fails.
+    """
+
+    def test_extract_pi_session_stats_returns_all_four_fields(self):
+        """Helper extracts ``tokens.{input,output,cacheRead,cacheWrite}``
+        into a dict with camelCase keys and integer values.
+
+        Spec: AC-ADHOC-009-04 — all four fields populated, no nulls.
+        """
+        from deviate.cli.micro import _extract_pi_session_stats
+
+        stdout = (
+            "phase: RED\n"
+            "status: TEST_WRITTEN_FAILING\n"
+            "tokens.input: 1234\n"
+            "tokens.output: 567\n"
+            "tokens.cacheRead: 890\n"
+            "tokens.cacheWrite: 45\n"
+        )
+
+        stats = _extract_pi_session_stats(stdout)
+
+        assert stats is not None, "Expected stats dict, got None"
+        assert stats == {
+            "input": 1234,
+            "output": 567,
+            "cacheRead": 890,
+            "cacheWrite": 45,
+        }
+
+    def test_extract_pi_session_stats_returns_none_when_absent(self):
+        """Helper returns ``None`` when no token stats appear in stdout.
+
+        Spec edge case: token stats absent from Pi output → helper returns
+        ``None`` (caller logs a warning, does not fail).
+        """
+        from deviate.cli.micro import _extract_pi_session_stats
+
+        stdout = "phase: RED\nstatus: TEST_WRITTEN_FAILING\ntask_id: TSK-009-04\n"
+
+        assert _extract_pi_session_stats(stdout) is None
+
+    def test_extract_pi_session_stats_partial_fields(self):
+        """Helper returns only the fields present in stdout when stats
+        are partial (e.g., only input/output, no cache fields).
+
+        Spec edge case: partial stats — return only present fields.
+        """
+        from deviate.cli.micro import _extract_pi_session_stats
+
+        stdout = "tokens.input: 100\ntokens.output: 50\n"
+
+        stats = _extract_pi_session_stats(stdout)
+
+        assert stats == {"input": 100, "output": 50}
+
+    def test_pi_session_stats_logged(self):
+        """AC-ADHOC-009-04: AGENT_RESULT event contains ``pi_session_stats``
+        kwarg with all four token fields when Pi backend emits stats.
+
+        Exercises the full ``_invoke_agent(backend_name='pi')`` logging path:
+        mock ``AgentBackend.invoke`` to push Pi-shaped stdout through the
+        ``output_callback`` (which captures ``raw_lines`` internally), then
+        verify ``_log_run('AGENT_RESULT', ...)`` receives ``pi_session_stats``.
+        """
+        from deviate.core.agent import HandoverManifest
+        from deviate.cli.micro import _invoke_agent
+
+        manifest = HandoverManifest(phase="RED", status="TEST_WRITTEN_FAILING")
+        pi_stdout_lines = [
+            "phase: RED",
+            "status: TEST_WRITTEN_FAILING",
+            "tokens.input: 1234",
+            "tokens.output: 567",
+            "tokens.cacheRead: 890",
+            "tokens.cacheWrite: 45",
+        ]
+
+        def fake_invoke(self, prompt, **kwargs):
+            callback = kwargs.get("output_callback")
+            if callback is not None:
+                for line in pi_stdout_lines:
+                    callback(line)
+            return manifest
+
+        with (
+            patch("deviate.cli.micro._log_run") as mock_log_run,
+            patch.object(AgentBackend, "invoke", new=fake_invoke),
+        ):
+            from rich.console import Console
+
+            _invoke_agent(
+                prompt="test prompt",
+                c=Console(),
+                backend_name="pi",
+                task_id="TSK-009-04",
+                phase="RED",
+            )
+
+        agent_result_calls = [
+            call
+            for call in mock_log_run.call_args_list
+            if call.args and call.args[0] == "AGENT_RESULT"
+        ]
+        assert agent_result_calls, (
+            "_log_run was not invoked with the 'AGENT_RESULT' event"
+        )
+
+        pi_stats_kwarg = agent_result_calls[0].kwargs.get("pi_session_stats")
+        assert pi_stats_kwarg is not None, (
+            "Expected 'pi_session_stats' kwarg on _log_run('AGENT_RESULT', ...),"
+            f" got kwargs: {agent_result_calls[0].kwargs}"
+        )
+        assert pi_stats_kwarg["input"] == 1234
+        assert pi_stats_kwarg["output"] == 567
+        assert pi_stats_kwarg["cacheRead"] == 890
+        assert pi_stats_kwarg["cacheWrite"] == 45
+
+    def test_pi_session_stats_absent_logs_none(self):
+        """When Pi stdout contains no token stats, the AGENT_RESULT event
+        must carry ``pi_session_stats=None`` (not raise, not omit the kwarg).
+
+        Spec edge case: absent stats — log warning but do not fail.
+        """
+        from deviate.core.agent import HandoverManifest
+        from deviate.cli.micro import _invoke_agent
+
+        manifest = HandoverManifest(phase="RED", status="TEST_WRITTEN_FAILING")
+        pi_stdout_lines = [
+            "phase: RED",
+            "status: TEST_WRITTEN_FAILING",
+        ]
+
+        def fake_invoke(self, prompt, **kwargs):
+            callback = kwargs.get("output_callback")
+            if callback is not None:
+                for line in pi_stdout_lines:
+                    callback(line)
+            return manifest
+
+        with (
+            patch("deviate.cli.micro._log_run") as mock_log_run,
+            patch.object(AgentBackend, "invoke", new=fake_invoke),
+        ):
+            from rich.console import Console
+
+            _invoke_agent(
+                prompt="test prompt",
+                c=Console(),
+                backend_name="pi",
+                task_id="TSK-009-04",
+                phase="RED",
+            )
+
+        agent_result_calls = [
+            call
+            for call in mock_log_run.call_args_list
+            if call.args and call.args[0] == "AGENT_RESULT"
+        ]
+        assert agent_result_calls
+        assert "pi_session_stats" in agent_result_calls[0].kwargs
+        assert agent_result_calls[0].kwargs["pi_session_stats"] is None
+
+    def test_non_pi_backend_skips_session_stats_extraction(self):
+        """When backend is NOT 'pi', the AGENT_RESULT event must NOT include
+        ``pi_session_stats`` (extraction is Pi-specific).
+
+        Spec: defensive exclusion — non-Pi backends never include the block.
+        """
+        from deviate.core.agent import HandoverManifest
+        from deviate.cli.micro import _invoke_agent
+
+        manifest = HandoverManifest(phase="RED", status="TEST_WRITTEN_FAILING")
+
+        def fake_invoke(self, prompt, **kwargs):
+            return manifest
+
+        with (
+            patch("deviate.cli.micro._log_run") as mock_log_run,
+            patch.object(AgentBackend, "invoke", new=fake_invoke),
+        ):
+            from rich.console import Console
+
+            _invoke_agent(
+                prompt="test prompt",
+                c=Console(),
+                backend_name="opencode",
+                task_id="TSK-009-04",
+                phase="RED",
+            )
+
+        agent_result_calls = [
+            call
+            for call in mock_log_run.call_args_list
+            if call.args and call.args[0] == "AGENT_RESULT"
+        ]
+        assert agent_result_calls
+        assert "pi_session_stats" not in agent_result_calls[0].kwargs
