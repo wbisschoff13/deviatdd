@@ -591,3 +591,88 @@ Each HITL gate prevents wasted downstream compute. A design error caught at Gate
 ### 9.5 Task Isolation
 
 Failed RED/GREEN cycles are scoped to a single task. A failed task loses only that task's compute, not the entire feature's. Each task gets a fresh cache — there is no accumulated context debt from prior failures. Module boundary violations are caught by the JUDGE phase and trigger Train rollback without cascading into other task implementations.
+
+---
+
+## 10. Backend Architecture
+
+The `AgentBackend` class (`src/deviate/core/agent.py`) provides a uniform subprocess
+contract (stdin prompt → stdout response → YAML handover manifest extraction) for every
+user-facing backend. Pi (`@earendil-works/pi-coding-agent` v0.80.2, CLI binary `pi`) is
+integrated as a first-class backend alongside `opencode`, `claude`, and `droid`, with
+the customisations documented below.
+
+### 10.1 Backend Selection Matrix
+
+| Backend | CLI Command | Skill Strategy | Model Selection | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `opencode` | `opencode run` | Skills copied into `.opencode/skills/` | `--model <id>` flag | Default backend |
+| `claude` | `claude -p --permission-mode auto` | Skills copied into `.claude/skills/` | `--model <id>` flag (may be ignored by host env) | Print mode, auto permission |
+| `droid` | `droid exec` | Skills copied into `.factory/skills/` | `--model <id>` flag | Factory Droid IDE-owned skills dir |
+| `pi` | `pi -p` | Symlinks `~/.pi/agent/skills/<name>` → `src/deviate/prompts/skills/<name>` | Routes through `~/.pi/agent/settings.json` (NOT CLI flag) | Native Agent Skills discovery; opt-in RPC mode available |
+
+### 10.2 Pi Backend Customizations
+
+Pi implements the [Agent Skills specification](https://agentskills.io/specification)
+natively — `pi -p` discovers skills from `~/.pi/agent/skills/`, `.pi/skills/`, and
+`.agents/skills/` on startup, parses the `name:` + `description:` YAML frontmatter from
+each `SKILL.md`, and registers them as in-context tools. DeviaTDD integrates Pi on top
+of the standard `AgentBackend.invoke()` contract with four customisations:
+
+1. **Skill symlink strategy.** `deviate init` creates one symlink per project skill
+   under `~/.pi/agent/skills/<skill-name>`, each pointing to the absolute path of
+   `src/deviate/prompts/skills/<skill-name>`. Skills are **not copied** — the project
+   vault remains the single source of truth. Idempotency: existing symlinks pointing to
+   the correct target are skipped; if a real directory exists at the target path, init
+   logs a `[yellow]SKIP[/]` line and proceeds without deleting user-managed content.
+   `pathlib.Path.symlink_to()` is used with absolute targets; symlink creation across
+   all skills targets ≤ 50ms (20 skills × ~2ms each on macOS/Linux).
+2. **Settings.json generation.** `deviate init` writes
+   `~/.pi/agent/settings.json` with `{"provider": "<resolved>", "model": "<resolved>",
+   "skillPaths": ["<abs-path-to-src/deviate/prompts/skills>"]}`, where provider and
+   model are resolved from `.deviate/config.toml` `[models]` using the `default` key as
+   fallback. Merge semantics: only `deviate_*` keys (or top-level keys managed by
+   DeviaTDD) are written; user-managed entries (keys not prefixed with `deviate_`) are
+   preserved across re-runs. Writes use file-level locking (`fcntl.flock`) to prevent
+   races with concurrent `init` invocations.
+3. **Model flag injection difference.** Pi print mode (`pi -p`) rejects a bare
+   `--model <id>` flag — Pi's model selection requires either
+   `--provider <name> --model <pattern>` on the command line or, preferably, the
+   `~/.pi/agent/settings.json` runtime configuration file. DeviaTDD therefore does
+   **not** inject `--model` for the Pi backend via the per-backend `MODEL_FLAGS` map;
+   per-phase `[models]` overrides resolve through `~/.pi/agent/settings.json` swap
+   (RPC mode) or apply to the next subprocess spawn (print mode). This differs from
+   `opencode` / `droid` (which accept `--model` on the command line) and from `claude`
+   (which uses print mode but ignores `--model`).
+4. **RPC mode opt-in.** Pi's RPC mode (`pi --mode rpc --no-session`) exposes a
+   JSONL-over-stdin/stdout protocol with streaming events (`agent_start`,
+   `message_update`, `agent_end`) and a `get_session_stats` command returning
+   `tokens.input`, `tokens.output`, `tokens.cacheRead`, `tokens.cacheWrite`. RPC mode
+   is **opt-in** via `agent.pi_rpc = true` in `.deviate/config.toml`; default behavior
+   is print mode (single-shot, exits after the first assistant turn). When RPC mode is
+   active, the `AGENT_RESULT` event in `.deviate/prompts.log` is enriched with a
+   `pi.session_stats` JSON sub-object — capturing the cache-hit ratio for cost
+   observability across repeated phase invocations within the same session.
+
+### 10.3 Pi Sandbox Boundary
+
+Pi has no built-in permission system — `pi` runs with the invoking user's full
+permissions (per Pi's containerization guidance). DeviaTDD's Tamper Guard restriction
+to writes against `src/**/*.py` only therefore applies at the wrapper / pre-commit
+hook layer, not at the Pi runtime layer. The micro-sandbox enforcement is identical
+to the `opencode` / `claude` / `droid` backends — backend choice is orthogonal to
+Tamper Guard.
+
+Pi's philosophy of "no sub-agents, no plan mode, no MCP" is compatible with
+DeviaTDD's external orchestration model: DeviaTDD orchestrates multiple Pi
+invocations externally, one phase per subprocess, with no internal delegation inside
+Pi itself. The JUDGE phase's isolation model (running in an isolated V4 Pro session)
+is preserved — backend choice is orthogonal to session isolation.
+
+### 10.4 Pi Layer Scope
+
+Pi is registered as a backend for the **micro layer** (RED, GREEN, YELLOW, JUDGE,
+REFACTOR) and the **meso layer** (plan, tasks). Macro-layer phases (explore,
+research, prd, shard, adhoc) continue to use `opencode` / `claude` / `droid` for this
+issue — macro support is deferred to a follow-up if token savings are observed in
+practice.
