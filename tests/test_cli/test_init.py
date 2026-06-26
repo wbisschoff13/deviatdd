@@ -605,12 +605,19 @@ class TestInitCommand:
                 )
 
     def test_init_discover_skills_enumerates_tome(self) -> None:
-        """TSK-011-05: ``discover_skills()`` enumerates the seven Tome skills
-        exactly once each.
+        """TSK-011-06: ``discover_skills()`` enumerates >= 30 skill names
+        and the seven Tome skills each appear exactly once.
 
-        Mirrors ``test_init_discover_skills_enumerates_product_layer`` for
-        the Tome layer. Source: AC-ADHOC-011-08 (per
-        ``specs/adhoc/011-tome-subsystem-v1.md``).
+        Forward-compatible count assertion per the FR-ADHOC-010 ``>= 23``
+        pattern at line 456 (see Risk Hotspots in
+        ``specs/adhoc/011-tome-subsystem-v1/tasks.md``). Current count is
+        24 base + 7 Tome = 31. Spec AC-ADHOC-011-08 mandates the seven
+        Tome names appear exactly once each.
+
+        Source: ``specs/_product/architecture.md:25-33`` (7 components C1-C7
+        mapped to seven skill directories) and
+        ``specs/adhoc/011-tome-subsystem-v1.md`` §`ATDD Acceptance Criteria`
+        Scenario 011-08.
         """
         from deviate.core.skills import discover_skills
 
@@ -620,6 +627,12 @@ class TestInitCommand:
         )
 
         skills = discover_skills()
+
+        assert len(skills) >= 30, (
+            f"discover_skills() returned {len(skills)} skill names; "
+            f"expected >= 30 (24 base + 7 Tome per AC-ADHOC-011-08). "
+            f"Got: {sorted(skills)}"
+        )
 
         for skill_name in _TOME_LAYER_SKILLS:
             assert skill_name in skills, (
