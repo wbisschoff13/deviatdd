@@ -8,3 +8,5 @@
 {"id":"TSK-011-05","issue_id":"ISS-ADH-011","description":"Add `_TOME_LAYER_SKILLS` constant and existence + idempotency tests to `tests/test_cli/test_init.py`","status":"COMPLETED","execution_mode":"TDD","created_at":"2026-06-26T11:43:22.426362Z"}
 {"id":"TSK-011-06","issue_id":"ISS-ADH-011","description":"Add `test_init_discover_skills_enumerates_tome` test and run E2E smoke verification","status":"RED","execution_mode":"TDD","created_at":"2026-06-26T13:02:24.994551Z"}
 {"id":"TSK-011-06","issue_id":"ISS-ADH-011","description":"Add `test_init_discover_skills_enumerates_tome` test and run E2E smoke verification","status":"GREEN","execution_mode":"TDD","created_at":"2026-06-26T13:04:52.783192Z"}
+{"id":"TSK-011-06","issue_id":"ISS-ADH-011","description":"Add `test_init_discover_skills_enumerates_tome` test and run E2E smoke verification","status":"JUDGE","execution_mode":"TDD","created_at":"2026-06-26T13:25:18.283665Z"}
+{"id":"TSK-011-06","issue_id":"ISS-ADH-011","description":"Add `test_init_discover_skills_enumerates_tome` test and run E2E smoke verification","status":"COMPLETED","execution_mode":"TDD","created_at":"2026-06-26T13:04:52.783192Z"}
