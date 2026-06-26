@@ -6,6 +6,8 @@ version: 1.0.0
 aliases:
   - tome-write-explanation
   - /tome-write-explanation
+  - spec:write-explanation
+  - spec.write-explanation
   - spec:tome-write-explanation
   - spec.tome-write-explanation
 ---

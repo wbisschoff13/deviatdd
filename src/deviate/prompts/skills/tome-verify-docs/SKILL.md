@@ -6,6 +6,8 @@ version: 1.0.0
 aliases:
   - tome-verify-docs
   - /tome-verify-docs
+  - spec:verify-docs
+  - spec.verify-docs
   - spec:tome-verify-docs
   - spec.tome-verify-docs
 ---

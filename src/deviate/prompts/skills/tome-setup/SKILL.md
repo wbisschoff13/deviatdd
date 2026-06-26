@@ -6,6 +6,8 @@ version: 1.0.0
 aliases:
   - tome-setup
   - /tome-setup
+  - spec:setup
+  - spec.setup
   - spec:tome-setup
   - spec.tome-setup
 ---

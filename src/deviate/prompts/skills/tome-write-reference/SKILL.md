@@ -6,6 +6,8 @@ version: 1.0.0
 aliases:
   - tome-write-reference
   - /tome-write-reference
+  - spec:write-reference
+  - spec.write-reference
   - spec:tome-write-reference
   - spec.tome-write-reference
 ---

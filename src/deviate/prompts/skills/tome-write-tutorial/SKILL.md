@@ -6,6 +6,8 @@ version: 1.0.0
 aliases:
   - tome-write-tutorial
   - /tome-write-tutorial
+  - spec:write-tutorial
+  - spec.write-tutorial
   - spec:tome-write-tutorial
   - spec.tome-write-tutorial
 ---
@@ -203,3 +205,13 @@ A successful run produces:
 | Existing target file has unmergeable structure | Preserve-valid-content check failed; halt; surface diff to user |
 
 </failure_modes>
+
+<context>
+
+The runtime injects the developer's invocation message into the `<user_input>` block below. Read it first, then act on the resolved `<target_file>` and (when supplied) the embedded FLOW-04 classification report excerpt. If `<user_input>` is empty or unpopulated, halt and emit `MISSING_TARGET_FILE` — do NOT infer a target path from prior conversation.
+
+</context>
+
+<user_input>
+$ARGUMENTS
+</user_input>

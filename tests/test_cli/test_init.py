@@ -15,11 +15,19 @@ runner = CliRunner()
 
 _PRODUCT_LAYER_SKILLS = ("deviate-flows", "deviate-architecture", "deviate-release")
 
-# TSK-011-05: populated by GREEN phase. RED placeholder is empty so
-# the existence + idempotency tests fail with AssertionError on length
-# mismatch (not NameError) — keeps the RED failure mode clean and
-# matches the discipline "tests must fail with AssertionError".
-_TOME_LAYER_SKILLS: tuple[str, ...] = ()
+# TSK-011-05: seven Tome Subsystem skill names (C1..C7) per
+# ``specs/_product/architecture.md:25-33`` and
+# ``specs/adhoc/issues/011-tome-subsystem-v1.md`` flow_refs [FLOW-04..FLOW-10].
+# Mirrors the ``_PRODUCT_LAYER_SKILLS`` pattern above.
+_TOME_LAYER_SKILLS = (
+    "tome-classify",
+    "tome-write-tutorial",
+    "tome-write-how-to",
+    "tome-write-reference",
+    "tome-write-explanation",
+    "tome-verify-docs",
+    "tome-setup",
+)
 
 
 class TestInitCommand:

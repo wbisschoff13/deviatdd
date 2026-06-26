@@ -6,6 +6,8 @@ version: 1.0.0
 aliases:
   - tome-classify
   - /tome-classify
+  - spec:classify
+  - spec.classify
   - spec:tome-classify
   - spec.tome-classify
 ---
@@ -128,6 +130,16 @@ The report is a single markdown block with exactly three sections in this order,
 - `specs/_product/domain-model.md` — `Commit`, `ClassificationReport`, `Capability`, `DocType`, `Action` entities
 
 </source_anchors>
+
+<context>
+
+The runtime injects the developer's invocation message into the `<user_input>` block below. Read it first, then act on the resolved input mode (`HEAD~1`, `<sha>`, `--merge-base`, or `--working-tree`) and (when supplied) the embedded FLOW-04 prior report excerpt. If `<user_input>` is empty, default to the developer invoking the classifier on `HEAD~1` with no prior context. Do NOT infer an input mode from prior conversation.
+
+</context>
+
+<user_input>
+$ARGUMENTS
+</user_input>
 
 <out_of_scope>
 
