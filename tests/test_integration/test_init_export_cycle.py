@@ -312,22 +312,26 @@ class TestProductLayerSkillExportCycle:
 
 
 class TestFullInitCyclePiBackend:
-    """TSK-009-06: E2E integration test for Pi init + export cycle.
+    """TSK-009-06: E2E integration test for Pi setup + export cycle.
 
     Exercises the full ``deviate setup --agent pi`` flow end-to-end and
-    verifies the artifacts the Pi backend needs at runtime — config.toml,
-    ``~/.pi/agent/skills/<name>`` symlinks, and ``~/.pi/agent/settings.json``.
-    ``Path.home()`` is monkeypatched to the per-test ``tmp_path`` so the test
-    is fully isolated from the operator's real ``~/.pi/agent/`` directory.
+    verifies the artifacts the Pi backend needs at runtime — config.toml
+    and the project-local ``<workdir>/.pi/skills/<name>/SKILL.md`` files.
+    No writes to ``~/.pi/agent/`` and no ``settings.json`` generation.
+    ``Path.home()`` is monkeypatched to the per-test ``tmp_path`` so the
+    test can assert that DeviaTDD did not write to the user's home
+    directory.
     """
 
     def test_init_export_pi_backend_full_cycle(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """AC-ADHOC-009-02 + AC-ADHOC-009-03 + AC-ADHOC-009-08:
-        Full Pi init cycle creates config.toml, skill symlinks, and settings.json.
+        """AC-ADHOC-009-02 + AC-ADHOC-009-04: Full Pi setup cycle creates
+        config.toml and project-local skill files; no global writes.
         """
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        fake_home = tmp_path / "fake-home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
         skills = discover_skills()
         assert skills, "Test invariant violated: no skills discovered"
 
@@ -342,33 +346,37 @@ class TestFullInitCyclePiBackend:
                 f"Expected backend='pi', got: {parsed.get('agent')}"
             )
 
-            pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
+            pi_skills_dir = tmp_path / ".pi" / "skills"
             assert pi_skills_dir.is_dir(), (
-                f"Pi skills dir not created at {pi_skills_dir}"
+                f"Project-local Pi skills dir not created at {pi_skills_dir}"
             )
 
-            symlink_count = sum(1 for p in pi_skills_dir.iterdir() if p.is_symlink())
-            assert symlink_count == len(skills), (
-                f"Expected {len(skills)} symlinks, found {symlink_count}"
+            for skill_name in skills:
+                skill_file = pi_skills_dir / skill_name / "SKILL.md"
+                assert skill_file.is_file(), (
+                    f"Skill file missing for '{skill_name}' at {skill_file}"
+                )
+                assert not skill_file.is_symlink(), (
+                    f"Skill file unexpectedly a symlink: {skill_file}"
+                )
+
+            # No writes to operator's global Pi config.
+            home_pi = fake_home / ".pi"
+            assert not home_pi.exists(), (
+                f"DeviaTDD wrote to the user's home dir at {home_pi}"
             )
 
-            settings_path = tmp_path / ".pi" / "agent" / "settings.json"
-            assert settings_path.exists(), f"settings.json not at {settings_path}"
-            settings = json.loads(settings_path.read_text())
-            assert "provider" in settings
-            assert "model" in settings
-            assert "skillPaths" in settings
-            assert isinstance(settings["skillPaths"], list)
-            assert len(settings["skillPaths"]) >= 1
+            # No settings.json anywhere.
+            assert not (tmp_path / ".pi" / "settings.json").exists()
+            assert not (fake_home / ".pi" / "agent" / "settings.json").exists()
 
     def test_init_export_pi_backend_performance_under_500ms(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """Performance constraint: L_max ≤ 500ms for full Pi init cycle.
+        """Performance constraint: L_max ≤ 500ms for full Pi setup cycle.
 
-        Covers skill symlink creation (≤ 50ms) + settings.json write (≤ 10ms)
-        + config.toml write + governance file writes — all must complete
-        within the 500ms L_max.
+        Covers skill file copy (≤ 200ms for 20 skills) + config.toml write
+        + governance file writes — all must complete within the 500ms L_max.
         """
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
@@ -379,14 +387,14 @@ class TestFullInitCyclePiBackend:
 
             assert result.exit_code == 0, result.output
             assert elapsed < 0.5, (
-                f"Pi init took {elapsed:.3f}s, expected < 0.5s (L_max constraint)"
+                f"Pi setup took {elapsed:.3f}s, expected < 0.5s (L_max constraint)"
             )
 
     def test_init_export_pi_backend_idempotent(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """AC-ADHOC-009-04: Re-running init does not duplicate symlinks
-        or corrupt settings.json; second run also stays within 500ms.
+        """Re-running setup does not duplicate skill files; second run
+        also stays within 500ms.
         """
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         skills = discover_skills()
@@ -395,41 +403,46 @@ class TestFullInitCyclePiBackend:
             r1 = runner.invoke(cli, ["setup", "--agent", "pi"])
             assert r1.exit_code == 0, r1.output
 
-            pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
-            first_links = sorted(p.name for p in pi_skills_dir.iterdir())
-            assert len(first_links) == len(skills)
-
-            settings_path = tmp_path / ".pi" / "agent" / "settings.json"
-            first_settings = settings_path.read_text()
+            pi_skills_dir = tmp_path / ".pi" / "skills"
+            first_files = sorted(
+                str(p.relative_to(pi_skills_dir))
+                for p in pi_skills_dir.rglob("SKILL.md")
+            )
+            assert len(first_files) == len(skills)
 
             start = time.perf_counter()
             r2 = runner.invoke(cli, ["setup", "--agent", "pi"])
             elapsed = time.perf_counter() - start
 
             assert r2.exit_code == 0, r2.output
-            assert elapsed < 0.5, f"Second Pi init took {elapsed:.3f}s, expected < 0.5s"
-
-            second_links = sorted(p.name for p in pi_skills_dir.iterdir())
-            assert second_links == first_links, (
-                f"Idempotent re-run changed skill entries: "
-                f"{first_links!r} -> {second_links!r}"
+            assert elapsed < 0.5, (
+                f"Second Pi setup took {elapsed:.3f}s, expected < 0.5s"
             )
 
-            symlink_count = sum(1 for p in pi_skills_dir.iterdir() if p.is_symlink())
-            assert symlink_count == len(skills), (
-                f"Expected {len(skills)} symlinks after re-run, found {symlink_count}"
+            second_files = sorted(
+                str(p.relative_to(pi_skills_dir))
+                for p in pi_skills_dir.rglob("SKILL.md")
+            )
+            assert second_files == first_files, (
+                f"Idempotent re-run changed skill file layout: "
+                f"{first_files!r} -> {second_files!r}"
             )
 
-            assert settings_path.read_text() == first_settings, (
-                "settings.json content changed on idempotent re-run"
-            )
+            for skill_name in skills:
+                skill_file = pi_skills_dir / skill_name / "SKILL.md"
+                assert skill_file.is_file(), (
+                    f"Skill file removed on re-run: {skill_file}"
+                )
+                assert not skill_file.is_symlink(), (
+                    f"Skill file unexpectedly a symlink: {skill_file}"
+                )
 
-    def test_init_export_pi_backend_symlinks_resolve_to_skill_directories(
+    def test_init_export_pi_backend_skill_files_contain_frontmatter(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """Each symlink under ``~/.pi/agent/skills/<name>`` resolves to a
-        real DeviaTDD skill directory containing ``SKILL.md`` — so Pi's
-        native skill discovery actually finds each skill.
+        """Each ``<workdir>/.pi/skills/<name>/SKILL.md`` carries the
+        ``name:`` YAML frontmatter field — so Pi's native skill discovery
+        actually registers each skill.
         """
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         skills = discover_skills()
@@ -438,27 +451,26 @@ class TestFullInitCyclePiBackend:
             result = runner.invoke(cli, ["setup", "--agent", "pi"])
             assert result.exit_code == 0, result.output
 
-            pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
+            pi_skills_dir = tmp_path / ".pi" / "skills"
             for skill_name in skills:
-                link = pi_skills_dir / skill_name
-                assert link.is_symlink(), (
-                    f"Missing or non-symlink entry for '{skill_name}' at {link}"
-                )
-                target = link.resolve()
-                assert target.is_dir(), (
-                    f"Symlink {link} resolves to non-directory: {target}"
-                )
-                assert (target / "SKILL.md").exists(), (
-                    f"Symlink target missing SKILL.md: {target}"
+                skill_file = pi_skills_dir / skill_name / "SKILL.md"
+                content = skill_file.read_text(encoding="utf-8")
+                assert f"name: {skill_name}" in content, (
+                    f"Skill file for '{skill_name}' does not declare its name"
                 )
 
-    def test_init_export_pi_backend_settings_json_provider_model_resolution(
+    def test_init_export_pi_backend_does_not_create_global_settings(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """AC-ADHOC-009-03: settings.json provider/model split correctly
-        when ``[models]`` is configured with ``provider/model-id`` shorthand.
+        """DeviaTDD does NOT generate a ``settings.json`` for Pi.
+
+        Model/provider selection is the operator's responsibility via Pi's
+        own configuration mechanism. Verify no ``settings.json`` exists at
+        any path DeviaTDD might be tempted to write to.
         """
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        fake_home = tmp_path / "fake-home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
 
         with chdir(tmp_path):
             dot_dir = tmp_path / ".deviate"
@@ -475,69 +487,44 @@ class TestFullInitCyclePiBackend:
             result = runner.invoke(cli, ["setup", "--agent", "pi"])
             assert result.exit_code == 0, result.output
 
-            settings_path = tmp_path / ".pi" / "agent" / "settings.json"
-            settings = json.loads(settings_path.read_text())
-            assert settings["provider"] == "anthropic", (
-                f"Expected provider='anthropic', got: {settings.get('provider')}"
-            )
-            assert settings["model"] == "claude-sonnet-4-5", (
-                f"Expected model='claude-sonnet-4-5', got: {settings.get('model')}"
-            )
+            # No project-local settings.json.
+            assert not (tmp_path / ".pi" / "settings.json").exists()
+            # No global settings.json under operator's mocked home.
+            assert not (fake_home / ".pi" / "agent" / "settings.json").exists()
+            # No spurious .pi under operator's home.
+            assert not (fake_home / ".pi").exists()
 
-    def test_init_export_pi_backend_preserves_user_managed_settings_keys(
+    def test_init_export_pi_backend_preserves_existing_user_home(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """Init merges only ``provider``/``model``/``skillPaths`` into
-        ``settings.json`` — user-managed keys (non-DeviaTDD) survive re-runs.
+        """If the operator already has a ``~/.pi/agent/`` directory with
+        content, DeviaTDD must NOT touch it.
         """
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        fake_home = tmp_path / "fake-home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
 
-        pi_agent_dir = tmp_path / ".pi" / "agent"
+        pi_agent_dir = fake_home / ".pi" / "agent"
         pi_agent_dir.mkdir(parents=True)
-        settings_path = pi_agent_dir / "settings.json"
-        user_settings = {
-            "userCustomKey": "user-value",
-            "ui": {"theme": "dark"},
-        }
-        settings_path.write_text(json.dumps(user_settings), encoding="utf-8")
+        user_settings = pi_agent_dir / "settings.json"
+        user_settings.write_text('{"operatorManaged": true}', encoding="utf-8")
 
         with chdir(tmp_path):
             result = runner.invoke(cli, ["setup", "--agent", "pi"])
             assert result.exit_code == 0, result.output
 
-            settings = json.loads(settings_path.read_text())
-            assert settings.get("userCustomKey") == "user-value", (
-                f"User key 'userCustomKey' was clobbered; got: {settings}"
+            # Operator's settings.json is untouched.
+            assert user_settings.exists(), (
+                f"Operator's settings.json was removed: {user_settings}"
             )
-            assert settings.get("ui") == {"theme": "dark"}, (
-                f"User key 'ui' was clobbered; got: {settings}"
-            )
-            assert "provider" in settings
-            assert "model" in settings
-            assert "skillPaths" in settings
-
-    def test_init_export_pi_backend_does_not_create_project_skill_directory(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        """Pi uses global symlinks under ``~/.pi/agent/skills/`` rather
-        than a project-local ``.pi/skills/`` directory — verify the
-        project-local directory is NOT created (defensive exclusion).
-        """
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
-
-        with chdir(tmp_path):
-            result = runner.invoke(cli, ["setup", "--agent", "pi"])
-            assert result.exit_code == 0, result.output
-
-            project_pi_skills = tmp_path / ".pi" / "skills"
-            assert not project_pi_skills.exists(), (
-                f"Unexpected project-local Pi skills dir created: {project_pi_skills}"
+            assert user_settings.read_text() == '{"operatorManaged": true}', (
+                f"Operator's settings.json was modified: {user_settings}"
             )
 
     def test_init_export_pi_backend_config_toml_round_trip(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """Config round-trips through TOML parse after init preserves
+        """Config round-trips through TOML parse after setup preserves
         the ``[agent].backend = 'pi'`` setting without data loss.
         """
         monkeypatch.setattr(Path, "home", lambda: tmp_path)

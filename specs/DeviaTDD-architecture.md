@@ -609,7 +609,7 @@ the customisations documented below.
 | `opencode` | `opencode run` | Skills copied into `.opencode/skills/` | `--model <id>` flag | Default backend |
 | `claude` | `claude -p --permission-mode auto` | Skills copied into `.claude/skills/` | `--model <id>` flag (may be ignored by host env) | Print mode, auto permission |
 | `droid` | `droid exec` | Skills copied into `.factory/skills/` | `--model <id>` flag | Factory Droid IDE-owned skills dir |
-| `pi` | `pi -p` | Symlinks `~/.pi/agent/skills/<name>` → `src/deviate/prompts/skills/<name>` | Routes through `~/.pi/agent/settings.json` (NOT CLI flag) | Native Agent Skills discovery; opt-in RPC mode available |
+| `pi` | `pi -p` | Skills file-copied into `<workdir>/.pi/skills/<name>/SKILL.md` (project-local, same convention as `.claude/`, `.opencode/`, `.factory/`) | Operator's responsibility via Pi's own config (no `--model` flag, no `settings.json` generated) | Native Agent Skills discovery; opt-in RPC mode available |
 
 ### 10.2 Pi Backend Customizations
 
@@ -617,33 +617,35 @@ Pi implements the [Agent Skills specification](https://agentskills.io/specificat
 natively — `pi -p` discovers skills from `~/.pi/agent/skills/`, `.pi/skills/`, and
 `.agents/skills/` on startup, parses the `name:` + `description:` YAML frontmatter from
 each `SKILL.md`, and registers them as in-context tools. DeviaTDD integrates Pi on top
-of the standard `AgentBackend.invoke()` contract with four customisations:
+of the standard `AgentBackend.invoke()` contract with three customisations:
 
-1. **Skill symlink strategy.** `deviate init` creates one symlink per project skill
-   under `~/.pi/agent/skills/<skill-name>`, each pointing to the absolute path of
-   `src/deviate/prompts/skills/<skill-name>`. Skills are **not copied** — the project
-   vault remains the single source of truth. Idempotency: existing symlinks pointing to
-   the correct target are skipped; if a real directory exists at the target path, init
-   logs a `[yellow]SKIP[/]` line and proceeds without deleting user-managed content.
-   `pathlib.Path.symlink_to()` is used with absolute targets; symlink creation across
-   all skills targets ≤ 50ms (20 skills × ~2ms each on macOS/Linux).
-2. **Settings.json generation.** `deviate init` writes
-   `~/.pi/agent/settings.json` with `{"provider": "<resolved>", "model": "<resolved>",
-   "skillPaths": ["<abs-path-to-src/deviate/prompts/skills>"]}`, where provider and
-   model are resolved from `.deviate/config.toml` `[models]` using the `default` key as
-   fallback. Merge semantics: only `deviate_*` keys (or top-level keys managed by
-   DeviaTDD) are written; user-managed entries (keys not prefixed with `deviate_`) are
-   preserved across re-runs. Writes use file-level locking (`fcntl.flock`) to prevent
-   races with concurrent `init` invocations.
+1. **Skill file-copy strategy (project-local).** `deviate setup` file-copies each project
+   skill into `<workdir>/.pi/skills/<skill-name>/SKILL.md` via the existing
+   `install_skill` pipeline — the same code path used for `.claude/`, `.opencode/`, and
+   `.factory/`. Pi discovers skills from `.pi/skills/` natively per the Agent Skills
+   spec. The corresponding `.gitignore` entry (`.pi/skills/deviate-*/`) is added by
+   `_ensure_agent_gitignored`, preventing the file-copied skills from being committed.
+   **DeviaTDD does NOT write to `~/.pi/agent/`** — the operator's global Pi config
+   is out of scope. Idempotency: re-running setup with identical skill content is a
+   no-op (`install_skill` compares file content before writing). Total cost ≤ 200ms
+   for 20 skills on macOS/Linux.
+2. **No `settings.json` generation.** DeviaTDD does not generate a `settings.json`
+   file (neither project-local nor under `~/.pi/agent/`). Model/provider selection
+   is the operator's responsibility and is configured via Pi's own configuration
+   mechanism. The operator's existing `~/.pi/agent/settings.json` is preserved
+   across all `deviate setup` runs. This keeps DeviaTDD's blast radius minimal:
+   selecting `pi` as a backend does not overwrite or merge into the operator's
+   global Pi configuration.
 3. **Model flag injection difference.** Pi print mode (`pi -p`) rejects a bare
    `--model <id>` flag — Pi's model selection requires either
    `--provider <name> --model <pattern>` on the command line or, preferably, the
    `~/.pi/agent/settings.json` runtime configuration file. DeviaTDD therefore does
    **not** inject `--model` for the Pi backend via the per-backend `MODEL_FLAGS` map;
-   per-phase `[models]` overrides resolve through `~/.pi/agent/settings.json` swap
-   (RPC mode) or apply to the next subprocess spawn (print mode). This differs from
-   `opencode` / `droid` (which accept `--model` on the command line) and from `claude`
-   (which uses print mode but ignores `--model`).
+   per-phase `[models]` overrides apply to the next subprocess spawn in print mode
+   (no-op for Pi — the operator's settings take precedence) or via Pi's `set_model`
+   RPC command in RPC mode (opt-in). This differs from `opencode` / `droid` (which
+   accept `--model` on the command line) and from `claude` (which uses print mode
+   but ignores `--model`).
 4. **RPC mode opt-in.** Pi's RPC mode (`pi --mode rpc --no-session`) exposes a
    JSONL-over-stdin/stdout protocol with streaming events (`agent_start`,
    `message_update`, `agent_end`) and a `get_session_stats` command returning

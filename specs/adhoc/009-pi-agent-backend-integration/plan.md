@@ -1,6 +1,6 @@
 ## Plan Summary
 - **Issue**: ISS-ADH-009 — Pi Agent Backend Integration — First-Class Backend for Micro/Meso Layers
-- **Implementation Strategy**: Extend the `BACKEND_COMMANDS` registry, `AgentConfig.backend` Literal, `AGENT_CHOICES`, and `AGENT_TO_BACKEND` to recognise `pi`. Add per-backend `MODEL_FLAGS` map so Pi routes model selection through `~/.pi/agent/settings.json` instead of `--model` CLI flag (which Pi print mode rejects). At `deviate init`, when `agent.backend = "pi"`, generate skill symlinks under `~/.pi/agent/skills/` pointing to DeviaTDD's skill vault and write `~/.pi/agent/settings.json` with provider/model resolved from `[models]` config. Add `pi.session_stats` block to `prompts.log` `AGENT_RESULT` events when Pi emits token-stats output. Enable opt-in RPC mode via `agent.pi_rpc = true` config key.
+- **Implementation Strategy**: Extend the `BACKEND_COMMANDS` registry, `AgentConfig.backend` Literal, `AGENT_CHOICES`, and `AGENT_TO_BACKEND` to recognise `pi`. Add per-backend `MODEL_FLAGS` map so Pi print mode does not receive `--model` (which it rejects — model selection is the operator's responsibility via Pi's own config). At `deviate setup`, when `agent.backend = "pi"`, treat Pi as a regular project-local agent: file-copy DeviaTDD skills into `<workdir>/.pi/skills/<name>/SKILL.md` via the existing `install_skill` pipeline (same path convention as `.claude/`, `.opencode/`, `.factory/`). **Do NOT write to `~/.pi/agent/`** and **do NOT generate a `settings.json`** — those are the operator's responsibility. Add `pi.session_stats` block to `prompts.log` `AGENT_RESULT` events when Pi emits token-stats output. Enable opt-in RPC mode via `agent.pi_rpc = true` config key.
 - **Estimated Complexity**: Low–Medium
 - **Estimated Effort**: 4-6 hours
 
@@ -20,10 +20,10 @@
   - **Changes Required**: Append `"pi"` to `AGENT_CHOICES`. Add `"pi": "pi"` to `AGENT_TO_BACKEND`. No changes needed to `_validate_agent_choice` (line 218-220, dynamic against `AGENT_CHOICES`).
   - **Integration Surface**: `_resolve_agent_to_backend` (line 286-293), `setup` command (line 555-627), `_prompt_agent_selection`.
 
-- **`src/deviate/cli/__init__.py` — `deviate init` flow**: Pi-specific skill symlinks and settings.json generation
+- **`src/deviate/cli/__init__.py` — `deviate setup` flow**: Pi treated as a project-local agent
   - **Current State**: `_install_skills_to_agents` (line 518-531) creates `install_skill()` file copies for `claude`, `opencode`, `factory`. `_get_agent_skill_dir` (line 508-515) returns `None` for unknown agents. No Pi-specific logic.
-  - **Changes Required**: Add `"pi"` branch to `_get_agent_skill_dir` returning `Path.home() / ".pi" / "agent" / "skills"`. Add `_setup_pi_skills(workdir)` helper called from init flow when `backend == "pi"`: iterates `discover_skills()`, creates symlinks at `~/.pi/agent/skills/<skill-name>` pointing to `src/deviate/prompts/skills/<skill-name>` using absolute targets. Skip if target exists as real directory (not symlink). Add `_generate_pi_settings(workdir, config_path)` helper that reads `[models]` from `.deviate/config.toml`, writes `~/.pi/agent/settings.json` with `provider`, `model`, `skillPaths`. Merge non-DeviaTDD keys on subsequent runs. Idempotent: skip if settings.json content is identical.
-  - **Integration Surface**: `discover_skills()` from `deviate.core.skills`, `_read_agent_backend_from_config` (line 267-283), `_write_agent_block_to_config` (line 296-343), `pathlib.Path.symlink_to()`, `pathlib.Path.resolve()`.
+  - **Changes Required**: Add `"pi"` branch to `_get_agent_skill_dir` returning `workdir / ".pi" / "skills"` (project-local, same convention as `.claude/`, `.opencode/`, `.factory/`). In the `setup` command, when `agent.backend == "pi"`, set `active_agents = ["pi"]` so the existing `_install_skills_to_agents` flow handles Pi uniformly. No global `~/.pi/agent/` writes. No `settings.json` generation — model/provider selection is the operator's responsibility via Pi's own configuration mechanism. Add `"pi"` to `core/skills.py:detect_agents` so subsequent setup runs detect the `.pi/` directory.
+  - **Integration Surface**: `install_skill` from `deviate.core.skills`, `_read_agent_backend_from_config` (line 267-283), `_write_agent_block_to_config` (line 296-343), `_ensure_agent_gitignored` (existing).
 
 - **`src/deviate/cli/micro.py:309-316`**: Enrich `prompts.log` with `pi.session_stats`
   - **Current State**: `_invoke_agent` (line 305) logs `INVOKE_AGENT` / `AGENT_RESULT` / `AGENT_RAW_OUTPUT` events via `_log_run`. No backend-specific log enrichment. `AgentBackend.invoke()` returns `(HandoverManifest, stdout)` via the current return pattern.
@@ -69,9 +69,9 @@
   - **Verification**: Manual review of both spec files for consistency with implementation.
 
 ## Data Flow Analysis
-1. **Config persistence**: `deviate init --agent pi` → `_write_agent_block_to_config` writes `[agent]\nbackend = "pi"` to `.deviate/config.toml`. `_scaffold_dotfiles` writes `pi_rpc = false` under `[agent]`. TOML serialisation handled by `_dict_to_toml` → `_write_if_missing`.
-2. **Model routing**: Pi does not accept `--model` CLI flag. At runtime, `[models]` entries in `.deviate/config.toml` are read by `resolve_model_for_phase()`, but for Pi, the resolved model is **not** injected via `cmd.extend(["--model", model])`. Instead, at `deviate init`, `~/.pi/agent/settings.json` is pre-generated with the default model. Per-phase model swaps in Pi require session-scoped `set_model` RPC commands (RPC mode only) or manual settings.json edits between invocations.
-3. **Skill discovery**: At init, symlinks `~/.pi/agent/skills/deviate-<name> → src/deviate/prompts/skills/deviate-<name>/` are created. Pi's native skill loader discovers them at startup. DeviaTDD skills contain YAML frontmatter (`name:` + `description:`) per the Agent Skills spec — Pi parses and registers them.
+1. **Config persistence**: `deviate setup --agent pi` → `_write_agent_block_to_config` writes `[agent]\nbackend = "pi"` to `.deviate/config.toml`. `_scaffold_dotfiles` writes `pi_rpc = false` under `[agent]`. TOML serialisation handled by `_dict_to_toml` → `_write_if_missing`.
+2. **Model routing**: Pi does not accept `--model` CLI flag. At runtime, `[models]` entries in `.deviate/config.toml` are read by `resolve_model_for_phase()`, but for Pi, the resolved model is **not** injected via `cmd.extend(["--model", model])`. Model selection is the operator's responsibility — configured via Pi's own configuration mechanism. Per-phase model swaps in Pi require RPC mode opt-in via `agent.pi_rpc = true` (Pi's `set_model` RPC command).
+3. **Skill discovery**: At setup, skills are file-copied into `<workdir>/.pi/skills/<name>/SKILL.md` via the existing `install_skill` pipeline. Pi's native skill loader discovers them from `.pi/skills/` at startup. DeviaTDD skills contain YAML frontmatter (`name:` + `description:`) per the Agent Skills spec — Pi parses and registers them. The `.gitignore` entry `.pi/skills/deviate-*/` is added by `_ensure_agent_gitignored`, preventing the file-copied skills from being committed.
 4. **Token observability**: After each Pi invocation, `prompts.log` receives `AGENT_RESULT` event with optional `pi.session_stats` block containing `tokens.input`, `output`, `cacheRead`, `cacheWrite`. In RPC mode, stats come from `get_session_stats` / `agent_end` event. In print mode, stats come from `--print-tokens` output footer if enabled.
 5. **RPC mode dispatch**: When `pi_rpc = true`, `invoke()` spawns `["pi", "--mode", "rpc", "--no-session"]`, sends JSONL `{"type": "prompt", "content": "..."}`, parses streaming events, extracts handover manifest from `agent_end` payload. Manifest extraction reuses existing `HandoverManifest` Pydantic validation.
 
@@ -79,17 +79,17 @@
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
 | Pi binary not on operator PATH | Low | Medium | `FileNotFoundError` → `AgentBinaryNotFoundError` with install instructions (same as other backends) |
-| Skill symlink target missing (deleted/moved `src/deviate/prompts/skills/`) | Low | Low | `pi` logs warning on broken symlink; `deviate init` re-creates on subsequent runs |
-| Settings.json merge clobbers user-managed Pi config | High | Low | Merge logic preserves non-DeviaTDD keys; only writes `provider`, `model`, `skillPaths` |
+| Operator's global `~/.pi/agent/settings.json` clobbered | High | Eliminated | DeviaTDD does NOT write to `~/.pi/agent/` — operator's global Pi config is out of scope |
+| Project-local `.pi/skills/<name>` overwritten with newer version | Low | Low | `install_skill` compares content; identical → skip, different → replace, parent dir auto-created |
 | RPC mode JSONL event parse failure | Medium | Low | Log warning, skip malformed line, continue; `agent_end` event is source of truth for manifest |
-| Per-phase model swap with settings.json (non-RPC) requires process restart | Medium | Medium | Document that print mode model routing is static; per-phase swaps require RPC mode opt-in |
-| Cross-platform symlink permissions (Windows) | Low | Low | `OSError` surfaced clearly; Administrator / Developer Mode requirement documented |
+| Per-phase model swap requires RPC mode opt-in | Low | Medium | Documented; print mode is static, RPC mode is opt-in via `agent.pi_rpc = true` |
+| Cross-platform file copy permissions | Low | Very Low | Standard `pathlib.Path.write_text()` — no symlink privilege issues on Windows |
 
 ## Integration Points
 - **`BACKEND_COMMANDS` dict**: Single source of truth for CLI command prefixes; extended with `"pi": "pi -p"`. All `invoke()` paths consume this via `BACKEND_COMMANDS.get(backend_name)`.
 - **`AgentConfig` Pydantic model**: `backend` Literal widened to `"pi"`. `pi_rpc: bool` added. Round-trip through TOML serialisation in `cli/__init__.py:_serialize_value` → `_dict_to_toml`.
 - **`MODEL_FLAGS` per-backend map**: New module-level dict `{"pi": None, "opencode": ["--model"], "droid": ["--model"]}`. `invoke()` checks `MODEL_FLAGS.get(backend_name)` before appending `--model`. `None` means skip.
-- **`deviate init` / setup command**: `--agent pi` triggers `_setup_pi_skills()` and `_generate_pi_settings()`. Idempotent: existing symlinks/settings skipped.
+- **`deviate setup` command**: `--agent pi` routes through the existing `_install_skills_to_agents` flow with `active_agents = ["pi"]`. The `_get_agent_skill_dir("pi")` branch returns `workdir / ".pi" / "skills"`. Idempotent via `install_skill`'s content-comparison path. No `~/.pi/agent/` writes, no `settings.json` generation.
 - **`HandoverManifest`**: Unchanged; Pi output conforms to same YAML schema. `model_config = {"extra": "allow"}` at line 30 handles any Pi-specific extra fields.
 - **`prompts.log`**: `AGENT_RESULT` entries enriched with `pi.session_stats` sub-object when backend is `"pi"` and token data is present.
 - **`StubPiBackend`**: Mirrors `StubAgentBackend` with Pi-shaped output for downstream tests. Emits canned YAML handover manifest + canned session stats block.

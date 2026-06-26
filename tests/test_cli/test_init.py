@@ -1,4 +1,3 @@
-import json
 import tomllib
 from contextlib import chdir
 from pathlib import Path
@@ -796,31 +795,29 @@ class TestInitAgentFlag:
 
 
 class TestInitPiBackend:
-    """RED phase tests for TSK-009-02: Pi-specific init flow.
+    """Tests for TSK-009-02: Pi is a project-local agent.
 
-    Validates that ``deviate init --agent pi``:
+    Validates that ``deviate setup --agent pi``:
         1. Exposes 'pi' in the AGENT_CHOICES / AGENT_TO_BACKEND constants.
-        2. Creates a symlink for each DeviaTDD skill under
-           ``~/.pi/agent/skills/<skill-name>`` pointing back to the project
-           skill directory so Pi discovers skills natively.
-        3. Generates ``~/.pi/agent/settings.json`` with
-           ``provider``/``model``/``skillPaths`` resolved from the
-           ``[models]`` config.
-        4. Is idempotent — re-running does not duplicate symlinks and does
-           not corrupt the settings file.
-        5. Preserves user-managed keys in ``settings.json`` across re-runs.
-        6. Skips skill symlinks when a real directory already exists at the
-           target path (does not overwrite or delete user-managed skills).
+        2. File-copies each DeviaTDD skill into
+           ``<workdir>/.pi/skills/<skill-name>/SKILL.md`` (same path convention
+           as ``.claude/``, ``.opencode/``, ``.factory/``).
+        3. Does NOT write to ``~/.pi/agent/`` (operator's global Pi config is
+           out of scope).
+        4. Does NOT generate a ``settings.json`` (model/provider selection is
+           the operator's responsibility).
+        5. Is idempotent — re-running does not duplicate skill files and does
+           not corrupt the project state.
     """
 
     def test_agent_choices_includes_pi(self):
-        """AC-ADHOC-009-05: ``AGENT_CHOICES`` exposes 'pi' to users."""
+        """AC-ADHOC-009-04: ``AGENT_CHOICES`` exposes 'pi' to users."""
         from deviate.cli import AGENT_CHOICES
 
         assert "pi" in AGENT_CHOICES
 
     def test_agent_to_backend_maps_pi(self):
-        """AC-ADHOC-009-05: ``AGENT_TO_BACKEND['pi'] == 'pi'``."""
+        """AC-ADHOC-009-04: ``AGENT_TO_BACKEND['pi'] == 'pi'``."""
         from deviate.cli import AGENT_TO_BACKEND
 
         assert AGENT_TO_BACKEND["pi"] == "pi"
@@ -840,173 +837,156 @@ class TestInitPiBackend:
             parsed = tomllib.loads(config_path.read_text())
             assert parsed["agent"]["backend"] == "pi"
 
-    def test_init_creates_pi_skill_symlinks(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        """AC-ADHOC-009-02: ``--agent pi`` creates one symlink per DeviaTDD skill.
+    def test_init_creates_pi_skill_files(self, tmp_path: Path):
+        """AC-ADHOC-009-02: ``--agent pi`` file-copies each DeviaTDD skill.
 
-        Each symlink under ``~/.pi/agent/skills/<skill-name>`` must resolve to
-        the absolute path of ``src/deviate/prompts/skills/<skill-name>`` so Pi
-        can discover the skills natively.
+        Each skill is written to ``<workdir>/.pi/skills/<skill-name>/SKILL.md``
+        — the same path convention used for ``.claude/``, ``.opencode/``,
+        ``.factory/``. Pi discovers skills from ``.pi/skills/`` natively per
+        the Agent Skills spec.
         """
         from deviate.core.skills import discover_skills
 
         skills = discover_skills()
         assert skills, "No skills discovered — test invariant violated"
 
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
-
         with chdir(tmp_path):
             result = runner.invoke(cli, ["setup", "--agent", "pi"])
             assert result.exit_code == 0, result.output
 
-            pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
+            pi_skills_dir = tmp_path / ".pi" / "skills"
             assert pi_skills_dir.is_dir(), (
                 f"Pi skills directory not created: {pi_skills_dir}"
             )
 
             for skill_name in skills:
-                link = pi_skills_dir / skill_name
-                assert link.is_symlink(), (
-                    f"Missing or non-symlink entry for skill '{skill_name}' at {link}"
+                skill_file = pi_skills_dir / skill_name / "SKILL.md"
+                assert skill_file.is_file(), (
+                    f"Skill file missing for '{skill_name}' at {skill_file}"
                 )
-                target = link.resolve()
-                assert target.is_dir(), (
-                    f"Symlink {link} does not resolve to a directory (target: {target})"
+                content = skill_file.read_text(encoding="utf-8")
+                assert content.strip(), (
+                    f"Skill file is empty for '{skill_name}' at {skill_file}"
                 )
-                assert (target / "SKILL.md").exists(), (
-                    f"Symlink target missing SKILL.md: {target}"
+                # Each skill file should declare its name in YAML frontmatter.
+                assert f"name: {skill_name}" in content, (
+                    f"Skill file for '{skill_name}' does not declare its name"
                 )
 
-    def test_init_generates_pi_settings_json(
+    def test_init_does_not_write_to_user_home_pi_dir(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        """AC-ADHOC-009-03: ``settings.json`` content matches ``[models]`` + skillPaths."""
+        """DeviaTDD must NOT touch ``~/.pi/`` — operator's global Pi config.
+
+        The user's ``~/.pi/agent/`` directory is operator-managed. DeviaTDD
+        manages only project-local ``<workdir>/.pi/skills/`` and must leave
+        the user's home directory untouched.
+        """
+        from deviate.core.skills import discover_skills
+
+        # Point the user's HOME at a separate directory so the test can
+        # assert that the home ``.pi/`` stays empty while the project
+        # workdir (also tmp_path) gets its ``.pi/skills/`` written normally.
+        fake_home = tmp_path / "fake-home"
+        fake_home.mkdir()
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+        with chdir(tmp_path):
+            result = runner.invoke(cli, ["setup", "--agent", "pi"])
+            assert result.exit_code == 0, result.output
+
+            home_pi = fake_home / ".pi"
+            assert not home_pi.exists(), (
+                f"DeviaTDD wrote into the user's home directory at {home_pi} "
+                f"— operator's global Pi config is out of scope"
+            )
+
+            home_pi_agent = fake_home / ".pi" / "agent"
+            assert not home_pi_agent.exists(), (
+                f"DeviaTDD wrote to the user's ~/.pi/agent/ at {home_pi_agent}"
+            )
+
+            # Project-local skill files were still written (sanity check).
+            project_pi = tmp_path / ".pi" / "skills"
+            assert project_pi.is_dir(), (
+                f"Project-local .pi/skills was not created: {project_pi}"
+            )
+
+            skills = discover_skills()
+            assert skills, "No skills discovered — test invariant violated"
+
+    def test_init_does_not_generate_settings_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """DeviaTDD must NOT generate a ``settings.json`` for Pi.
+
+        Model/provider selection is the operator's responsibility and is
+        configured via Pi's own configuration mechanism, not DeviaTDD.
+        """
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
         with chdir(tmp_path):
             result = runner.invoke(cli, ["setup", "--agent", "pi"])
             assert result.exit_code == 0, result.output
 
-            settings_path = tmp_path / ".pi" / "agent" / "settings.json"
-            assert settings_path.exists(), (
-                f"settings.json not generated at {settings_path}"
+            project_settings = tmp_path / ".pi" / "settings.json"
+            assert not project_settings.exists(), (
+                f"DeviaTDD generated an unexpected settings.json at {project_settings}"
             )
 
-            settings = json.loads(settings_path.read_text())
-            assert "provider" in settings, (
-                f"settings.json missing 'provider' key; got: {settings}"
-            )
-            assert "model" in settings, (
-                f"settings.json missing 'model' key; got: {settings}"
-            )
-            assert "skillPaths" in settings, (
-                f"settings.json missing 'skillPaths' key; got: {settings}"
-            )
-            assert isinstance(settings["skillPaths"], list)
-            assert len(settings["skillPaths"]) >= 1, (
-                "settings.json skillPaths must reference the project skills directory"
+            home_settings = tmp_path / ".pi" / "agent" / "settings.json"
+            assert not home_settings.exists(), (
+                f"DeviaTDD wrote a settings.json into the user's home at "
+                f"{home_settings}"
             )
 
-    def test_init_idempotent_pi_setup(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        """AC-ADHOC-009-04: Re-running init does not duplicate setup artifacts."""
+    def test_init_idempotent_pi_setup(self, tmp_path: Path):
+        """Re-running setup does not duplicate skill files or corrupt state.
+
+        The existing ``install_skill`` contract compares file content before
+        writing, so re-running setup with identical source skills is a no-op
+        at the file level. The ``.pi/skills/`` directory layout is preserved.
+        """
         from deviate.core.skills import discover_skills
 
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
         skills = discover_skills()
+        assert skills, "No skills discovered — test invariant violated"
 
         with chdir(tmp_path):
             r1 = runner.invoke(cli, ["setup", "--agent", "pi"])
             assert r1.exit_code == 0, r1.output
 
-            pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
-            first_run_links = sorted(p.name for p in pi_skills_dir.iterdir())
-            assert len(first_run_links) == len(skills)
+            pi_skills_dir = tmp_path / ".pi" / "skills"
+            first_run_skill_files = sorted(
+                str(p.relative_to(pi_skills_dir))
+                for p in pi_skills_dir.rglob("SKILL.md")
+            )
+            assert len(first_run_skill_files) == len(skills), (
+                f"Expected {len(skills)} skill files, found "
+                f"{len(first_run_skill_files)}: {first_run_skill_files!r}"
+            )
 
             r2 = runner.invoke(cli, ["setup", "--agent", "pi"])
             assert r2.exit_code == 0, r2.output
 
-            second_run_links = sorted(p.name for p in pi_skills_dir.iterdir())
-            assert second_run_links == first_run_links, (
-                f"Idempotent re-run changed skill entries: "
-                f"{first_run_links!r} -> {second_run_links!r}"
+            second_run_skill_files = sorted(
+                str(p.relative_to(pi_skills_dir))
+                for p in pi_skills_dir.rglob("SKILL.md")
+            )
+            assert second_run_skill_files == first_run_skill_files, (
+                f"Idempotent re-run changed skill file layout: "
+                f"{first_run_skill_files!r} -> {second_run_skill_files!r}"
             )
 
-            symlink_count = sum(1 for p in pi_skills_dir.iterdir() if p.is_symlink())
-            assert symlink_count == len(skills), (
-                f"Expected {len(skills)} symlinks after re-run, found {symlink_count}"
-            )
-
-            settings_path = tmp_path / ".pi" / "agent" / "settings.json"
-            assert settings_path.exists()
-            # Re-running must leave settings.json as valid JSON (no truncation).
-            settings = json.loads(settings_path.read_text())
-            assert isinstance(settings, dict)
-
-    def test_init_preserves_user_managed_settings_keys(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        """AC: User-managed keys in settings.json preserved across re-runs.
-
-        Init must merge only its own keys (provider/model/skillPaths);
-        any user-managed top-level keys must be preserved untouched.
-        """
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
-
-        pi_agent_dir = tmp_path / ".pi" / "agent"
-        pi_agent_dir.mkdir(parents=True)
-        settings_path = pi_agent_dir / "settings.json"
-        user_settings = {
-            "userCustomKey": "user-value",
-            "ui": {"theme": "dark"},
-        }
-        settings_path.write_text(json.dumps(user_settings), encoding="utf-8")
-
-        with chdir(tmp_path):
-            result = runner.invoke(cli, ["setup", "--agent", "pi"])
-            assert result.exit_code == 0, result.output
-
-            settings = json.loads(settings_path.read_text())
-            assert settings.get("userCustomKey") == "user-value", (
-                f"User key 'userCustomKey' was clobbered; got: {settings}"
-            )
-            assert settings.get("ui") == {"theme": "dark"}, (
-                f"User key 'ui' was clobbered; got: {settings}"
-            )
-
-    def test_init_pi_skill_symlinks_skip_existing_directories(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ):
-        """AC: Real directories at skill symlink targets are skipped, not overwritten.
-
-        When ``~/.pi/agent/skills/<name>`` exists as a real directory (a
-        user-managed skill), init must not replace it with a symlink or delete
-        its contents.
-        """
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
-
-        pi_skills_dir = tmp_path / ".pi" / "agent" / "skills"
-        pi_skills_dir.mkdir(parents=True)
-
-        user_skill_name = "user-managed-skill"
-        user_dir = pi_skills_dir / user_skill_name
-        user_dir.mkdir()
-        user_skill_content = "# User-managed skill\n\nThis is a user skill.\n"
-        (user_dir / "SKILL.md").write_text(user_skill_content, encoding="utf-8")
-
-        with chdir(tmp_path):
-            result = runner.invoke(cli, ["setup", "--agent", "pi"])
-            assert result.exit_code == 0, result.output
-
-            assert user_dir.is_dir(), "User-managed directory was removed"
-            assert not user_dir.is_symlink(), (
-                "User-managed directory was replaced with a symlink"
-            )
-            assert (user_dir / "SKILL.md").read_text() == user_skill_content, (
-                "User-managed SKILL.md was overwritten"
-            )
+            for skill_name in skills:
+                skill_file = pi_skills_dir / skill_name / "SKILL.md"
+                assert skill_file.is_file(), (
+                    f"Skill file removed on re-run: {skill_file}"
+                )
+                # Files are real, not symlinks (project-local file copy).
+                assert not skill_file.is_symlink(), (
+                    f"Skill file unexpectedly a symlink: {skill_file}"
+                )
 
 
 def test_version():
