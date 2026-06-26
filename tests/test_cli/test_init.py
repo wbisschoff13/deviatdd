@@ -618,6 +618,18 @@ class TestInitCommand:
         mapped to seven skill directories) and
         ``specs/adhoc/011-tome-subsystem-v1.md`` §`ATDD Acceptance Criteria`
         Scenario 011-08.
+
+        Note on execution context: ``discover_skills()`` calls
+        ``_resolve_skills_root()`` (see ``src/deviate/core/skills.py:8-18``)
+        which uses ``importlib.resources.files("deviate.prompts")`` to locate
+        the skills directory. When this test is run from a worktree via
+        ``uv run pytest ...`` (no ``--project`` flag), the resolver returns
+        the worktree's source tree (31 skills → passes). When run via
+        ``uv run --project <parent-repo> pytest ...``, the resolver may
+        fall back to the parent repo's installed package (24 skills →
+        fails). Always run ``mise run test`` from the worktree root, or
+        invoke ``uv run pytest`` without ``--project``, to exercise this
+        assertion against the worktree's source tree.
         """
         from deviate.core.skills import discover_skills
 

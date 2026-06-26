@@ -228,3 +228,9 @@ aliases:
 - `deviate setup --agent claude` warm-path (idempotent re-run) ≤ 200ms.
 - Full test suite `mise run test` ≤ 18s.
 - `mise run lint` reports zero ruff violations on the new test methods.
+
+## Ledger Discipline Notes
+
+- `tasks.jsonl` is append-only: each state transition (RED → GREEN → JUDGE → COMPLETED) is a separate appended line per `specs/constitution.md:1` Append-Only Ledger Protocol. Existing lines are NEVER mutated.
+- `created_at` timestamps may repeat for transitions batched within the same execution run (e.g. RED + GREEN + COMPLETED landing in the same `mise run test` invocation). The JUDGE transition typically carries a distinct timestamp because it runs in an isolated session per the constitution. Strictly monotonic per-task `created_at` is NOT a ledger invariant; downstream consumers that need a single canonical timestamp per task should pick the latest appended line for that `id`.
+- `specs/issues.jsonl` follows the same rule. Multiple entries for the same `issue_id` are valid; canonical state is derived by sequential parsing, last-wins.
