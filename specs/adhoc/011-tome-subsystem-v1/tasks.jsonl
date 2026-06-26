@@ -1,2 +1,3 @@
 {"id":"TSK-011-01","issue_id":"ISS-ADH-011","description":"Author `tome-classify/SKILL.md` (C1 classifier, FLOW-04)","status":"COMPLETED","execution_mode":"IMMEDIATE","created_at":"2026-06-26T11:23:24.701428Z"}
 {"id":"TSK-011-02","issue_id":"ISS-ADH-011","description":"Author `tome-write-tutorial/SKILL.md` and `tome-write-how-to/SKILL.md` (C2 + C3 writers, FLOW-05 + FLOW-06)","status":"COMPLETED","execution_mode":"IMMEDIATE","created_at":"2026-06-26T11:26:10.445733Z"}
+{"id":"TSK-011-03","issue_id":"ISS-ADH-011","description":"Author `tome-write-reference/SKILL.md` and `tome-write-explanation/SKILL.md` (C4 + C5 writers, FLOW-07 + FLOW-08)","status":"COMPLETED","execution_mode":"IMMEDIATE","created_at":"2026-06-26T11:31:46.976079Z"}
