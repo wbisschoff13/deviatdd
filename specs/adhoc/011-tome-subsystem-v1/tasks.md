@@ -108,6 +108,7 @@
 
 - TSK-011-05: Add `_TOME_LAYER_SKILLS` constant and existence + idempotency tests to `tests/test_cli/test_init.py`
   - **Judge Feedback**: JUDGE rejected without rationale — re-verify spec compliance
+  - **Judge Feedback**: JUDGE rejected without rationale — re-verify spec compliance
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Sociable_Unit
