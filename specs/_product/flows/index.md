@@ -12,3 +12,5 @@
 | FLOW-08 | Tome Write Explanation | Developer | Documentation | Draft | `specs/_product/flows/flows-tome.md` |
 | FLOW-09 | Tome Verify Docs | Developer | Documentation | Draft | `specs/_product/flows/flows-tome.md` |
 | FLOW-10 | Tome Setup | Developer | Documentation | Draft | `specs/_product/flows/flows-tome.md` |
+| FLOW-11 | Capture Phase Handover | DeviaTDD | Content Capture | Draft | `specs/_product/flows/flows-content-capture.md` |
+| FLOW-12 | Synthesize Content Digest | Developer | Content Capture | Draft | `specs/_product/flows/flows-content-capture.md` |
