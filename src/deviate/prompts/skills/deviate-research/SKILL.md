@@ -378,6 +378,12 @@ Apply the Single Option Dominance Rule: if only one option satisfies all constra
 | SPEC_TARGET_DATAMODEL | <relative path from contract> |
 | NEXT_ACTION | Human reviews design.md + data-model.md, then invokes the `prd` skill |
 
+
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
+
 </output_format_schemas_design_md>
 
 <output_format_schemas_data_model_md>

@@ -4,3 +4,5 @@ prompts.log
 reports/
 rollback.jsonl
 logs/
+/feat/
+/content-drafts/

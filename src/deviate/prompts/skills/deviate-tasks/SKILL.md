@@ -235,6 +235,12 @@ def find_repo_root() -> Path:  # BAD — untestable
 
 **Write the entire content directly to `<tasks_target>`** as the file's full content. No wrapping tags, no preamble, no postamble. The post-script reads the file and commits it.
 </format_contract>
+
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
+
 </output_format_schemas>
 
 <edge_case_handling>
