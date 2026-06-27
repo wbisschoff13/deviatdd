@@ -1,1 +1,2 @@
 {"id":"TSK-012-01","issue_id":"ISS-ADH-012","description":"FLOW-11 capture helper + path/persistence/idempotency tests","status":"RED","execution_mode":"TDD","created_at":"2026-06-27T13:10:09.315683Z"}
+{"id":"TSK-012-01","issue_id":"ISS-ADH-012","description":"FLOW-11 capture helper + path/persistence/idempotency tests","status":"GREEN","execution_mode":"TDD","created_at":"2026-06-27T13:15:28.422942Z"}

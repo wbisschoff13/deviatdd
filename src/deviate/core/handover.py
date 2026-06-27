@@ -1,18 +1,39 @@
-"""Content Capture runtime helpers (FLOW-11).
+"""Content Capture runtime helpers (FLOW-11, FLOW-12).
 
-Stub module — RED phase. Full implementation lands in the GREEN phase.
-See ``specs/_product/architecture.md`` §3.5-§3.7 and
-``specs/plans/deviate-content.md`` for the full contract.
+Per ``specs/_product/architecture.md`` §3.5-§3.7 and
+``specs/plans/deviate-content.md``: durable phase-output persistence
+under ``.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml`` plus a
+read-side ``HandoverRecord`` model used by the synthesis layer.
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
+
+import yaml
+from pydantic import BaseModel, ConfigDict
 
 
 class PathTraversalError(ValueError):
     """Raised when a handover path escapes ``.deviate/feat/``."""
+
+
+_HANDOVER_ROOT = Path(".deviate") / "feat"
+
+
+def _validate_segment(label: str, value: str) -> str:
+    """Reject segments that could escape ``.deviate/feat/``."""
+    if not value or value != value.strip():
+        raise PathTraversalError(f"{label} must be a non-empty trimmed string")
+    if "/" in value or "\\" in value:
+        raise PathTraversalError(f"{label} must not contain path separators: {value!r}")
+    if value in {"..", "."} or value.startswith(".."):
+        raise PathTraversalError(f"{label} must not traverse parents: {value!r}")
+    if Path(value).is_absolute():
+        raise PathTraversalError(f"{label} must be relative: {value!r}")
+    return value
 
 
 def handover_path(
@@ -22,12 +43,31 @@ def handover_path(
     task_id: str | None = None,
     repo: Path | None = None,
 ) -> Path:
-    """Return the canonical handover YAML path for the given coordinates.
+    """Return the canonical handover YAML path (FLOW-11).
 
-    Full implementation lands in the GREEN phase. Stub raises
-    ``NotImplementedError`` so RED tests fail cleanly.
+    Macro: ``<repo>/.deviate/feat/<epic>/<issue>/<phase>.yaml``
+    Micro: ``<repo>/.deviate/feat/<epic>/<issue>/<task>/<phase>.yaml``
     """
-    raise NotImplementedError("handover_path() lands in the GREEN phase of TSK-012-01")
+    base = repo or Path.cwd()
+    epic = _validate_segment("epic_slug", epic_slug)
+    issue = _validate_segment("issue_id", issue_id)
+    phase_name = _validate_segment("phase", phase)
+    parts: list[str] = [str(base), str(_HANDOVER_ROOT), epic, issue]
+    if task_id is not None:
+        parts.append(_validate_segment("task_id", task_id))
+    parts.append(f"{phase_name}.yaml")
+    target = Path(*parts)
+    # Defense in depth: resolve any pre-existing ``..``/symlinks inside base
+    # and confirm the resolved target stays under ``base/.deviate/feat/``.
+    resolved_target = target.resolve()
+    resolved_root = (base / _HANDOVER_ROOT).resolve()
+    try:
+        resolved_target.relative_to(resolved_root)
+    except ValueError as exc:
+        raise PathTraversalError(
+            f"resolved path {resolved_target!s} escapes {resolved_root!s}"
+        ) from exc
+    return target
 
 
 def persist_handover(
@@ -38,14 +78,36 @@ def persist_handover(
     task_id: str | None = None,
     repo: Path | None = None,
 ) -> Path:
-    """Persist a YAML handover manifest to the canonical path (idempotent).
+    """Persist a YAML handover manifest (idempotent overwrite-or-skip).
 
-    Full implementation lands in the GREEN phase. Stub raises
-    ``NotImplementedError`` so RED tests fail cleanly.
+    Identical content is a no-op; divergent content writes through
+    (last-writer-wins; divergence is surfaced by archive tarball diff).
     """
-    raise NotImplementedError(
-        "persist_handover() lands in the GREEN phase of TSK-012-01"
+    target = handover_path(epic_slug, issue_id, phase, task_id, repo)
+    payload = manifest if manifest.endswith("\n") else manifest + "\n"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        if target.read_text(encoding="utf-8") == payload:
+            return target
+    target.write_text(payload, encoding="utf-8")
+    return target
+
+
+def _iter_handover_files(root: Path) -> list[Path]:
+    if not root.exists():
+        return []
+    return sorted(root.rglob("*.yaml"))
+
+
+def _parts_from_path(path: Path, root: Path) -> tuple[str, str, str | None, str]:
+    """Derive (epic, issue, task_or_None, phase) from a handover YAML path."""
+    rel = path.relative_to(root).parts
+    phase_token = rel[-1]
+    phase = (
+        phase_token[: -len(".yaml")] if phase_token.endswith(".yaml") else phase_token
     )
+    task = rel[2] if len(rel) >= 4 else None
+    return rel[0], rel[1], task, phase
 
 
 def load_handover_records(
@@ -54,35 +116,68 @@ def load_handover_records(
 ) -> list["HandoverRecord"]:
     """Load handover YAMLs from ``.deviate/feat/`` in chronological order.
 
-    Full implementation lands in a later phase. Stub raises
-    ``NotImplementedError`` so RED tests fail cleanly.
+    ``window`` filters by epic_slug. Malformed YAMLs are skipped with a
+    stderr warning (per AC-ADHOC-012-12).
     """
-    raise NotImplementedError("load_handover_records() lands in a later phase")
+    base = repo or Path.cwd()
+    root = base / _HANDOVER_ROOT
+    if window is not None:
+        root = root / _validate_segment("window", window)
+    stamped: list[tuple[float, HandoverRecord]] = []
+    for path in _iter_handover_files(root):
+        try:
+            loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            print(
+                f"warning: skipping malformed handover {path}: {exc}",
+                file=sys.stderr,
+            )
+            continue
+        if not isinstance(loaded, dict):
+            print(
+                f"warning: skipping non-mapping handover {path}",
+                file=sys.stderr,
+            )
+            continue
+        epic, issue, task, phase = _parts_from_path(path, base / _HANDOVER_ROOT)
+        data: dict[str, Any] = {
+            "epic_slug": loaded.get("epic_slug", epic),
+            "issue_id": loaded.get("issue_id", issue),
+            "task_id": loaded.get("task_id", task),
+            "phase": loaded.get("phase", phase),
+            "status": loaded.get("status", ""),
+            "files": loaded.get("files") or [],
+            "narrative_anchor": loaded.get("narrative_anchor"),
+            "timestamp": loaded.get("timestamp"),
+        }
+        stamped.append((path.stat().st_mtime, HandoverRecord(**data)))
+    stamped.sort(key=lambda pair: pair[0])
+    return [record for _, record in stamped]
 
 
-class HandoverRecord:
-    """Read-side Pydantic model (stub during RED phase).
+class HandoverRecord(BaseModel):
+    """Read-side model for handover YAMLs (FLOW-11, FLOW-12).
 
-    Real Pydantic model lands in the GREEN phase.
+    ``extra="allow"`` keeps the schema forward-compatible with the
+    optional ``narrative_anchor:`` block and any future per-phase fields.
     """
 
-    def __init__(
-        self,
-        *,
-        epic_slug: str,
-        issue_id: str,
-        phase: str,
-        status: str,
-        task_id: str | None = None,
-        files: list[str] | None = None,
-        narrative_anchor: dict[str, Any] | None = None,
-        timestamp: str | None = None,
-    ) -> None:
-        self.epic_slug = epic_slug
-        self.issue_id = issue_id
-        self.task_id = task_id
-        self.phase = phase
-        self.status = status
-        self.files = files or []
-        self.narrative_anchor = narrative_anchor
-        self.timestamp = timestamp
+    model_config = ConfigDict(extra="allow")
+
+    epic_slug: str
+    issue_id: str
+    phase: str
+    status: str = ""
+    task_id: str | None = None
+    files: list[str] = []
+    narrative_anchor: dict[str, Any] | None = None
+    timestamp: str | None = None
+
+
+__all__ = [
+    "HandoverRecord",
+    "PathTraversalError",
+    "handover_path",
+    "load_handover_records",
+    "persist_handover",
+]
