@@ -20,7 +20,27 @@ class PathTraversalError(ValueError):
     """Raised when a handover path escapes ``.deviate/feat/``."""
 
 
+class HandoverRecord(BaseModel):
+    """Read-side model for handover YAMLs (FLOW-11, FLOW-12).
+
+    ``extra="allow"`` keeps the schema forward-compatible with the
+    optional ``narrative_anchor:`` block and any future per-phase fields.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    epic_slug: str
+    issue_id: str
+    phase: str
+    status: str = ""
+    task_id: str | None = None
+    files: list[str] = []
+    narrative_anchor: dict[str, Any] | None = None
+    timestamp: str | None = None
+
+
 _HANDOVER_ROOT = Path(".deviate") / "feat"
+_YAML_SUFFIX = ".yaml"
 
 
 def _validate_segment(label: str, value: str) -> str:
@@ -55,7 +75,7 @@ def handover_path(
     parts: list[str] = [str(base), str(_HANDOVER_ROOT), epic, issue]
     if task_id is not None:
         parts.append(_validate_segment("task_id", task_id))
-    parts.append(f"{phase_name}.yaml")
+    parts.append(f"{phase_name}{_YAML_SUFFIX}")
     target = Path(*parts)
     # Defense in depth: resolve any pre-existing ``..``/symlinks inside base
     # and confirm the resolved target stays under ``base/.deviate/feat/``.
@@ -104,7 +124,7 @@ def _parts_from_path(path: Path, root: Path) -> tuple[str, str, str | None, str]
     rel = path.relative_to(root).parts
     phase_token = rel[-1]
     phase = (
-        phase_token[: -len(".yaml")] if phase_token.endswith(".yaml") else phase_token
+        Path(phase_token).stem if phase_token.endswith(_YAML_SUFFIX) else phase_token
     )
     task = rel[2] if len(rel) >= 4 else None
     return rel[0], rel[1], task, phase
@@ -113,7 +133,7 @@ def _parts_from_path(path: Path, root: Path) -> tuple[str, str, str | None, str]
 def load_handover_records(
     window: str | None = None,
     repo: Path | None = None,
-) -> list["HandoverRecord"]:
+) -> list[HandoverRecord]:
     """Load handover YAMLs from ``.deviate/feat/`` in chronological order.
 
     ``window`` filters by epic_slug. Malformed YAMLs are skipped with a
@@ -153,25 +173,6 @@ def load_handover_records(
         stamped.append((path.stat().st_mtime, HandoverRecord(**data)))
     stamped.sort(key=lambda pair: pair[0])
     return [record for _, record in stamped]
-
-
-class HandoverRecord(BaseModel):
-    """Read-side model for handover YAMLs (FLOW-11, FLOW-12).
-
-    ``extra="allow"`` keeps the schema forward-compatible with the
-    optional ``narrative_anchor:`` block and any future per-phase fields.
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    epic_slug: str
-    issue_id: str
-    phase: str
-    status: str = ""
-    task_id: str | None = None
-    files: list[str] = []
-    narrative_anchor: dict[str, Any] | None = None
-    timestamp: str | None = None
 
 
 __all__ = [
