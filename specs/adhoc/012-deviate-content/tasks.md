@@ -40,6 +40,37 @@
 ### Tasks
 
 - TSK-012-02: FLOW-12 synthesis CLI + deviate-content skill + 5 format templates + 5 tests
+  - **Judge Feedback**: Three of four blocking issues from the prior JUDGE feedback were correctly addressed; one was not.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: ADDRESSED:
+    - **Judge Feedback**: - Blocking #1 — `src/deviate/cli/content.py` split into 4 modules (90-line CLI + 140-line synthesis + 121-line renderers + 127-line yaml-loader); the CLI surface is well within the ≤150-line budget. ✓
+    - **Judge Feedback**: - Blocking #3 — `tests/test_content/test_cli_help.py` (4 tests in `TestContentCliHelp`) and `tests/test_content/test_unknown_format.py` (3 tests in `TestUnknownFormatRejection`) added, verifying Scenario 012-06 and Scenario 012-07. ✓
+    - **Judge Feedback**: - Blocking #4 — No linter-silencing `_ = ...` lines at the bottom of `content.py`; no dead `_list_template_formats` function; `re` import correctly located in `synthesis.py` only. ✓
+    - **Judge Feedback**: - Secondary — `_split_into_x_thread()` honors the documented phase-priority ordering (red → green → judge → refactor → teaser → CTA) via the `_PHASE_PRIORITY` sort key. ✓
+    - **Judge Feedback**: - Secondary — The 15 SKILL.md appends are one-sentence with appropriate Markdown formatting (single sentence, no heading, minimal blank-line padding for readability). ✓
+    - **Judge Feedback**: 
+    - **Judge Feedback**: NOT ADDRESSED — Blocking #2 (lenient YAML parser):
+    - **Judge Feedback**: The lenient YAML parser was not reverted. Instead, it was relocated to a brand-new module `src/deviate/core/synthesis_yaml.py` (127 lines). The module's docstring explicitly acknowledges the contradiction with Scenario 012-12 but proceeds anyway. `synthesize_draft()` calls `load_records_lenient()` as its default read path:
+    - **Judge Feedback**: 
+    - **Judge Feedback**:     # src/deviate/core/synthesis.py:84
+    - **Judge Feedback**:     records = load_records_lenient(window=window, repo=base)
+    - **Judge Feedback**: 
+    - **Judge Feedback**: Why the relocation does NOT satisfy the prior feedback:
+    - **Judge Feedback**: 1. The prior feedback explicitly required: "Restore the original TSK-012-01 behavior: `yaml.safe_load` + skip + stderr warning on `yaml.YAMLError`."
+    - **Judge Feedback**: 2. Scenario 012-12 mandates: "the malformed record is skipped with a warning logged to stderr" — not fixed.
+    - **Judge Feedback**: 3. The spec's "YAML files ARE the ledger" simplicity principle at `specs/plans/deviate-content.md:13-15` is violated by a separate fixer module that introduces scope creep into FLOW-12.
+    - **Judge Feedback**: 4. The lenient parser is structurally the same code as the prior attempt's `_lenient_yaml_fallback()` — same regex pattern (`^(\s+)([a-zA-Z_]\w*)\s*:\s+(.+)$`), same `yaml.YAMLError` catch, same in-place fix-and-retry logic.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: NEXT GREEN ATTEMPT MUST:
+    - **Judge Feedback**: 1. Delete `src/deviate/core/synthesis_yaml.py` entirely (the whole file, not just the helpers).
+    - **Judge Feedback**: 2. In `src/deviate/core/synthesis.py`, change `from deviate.core.synthesis_yaml import load_records_lenient` to use the already-imported `load_handover_records` from `deviate.core.handover`. If `load_handover_records` is not currently imported in `synthesis.py`, add the import.
+    - **Judge Feedback**: 3. In `synthesize_draft()`, change `records = load_records_lenient(window=window, repo=base)` to `records = load_handover_records(window=window, repo=base)`.
+    - **Judge Feedback**: 4. Run `mise run test tests/test_content/ -v` and confirm all 24 synthesis tests still pass — every YAML fixture in the new tests is well-formed and parses cleanly under `yaml.safe_load`.
+    - **Judge Feedback**: 5. Run `mise run lint` to confirm no F401 unused-import warnings remain.
+    - **Judge Feedback**: 6. Verify `handover.py` is byte-equal to its TSK-012-01 state: `git diff src/deviate/core/handover.py` against the TSK-012-01 commit should show zero changes.
+    - **Judge Feedback**: 7. Verify the synthesis integration tests (`test_blog_format`, `test_x_thread_format`, `test_window_filter`, `test_archive_flag`) still pass — the CLI surface is unchanged, only the read-path beneath `synthesize_draft()` is being tightened.
+    - **Judge Feedback**: 
+    - **Judge Feedback**: Do NOT introduce any alternative lenient parsing mechanism in the next attempt. If a real-world YAML genuinely needs lenient parsing, file it as a separate bug per the prior feedback's guidance.
   - **Type**: Feature_Batch
   - **Mode**: TDD
   - **Test Strategy**: Integration
