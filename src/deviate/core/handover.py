@@ -8,13 +8,12 @@ read-side ``HandoverRecord`` model used by the synthesis layer.
 
 from __future__ import annotations
 
-import re
-import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
 from pydantic import BaseModel, ConfigDict
+
+from deviate.core.yaml_repair import safe_load_yaml
 
 
 class PathTraversalError(ValueError):
@@ -148,8 +147,8 @@ def load_handover_records(
         root = root / _validate_segment("window", window)
     stamped: list[tuple[float, HandoverRecord]] = []
     for path in _iter_handover_files(root):
-        loaded = _safe_load_yaml(path)
-        if not isinstance(loaded, dict):
+        loaded = safe_load_yaml(path)
+        if loaded is None:
             continue
         epic, issue, task, phase = _parts_from_path(path, base / _HANDOVER_ROOT)
         data: dict[str, Any] = {
@@ -165,52 +164,6 @@ def load_handover_records(
         stamped.append((path.stat().st_mtime, HandoverRecord(**data)))
     stamped.sort(key=lambda pair: pair[0])
     return [record for _, record in stamped]
-
-
-def _safe_load_yaml(path: Path) -> object | None:
-    """Parse a YAML handover, applying a colon-repair fallback when needed."""
-    raw_text = path.read_text(encoding="utf-8")
-    try:
-        loaded = yaml.safe_load(raw_text)
-        if isinstance(loaded, dict):
-            return loaded
-    except yaml.YAMLError:
-        pass
-    try:
-        loaded = yaml.safe_load(_repair_yaml_text(raw_text))
-        if isinstance(loaded, dict):
-            return loaded
-    except yaml.YAMLError as exc:
-        print(
-            f"warning: skipping malformed handover {path}: {exc}",
-            file=sys.stderr,
-        )
-        return None
-    print(
-        f"warning: skipping non-mapping handover {path}",
-        file=sys.stderr,
-    )
-    return None
-
-
-_COLON_SCALAR_RE = re.compile(
-    r"^(?P<indent>\s*)(?P<key>[A-Za-z_][\w\-]*): (?P<value>[^\n\"'].*?:.*?)$",
-    re.MULTILINE,
-)
-
-
-def _repair_yaml_text(text: str) -> str:
-    """Best-effort repair of YAML handovers whose anchors contain colons.
-
-    Wraps any unquoted scalar value that contains ``: `` in double quotes
-    so ``yaml.safe_load`` can parse it. This is intentionally narrow — only
-    the leading ``key: value`` line is touched when the value contains a
-    colon-space and is not already quoted.
-    """
-    return _COLON_SCALAR_RE.sub(
-        lambda m: f'{m.group("indent")}{m.group("key")}: "{m.group("value")}"',
-        text,
-    )
 
 
 __all__ = [

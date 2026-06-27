@@ -8,24 +8,24 @@ dual pattern established by ``deviate.cli.macro``. The sub-app exposes:
 * ``--slug S`` (draft filename stem)
 * ``--archive EPIC-X`` (tarball ``specs/_archives/<epic>-narrative.tar.gz``)
 
-Synthesis is template-driven — the 5 format templates under
-``src/deviate/prompts/content/`` are loaded with ``importlib.resources``
-and rendered via plain ``str.replace`` (no Jinja2 dependency per
-``specs/plans/deviate-content.md:201``).
+All synthesis logic lives in ``deviate.core.synthesis``; this module is
+the thin Typer shell that wires CLI flags to the helpers.
 """
 
 from __future__ import annotations
 
-import importlib.resources
-import re
 import tarfile
 from pathlib import Path
-from typing import Iterable
 
 import typer
 
 from deviate.cli._common import console
-from deviate.core.handover import HandoverRecord, load_handover_records
+from deviate.core.handover import load_handover_records
+from deviate.core.synthesis import (
+    build_context,
+    load_template,
+    render_template,
+)
 
 
 VALID_FORMATS: tuple[str, ...] = (
@@ -35,10 +35,6 @@ VALID_FORMATS: tuple[str, ...] = (
     "commit-story",
     "resume-bullet",
 )
-
-_PHASE_ORDER = ("red", "green", "yellow", "judge", "refactor", "execute", "e2e")
-_X_THREAD_LIMIT = 280
-_X_THREAD_COUNT = 6
 
 content_app = typer.Typer(
     no_args_is_help=True,
@@ -121,10 +117,8 @@ def _run_synthesis(*, format: str, window: str | None, slug: str) -> Path:
     records = load_handover_records(window=window)
     if not records:
         raise ContentCaptureError(f"no handover records found for window={window!r}")
-    template = _load_template(format)
-    rendered = _render_template(
-        template, _build_context(records, slug=slug), format=format
-    )
+    context = build_context(records, slug=slug)
+    rendered = render_template(load_template(format), context, format=format)
     draft_dir = Path(".deviate") / "content-drafts" / format
     draft_dir.mkdir(parents=True, exist_ok=True)
     target = draft_dir / f"{slug}.md"
@@ -143,131 +137,6 @@ def _run_archive(epic: str) -> Path:
         for yaml_path in sorted(base.rglob("*.yaml")):
             tar.add(yaml_path, arcname=yaml_path.relative_to(Path.cwd()))
     return archive_path
-
-
-def _build_context(records: list[HandoverRecord], *, slug: str) -> dict[str, str]:
-    """Assemble template placeholder values from handover records."""
-    title = slug.replace("-", " ").title() if slug else "Untitled"
-    verdict_story = _collect_anchors(
-        records, "verdict_story"
-    ) or _collect_phase_stories(records)
-    phase_summary = _summarise_phases(records)
-    invariant_protected = (
-        _collect_anchors(records, "invariant_protected") or phase_summary
-    )
-    return {
-        "title": title,
-        "verdict_story": verdict_story or "No verdict anchor available.",
-        "phase_summary": phase_summary,
-        "invariant_protected": invariant_protected,
-    }
-
-
-def _collect_anchors(records: Iterable[HandoverRecord], field: str) -> str:
-    """Newline-joined concatenation of every record's ``field`` anchor."""
-    pieces: list[str] = []
-    seen: set[str] = set()
-    for record in records:
-        if not record.narrative_anchor:
-            continue
-        value = record.narrative_anchor.get(field)
-        if value is None:
-            continue
-        text = str(value)
-        if text and text not in seen:
-            pieces.append(text)
-            seen.add(text)
-    return "\n".join(pieces)
-
-
-def _collect_phase_stories(records: Iterable[HandoverRecord]) -> str:
-    """Newline-joined concatenation of every record's story/intent anchor."""
-    pieces: list[str] = []
-    seen: set[str] = set()
-    for record in records:
-        if not record.narrative_anchor:
-            continue
-        story = record.narrative_anchor.get("story") or record.narrative_anchor.get(
-            "intent"
-        )
-        if not story:
-            continue
-        text = str(story)
-        if text and text not in seen:
-            pieces.append(text)
-            seen.add(text)
-    return "\n".join(pieces)
-
-
-def _summarise_phases(records: list[HandoverRecord]) -> str:
-    seen: list[str] = []
-    for record in records:
-        if record.phase and record.phase not in seen:
-            seen.append(record.phase)
-    if not seen:
-        return "Phase trace unavailable."
-    seen_sorted = sorted(
-        seen,
-        key=lambda phase: (
-            _PHASE_ORDER.index(phase) if phase in _PHASE_ORDER else len(_PHASE_ORDER)
-        ),
-    )
-    return " → ".join(seen_sorted)
-
-
-def _load_template(format: str) -> str:
-    resource = importlib.resources.files("deviate.prompts.content").joinpath(
-        f"{format}.md"
-    )
-    return resource.read_text(encoding="utf-8")
-
-
-def _render_template(template: str, context: dict[str, str], *, format: str) -> str:
-    if format == "x-thread":
-        return _render_x_thread(context)
-    rendered = template
-    for key, value in context.items():
-        rendered = rendered.replace("{{" + key + "}}", value)
-    return rendered
-
-
-def _render_x_thread(context: dict[str, str]) -> str:
-    """Build exactly 6 posts, each ≤ 280 chars, sliced from the anchor pool."""
-    return "\n\n---\n\n".join(_slice_x_thread_posts(context)) + "\n"
-
-
-def _slice_x_thread_posts(context: dict[str, str]) -> list[str]:
-    """Produce 6 ≤280-char posts derived from the anchor pool."""
-    raw_pool = [
-        context.get("verdict_story", ""),
-        f"Phase trace: {context.get('phase_summary', '')}",
-        f"Invariant protected: {context.get('invariant_protected', '')}",
-        f"Title: {context.get('title', '')}",
-        "Each step verified by the DeviaTDD micro-cycle.",
-        "Drafts only — review, edit, publish manually.",
-    ]
-    posts: list[str] = []
-    for entry in raw_pool:
-        if not entry:
-            continue
-        truncated = _truncate_post(entry)
-        if truncated and truncated not in posts:
-            posts.append(truncated)
-        if len(posts) == _X_THREAD_COUNT:
-            break
-    filler_index = 0
-    while len(posts) < _X_THREAD_COUNT:
-        posts.append(_truncate_post(f"Continued thread update {filler_index + 1}."))
-        filler_index += 1
-    return posts
-
-
-def _truncate_post(text: str) -> str:
-    """Trim whitespace and hard-truncate to the X / Twitter limit."""
-    cleaned = re.sub(r"\s+", " ", text).strip()
-    if len(cleaned) <= _X_THREAD_LIMIT:
-        return cleaned
-    return cleaned[: _X_THREAD_LIMIT - 1].rstrip() + "…"
 
 
 __all__ = ["content_app", "VALID_FORMATS"]
