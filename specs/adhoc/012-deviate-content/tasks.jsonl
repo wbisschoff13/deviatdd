@@ -7,3 +7,4 @@
 {"id":"TSK-012-02","issue_id":"ISS-ADH-012","description":"FLOW-12 synthesis CLI + deviate-content skill + 5 format templates + 5 tests","status":"JUDGE","execution_mode":"TDD","created_at":"2026-06-27T15:08:38.258710Z"}
 {"id":"TSK-012-02","issue_id":"ISS-ADH-012","description":"FLOW-12 synthesis CLI + deviate-content skill + 5 format templates + 5 tests","status":"COMPLETED","execution_mode":"TDD","created_at":"2026-06-27T13:28:09.301906Z"}
 {"id":"TSK-012-03","issue_id":"ISS-ADH-012","description":"Append one-sentence Write instruction to 15 skill prompts + skill prompt validation test","status":"RED","execution_mode":"TDD","created_at":"2026-06-27T15:23:41.678382Z"}
+{"id":"TSK-012-03","issue_id":"ISS-ADH-012","description":"Append one-sentence Write instruction to 15 skill prompts + skill prompt validation test","status":"GREEN","execution_mode":"TDD","created_at":"2026-06-27T15:23:41.678382Z"}
