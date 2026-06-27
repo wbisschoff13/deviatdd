@@ -1,0 +1,2 @@
+- {{verdict_story}}
+- {{phase_summary}}
