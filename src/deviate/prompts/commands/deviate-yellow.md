@@ -1,6 +1,6 @@
 ---
 name: deviate-yellow
-description: TDD YELLOW phase — evaluate proposed test changes from the GREEN phase for conditional amendment.
+description: Use when executing the YELLOW (conditional test amendment) phase of TDD — evaluate proposed test changes from the GREEN phase
 category: deviattd-micro-layer
 version: 1.0.0
 layer: micro
@@ -118,6 +118,10 @@ test_changes:
 ```
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_format_schemas>
 

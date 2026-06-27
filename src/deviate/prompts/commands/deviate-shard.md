@@ -1,6 +1,6 @@
 ---
 name: deviate-shard
-description: Decompose prd.md into self-contained Feature Vertical issues registered in specs/issues.jsonl with a DAG dependency topology.
+description: Decompose a Product Requirements Document (prd.md) into a deterministic sequence of highly decoupled, self-contained Feature Verticals (local issues registered in specs/issues.jsonl) with DAG dependency topology
 category: deviatdd-macro-layer
 version: 1.0.0
 layer: macro
@@ -59,6 +59,10 @@ Pass 4 (Verification Mapping): [Verify that each AC maps to an explicit end-to-e
 | 000 | `000-[kebab-slug].md` | FR-NNN-01, FR-NNN-02, ..., AC-NNN-01-01, ... | [Verification Script Path] | [] | [] |
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_format_schemas>
 

@@ -1,6 +1,6 @@
 ---
 name: deviate-research
-description: Architectural analysis — produce design.md (options, trade-offs, risk register) and data-model.md from explore.md.
+description: Architectural analysis of the feature scope. Consumes `explore.md` and produces `design.md` (architecture, options matrix, design trade-offs, risk register, constitutional alignment audit) and `data-model.md` (entities, relationships, schemas, state machines). This is the expensive reasoning phase; do not run before `deviate-explore`.
 category: deviatdd-macro-layer
 version: 2.0.0
 layer: macro
@@ -294,6 +294,10 @@ Apply the Single Option Dominance Rule: if only one option satisfies all constra
 | NEXT_ACTION | Human reviews design.md + data-model.md, then invokes the `prd` skill |
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_format_schemas_design_md>
 

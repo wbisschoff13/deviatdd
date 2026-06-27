@@ -1,6 +1,6 @@
 ---
 name: deviate-prd
-description: Compile explore.md into prd.md — the singular source of truth for downstream sharding into specs/issues.jsonl.
+description: Compile exploration results into a Product Requirements Document (prd.md) — the singular, deeply coherent source of truth for downstream automated sharding into local issues via specs/issues.jsonl
 category: deviatdd-macro-layer
 version: 1.0.0
 layer: macro
@@ -115,6 +115,10 @@ ID | Type | Source / Path (Strictly Relative to Repo Root) | Relevance Note
 --- | --- | --- | ---
 `SRC-{ID}` | Spec_Discovery | `specs/{NNN}-{FEATURE_SLUG}/explore.md` | Source exploration tracking framework parameters.
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_format_schemas>
 

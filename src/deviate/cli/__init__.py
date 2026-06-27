@@ -26,6 +26,7 @@ from deviate.cli.micro import (
 )
 from deviate.cli.adhoc import adhoc_app
 from deviate.cli.constitution import constitution_app
+from deviate.cli.content import content_app
 from deviate.cli.feature import feature_app
 from deviate.cli.inspect import inspect_app
 from deviate.cli.init import init_app
@@ -794,4 +795,5 @@ cli.add_typer(init_app, name="init")
 cli.add_typer(feature_app, name="feature")
 cli.add_typer(inspect_app, name="inspect")
 cli.add_typer(review_app, name="review")
+cli.add_typer(content_app, name="content")
 cli.command(name="run")(run_command)

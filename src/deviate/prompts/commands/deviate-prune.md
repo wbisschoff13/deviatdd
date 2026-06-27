@@ -1,6 +1,6 @@
 ---
 name: deviate-prune
-description: TDD PRUNE phase — remove implementation-coupled and redundant tests while preserving public behavioral contracts.
+description: Use when executing the PRUNE (test optimization) phase of TDD — removes implementation-coupled and redundant tests while preserving public behavioral contracts
 category: deviattd-macro-layer
 version: 1.0.0
 aliases:
@@ -205,6 +205,10 @@ After completing the pruning (including post-script), emit a structured pruning 
 ```
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_contract>
 

@@ -1,6 +1,6 @@
 ---
 name: deviate-refactor
-description: TDD REFACTOR phase — behavior-preserving structural improvement after tests pass.
+description: Use when executing the REFACTOR (code cleanup) phase of TDD for a single task — behavior-preserving structural improvement after tests pass
 category: deviattd-macro-layer
 version: 1.0.0
 layer: micro
@@ -171,6 +171,10 @@ next_phase: "/deviate-red (fresh cycle) | /tools:pr (all complete)"
 ```
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_contract>
 

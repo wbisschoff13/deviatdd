@@ -1,6 +1,6 @@
 ---
 name: deviate-judge
-description: TDD JUDGE phase — review GREEN implementation against spec.md for correctness and integrity; emit COMPLIANCE_PASS.
+description: Use when executing the JUDGE (correctness gate) phase of TDD — reviews GREEN implementation against spec.md for correctness, completeness, and integrity. Emits COMPLIANCE_PASS unless a real correctness gap exists; REFACTOR owns refactoring concerns.
 category: deviattd-micro-layer
 version: 1.1.0
 layer: micro
@@ -153,6 +153,10 @@ violations:
 ```
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_format_schemas>
 

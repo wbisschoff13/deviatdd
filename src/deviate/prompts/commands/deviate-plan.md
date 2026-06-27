@@ -1,6 +1,6 @@
 ---
 name: deviate-plan
-description: Per-issue localized research — scan codebase and prior implementations; produce plan.md with strategy, file mappings, and risks.
+description: Per-issue localized codebase research — scans current codebase state, analyzes prior issue implementations, and produces a planning document (plan.md) with implementation strategy, file mappings, and risk assessment
 category: deviatdd-meso-layer
 version: 1.0.0
 layer: meso
@@ -127,6 +127,10 @@ Write the plan as `plan.md` in the issue workspace directory (adjacent to the is
 - **Git Isolation**: <how git isolation invariants apply>
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_format_schemas>
 

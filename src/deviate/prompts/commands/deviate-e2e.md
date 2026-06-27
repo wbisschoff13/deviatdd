@@ -1,6 +1,6 @@
 ---
 name: deviate-e2e
-description: Run final E2E verification after all tasks complete — user-facing tests confirming the feature meets intent.
+description: Use when executing the E2E (end-to-end verification) phase after ALL tasks complete — runs final user-facing tests to verify feature meets intent
 category: deviattd-macro-layer
 version: 1.0.0
 aliases:
@@ -229,6 +229,10 @@ SHA: <COMMIT_SHA>
 ```
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_contract>
 

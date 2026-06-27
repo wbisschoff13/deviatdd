@@ -1,6 +1,6 @@
 ---
 name: deviate-execute
-description: Direct task execution (no TDD cycle) for low-complexity tasks, trivial changes, docs, or refactors with existing coverage.
+description: Use when executing a single task directly (without TDD cycle) — for low-complexity tasks, trivial changes, docs updates, or simple refactors with existing test coverage
 category: deviattd-micro-layer
 version: 1.0.0
 layer: micro
@@ -174,6 +174,10 @@ The post-script emits status on stdout when run directly:
 | `commit_sha` | string | Short SHA of the commit |
 
 
+
+## Handover Persistence (FLOW-11)
+
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_format_schemas>
 
