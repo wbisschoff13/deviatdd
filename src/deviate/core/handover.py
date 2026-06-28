@@ -65,9 +65,9 @@ def handover_path(
 ) -> Path:
     """Return the canonical handover YAML path (FLOW-11).
 
-    Macro:         .deviate/feat/[epic]/[issue]/[phase].yaml
-    Micro:         .deviate/feat/[epic]/[issue]/[task]/[phase].yaml
-    Product-layer: .deviate/feat/_product/[skill]/[skill].yaml (sentinel)
+    Macro:         .deviate/feat/<epic_slug>/<issue_id>/<phase>.yaml
+    Micro:         .deviate/feat/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml
+    Product-layer: .deviate/feat/_product/<skill>/<skill>.yaml (sentinel)
 
     The Product-layer path is invoked via the underscore-prefixed sentinel
     epic_slug "_product" (per AC-ADHOC-013-04). The sentinel matches the

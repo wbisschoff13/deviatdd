@@ -232,46 +232,15 @@ class TestProductLayerPathShape:
     stripped, and contains no whitespace or path separators.
     """
 
-    def test_product_layer_path_for_constitution(self, tmp_path):
-        """``handover_path("_product", "constitution", "constitution")`` returns the canonical Product-layer path."""
-        result = handover_path(
-            "_product", "constitution", "constitution", repo=tmp_path
-        )
+    @pytest.mark.parametrize(
+        "skill",
+        ["constitution", "flows", "architecture", "release"],
+    )
+    def test_product_layer_path(self, tmp_path, skill):
+        """``handover_path("_product", skill, skill)`` returns canonical path."""
+        result = handover_path("_product", skill, skill, repo=tmp_path)
         assert result == (
-            tmp_path
-            / ".deviate"
-            / "feat"
-            / "_product"
-            / "constitution"
-            / "constitution.yaml"
-        )
-
-    def test_product_layer_path_for_flows(self, tmp_path):
-        """``handover_path("_product", "flows", "flows")`` returns the canonical Product-layer path."""
-        result = handover_path("_product", "flows", "flows", repo=tmp_path)
-        assert result == (
-            tmp_path / ".deviate" / "feat" / "_product" / "flows" / "flows.yaml"
-        )
-
-    def test_product_layer_path_for_architecture(self, tmp_path):
-        """``handover_path("_product", "architecture", "architecture")`` returns the canonical Product-layer path."""
-        result = handover_path(
-            "_product", "architecture", "architecture", repo=tmp_path
-        )
-        assert result == (
-            tmp_path
-            / ".deviate"
-            / "feat"
-            / "_product"
-            / "architecture"
-            / "architecture.yaml"
-        )
-
-    def test_product_layer_path_for_release(self, tmp_path):
-        """``handover_path("_product", "release", "release")`` returns the canonical Product-layer path."""
-        result = handover_path("_product", "release", "release", repo=tmp_path)
-        assert result == (
-            tmp_path / ".deviate" / "feat" / "_product" / "release" / "release.yaml"
+            tmp_path / ".deviate" / "feat" / "_product" / skill / f"{skill}.yaml"
         )
 
     def test_product_layer_paths_remain_under_handover_root(self, tmp_path):
@@ -303,20 +272,13 @@ class TestProductLayerSentinelTraversalGuard:
 
         Confirms the sentinel ``_product`` does not weaken the traversal
         guard at ``_validate_segment("issue_id", "..")`` which fires
-        before any filesystem write.
+        before any filesystem write. Segment-position regression
+        coverage for ``epic_slug`` and ``phase`` segments is already
+        provided by ``TestPathTraversalRejection``; ``_validate_segment``
+        is segment-position-agnostic, so the sentinel cannot weaken it.
         """
         with pytest.raises(PathTraversalError):
             handover_path("_product", "..", "constitution", repo=tmp_path)
-
-    def test_product_layer_sentinel_rejects_traversal_via_epic_slug(self, tmp_path):
-        """``handover_path("..", "constitution", "constitution")`` still raises (regression)."""
-        with pytest.raises(PathTraversalError):
-            handover_path("..", "constitution", "constitution", repo=tmp_path)
-
-    def test_product_layer_sentinel_rejects_traversal_via_phase(self, tmp_path):
-        """``handover_path("_product", "constitution", "..")`` still raises (regression)."""
-        with pytest.raises(PathTraversalError):
-            handover_path("_product", "constitution", "..", repo=tmp_path)
 
     def test_product_layer_traversal_attempt_does_not_create_files(self, tmp_path):
         """A rejected sentinel traversal attempt must not produce any file under the repo."""
