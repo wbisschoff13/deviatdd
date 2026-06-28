@@ -299,6 +299,21 @@ Apply the Single Option Dominance Rule: if only one option satisfies all constra
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `decision` — the architectural decision made (pattern, library, layering) and the one-sentence rationale
+- `alternative_rejected` — an option considered and the exact reason for rejection (cite constitution or research source)
+- `risk` — the highest-impact risk acknowledged in the Risk Register
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas_design_md>
 
 <output_format_schemas_data_model_md>

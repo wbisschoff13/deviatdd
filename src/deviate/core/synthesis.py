@@ -27,6 +27,35 @@ X_THREAD_COUNT = 6
 
 _PHASE_ORDER = ("red", "green", "yellow", "judge", "refactor", "execute", "e2e")
 
+# Per-phase `narrative_anchor:` field map. Mirrors
+# ``specs/plans/deviate-content.md:52-67`` § Narrative anchor field.
+# Each phase's skill prompt carries a `## Narrative Anchors (FLOW-11)`
+# block that surfaces its own slice of this map so actors know which
+# fields to populate; absence is non-fatal (Anchor Fallback Rule in
+# ``src/deviate/prompts/commands/deviate-content.md``).
+PHASE_NARRATIVE_ANCHOR_FIELDS: dict[str, tuple[str, ...]] = {
+    "explore": ("problem", "boundary_clarified", "surprise"),
+    "research": ("decision", "alternative_rejected", "risk"),
+    "prd": ("user_promise", "non_goal", "success_metric"),
+    "shard": ("slice_reasoning", "dependency_insight"),
+    "plan": ("approach_choice", "risk_acknowledged"),
+    "tasks": ("parallelization_note",),
+    "red": ("assumption_frozen", "interesting_failure_mode"),
+    "green": ("implementation_decision", "alternative_considered"),
+    "yellow": ("spec_drift", "new_rule"),
+    "judge": ("invariant_protected", "verdict_story"),
+    "refactor": ("smell_removed", "naming_lesson"),
+    "e2e": ("acceptance_proof", "user_facing_observation"),
+    "execute": ("action_taken", "alternative_considered"),
+    "hotfix": ("bug_class", "fix_strategy", "blast_radius"),
+    "prune": ("smell_category", "signal_source"),
+    "review": ("critical_count", "flow_coverage_status", "gate_outcome"),
+    "constitution": ("principle", "enforcement_scope", "exception_boundary"),
+    "flows": ("user_role", "trigger", "success_signal"),
+    "architecture": ("component", "integration_contract", "classification"),
+    "release": ("release_goal", "included_flows", "deferred_work"),
+}
+
 
 def load_template(format: str) -> str:
     """Load the format template from the package resources."""
@@ -177,6 +206,7 @@ def truncate_post(text: str) -> str:
 
 
 __all__ = [
+    "PHASE_NARRATIVE_ANCHOR_FIELDS",
     "X_THREAD_COUNT",
     "X_THREAD_LIMIT",
     "build_context",

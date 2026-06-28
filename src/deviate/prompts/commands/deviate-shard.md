@@ -64,6 +64,20 @@ Pass 4 (Verification Mapping): [Verify that each AC maps to an explicit end-to-e
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `slice_reasoning` — why the work was sharded this way (vertical vs horizontal, dependency ordering)
+- `dependency_insight` — the non-obvious cross-slice dependency discovered during decomposition
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas>
 
 

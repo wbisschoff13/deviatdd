@@ -220,6 +220,21 @@ Inform the user that the new `FLOW-NN` ID is now available for downstream
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/_product/flows/flows.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture). The canonical path shape `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` is preserved — the sentinel `epic_slug="_product"` and equal `<issue>`/`<phase>` tokens (both equal `<skill-name>`) make this a Product-layer emission.
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `user_role` — who benefits from this flow (developer, end user, operator)
+- `trigger` — the event or command that activates the flow (CLI invocation, file change, time, signal)
+- `success_signal` — the observable outcome that proves the flow worked (artifact path, log line, return value)
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas>
 
 <context>

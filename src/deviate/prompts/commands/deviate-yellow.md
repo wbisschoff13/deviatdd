@@ -123,6 +123,20 @@ test_changes:
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `spec_drift` — the spec.md section / FR-NN that no longer matches the implementation
+- `new_rule` — the amendment being proposed (constitution, plan, or task addition)
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas>
 
 <evaluation_guidelines>

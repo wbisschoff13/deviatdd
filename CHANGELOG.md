@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Per-phase `## Narrative Anchors (FLOW-11)` blocks appended to all 19 phase
+  command prompts (`deviate-red`, `deviate-green`, `deviate-yellow`,
+  `deviate-judge`, `deviate-refactor`, `deviate-execute`, `deviate-e2e`,
+  `deviate-hotfix`, `deviate-prune`, `deviate-review`, `deviate-research`,
+  `deviate-prd`, `deviate-shard`, `deviate-plan`, `deviate-tasks`,
+  `deviate-constitution`, `deviate-flows`, `deviate-architecture`,
+  `deviate-release`) so skill actors know which `narrative_anchor:` keys
+  to populate for each phase. Anchors are the atomic content unit the
+  build-in-public synthesis layer reads; without phase-specific guidance
+  the synthesis layer degrades to `phase` + `status` + `files` + git-log
+  metadata (the non-narrative path). Mirrors the field map at
+  `specs/plans/deviate-content.md:52-67` (extended to the 4 additional
+  phases execute / hotfix / prune / review per AC-ADHOC-013).
+- `PHASE_NARRATIVE_ANCHOR_FIELDS` constant exported from
+  `src/deviate/core/synthesis.py` — single source of truth for the
+  per-phase anchor field map. Tests cross-reference this constant to
+  prevent prompt/code drift.
 - GitHub Actions CI workflow (`.github/workflows/ci.yml`) running ruff lint,
   ruff format check, and pytest on push to `main` and on pull requests.
 - Bats end-to-end smoke suite at `tests/e2e/` covering the installed `deviate`

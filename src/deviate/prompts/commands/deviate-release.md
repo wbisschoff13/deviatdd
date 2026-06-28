@@ -122,6 +122,21 @@ release file as the guiding compass. Do NOT trigger exploration automatically.
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/_product/release/release.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture). The canonical path shape `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` is preserved — the sentinel `epic_slug="_product"` and equal `<issue>`/`<phase>` tokens (both equal `<skill-name>`) make this a Product-layer emission.
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `release_goal` — the user-visible outcome this release delivers (one sentence, what shipped)
+- `included_flows` — the FLOW-XX IDs that went live in this release
+- `deferred_work` — the FLOW-XX or FR-NN items deliberately held for the next release and why
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas>
 
 <context>

@@ -179,6 +179,20 @@ The post-script emits status on stdout when run directly:
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `action_taken` — what was applied (commit SHA, command run, file edited)
+- `alternative_considered` — an alternative action that was rejected and why
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas>
 
 <edge_case_handling>

@@ -119,6 +119,21 @@ Inform the user that downstream `deviate shard` invocations will now emit
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/_product/architecture/architecture.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture). The canonical path shape `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` is preserved — the sentinel `epic_slug="_product"` and equal `<issue>`/`<phase>` tokens (both equal `<skill-name>`) make this a Product-layer emission.
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `component` — the architectural component introduced or modified (name + one-sentence responsibility)
+- `integration_contract` — the interface / event / protocol that other components use to talk to this one
+- `classification` — Local / Context-Bridging / Context-Creating per FLOW-02 metrics
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas>
 
 <context>

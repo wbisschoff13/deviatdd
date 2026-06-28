@@ -210,6 +210,20 @@ After completing the pruning (including post-script), emit a structured pruning 
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `smell_category` — the type of smell the prune addressed (duplicate, low-value, dead, slow, brittle)
+- `signal_source` — the metric or observation that triggered the prune decision (coverage delta, complexity, duplication count)
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_contract>
 
 <mocking_guidelines>

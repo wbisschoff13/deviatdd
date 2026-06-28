@@ -120,6 +120,21 @@ ID | Type | Source / Path (Strictly Relative to Repo Root) | Relevance Note
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `user_promise` — what the user can now do (one sentence, the FR-NN in user-voice)
+- `non_goal` — the most important explicit non-goal (what this PRD does NOT promise)
+- `success_metric` — the measurement that proves the feature works (latency, count, error rate)
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas>
 
 <execution_sequence>

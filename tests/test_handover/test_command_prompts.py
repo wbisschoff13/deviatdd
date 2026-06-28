@@ -320,3 +320,120 @@ class TestCommandPromptHandoverNonRegressions:
                 "block but lost its closing tag — the append must be inside "
                 "the existing block, not after it."
             )
+
+
+# Per-command phase name used to look up the canonical anchor field map in
+# ``src/deviate/core/synthesis.py::PHASE_NARRATIVE_ANCHOR_FIELDS``. The
+# command file name is ``deviate-<phase>``; the map key is ``<phase>``.
+def _phase_key(command_name: str) -> str:
+    return command_name.removeprefix("deviate-")
+
+
+class TestCommandPromptNarrativeAnchors:
+    """Slice A — per-phase narrative_anchor field guidance is present in each hook.
+
+    Each of the 19 phase commands carries a `## Narrative Anchors (FLOW-11)`
+    block right after its existing `## Handover Persistence (FLOW-11)` block.
+    The block lists the phase-specific fields from
+    ``src/deviate/core.synthesis.PHASE_NARRATIVE_ANCHOR_FIELDS`` so the
+    actor knows which keys to populate on the YAML manifest's
+    ``narrative_anchor:`` block.
+
+    Canonical source: ``specs/plans/deviate-content.md:52-67`` § Narrative
+    anchor field (extended to the 4 additional phases
+    execute / hotfix / prune / review per AC-ADHOC-013 / Slice A scope).
+    """
+
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_has_narrative_anchor_block(self, command_name: str) -> None:
+        """Each phase command carries the `## Narrative Anchors (FLOW-11)` heading."""
+        path = resolve_command(command_name)
+        text = path.read_text(encoding="utf-8")
+        assert "## Narrative Anchors (FLOW-11)" in text, (
+            f"Skill '{command_name}' at {path} is missing the "
+            "'## Narrative Anchors (FLOW-11)' heading"
+        )
+
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_narrative_anchor_marker_is_idempotent(
+        self, command_name: str
+    ) -> None:
+        """The deterministic marker `narrative_anchor_fields` appears exactly once.
+
+        Re-running the append operation against an already-instrumented
+        command must be a no-op. The contract requires `narrative_anchor_fields`
+        to occur exactly once; duplicates indicate a non-idempotent append.
+        Mirrors the contract for `handover_path()` at lines 226-233 above.
+        """
+        path = resolve_command(command_name)
+        text = path.read_text(encoding="utf-8")
+        marker_count = text.count("narrative_anchor_fields")
+        assert marker_count == 1, (
+            f"Skill '{command_name}' carries 'narrative_anchor_fields' "
+            f"{marker_count} times; expected exactly one occurrence "
+            "(idempotent append contract)."
+        )
+
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_block_references_canonical_source(self, command_name: str) -> None:
+        """Each Narrative Anchors block references the canonical plan document."""
+        path = resolve_command(command_name)
+        text = path.read_text(encoding="utf-8")
+        assert "specs/plans/deviate-content.md" in text, (
+            f"Skill '{command_name}' Narrative Anchors block must reference "
+            "specs/plans/deviate-content.md as the canonical source"
+        )
+
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_block_lives_inside_terminal_contract(
+        self, command_name: str
+    ) -> None:
+        """The block sits inside the same terminal-contract section as Handover Persistence.
+
+        Mirrors the contract enforced by ``test_command_instruction_lives_in_terminal_contract_section``
+        for the Handover Persistence block: the Narrative Anchors block must
+        share the terminal-contract wrapping so it stays adjacent to the
+        YAML manifest schema it augments.
+        """
+        path = resolve_command(command_name)
+        text = path.read_text(encoding="utf-8")
+        section = _extract_terminal_section(text)
+        assert section is not None, (
+            f"Skill '{command_name}' is missing the terminal-contract section"
+        )
+        assert "## Narrative Anchors (FLOW-11)" in section, (
+            f"Skill '{command_name}': '## Narrative Anchors (FLOW-11)' "
+            "heading not located inside the terminal-contract section"
+        )
+        assert "narrative_anchor_fields" in section, (
+            f"Skill '{command_name}': 'narrative_anchor_fields' marker not "
+            "located inside the terminal-contract section"
+        )
+
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_block_lists_phase_specific_anchor_fields(
+        self, command_name: str
+    ) -> None:
+        """Each block surfaces the anchor fields declared for its phase in PHASE_NARRATIVE_ANCHOR_FIELDS.
+
+        Cross-references ``src/deviate.core.synthesis.PHASE_NARRATIVE_ANCHOR_FIELDS``
+        so the prompts and the synthesis layer never drift: every anchor
+        field the synthesis layer reads for a given phase must be named in
+        that phase's hook, and vice versa.
+        """
+        from deviate.core.synthesis import PHASE_NARRATIVE_ANCHOR_FIELDS
+
+        phase = _phase_key(command_name)
+        expected_fields = PHASE_NARRATIVE_ANCHOR_FIELDS.get(phase)
+        assert expected_fields is not None, (
+            f"PHASE_NARRATIVE_ANCHOR_FIELDS has no entry for phase '{phase}' "
+            f"(command '{command_name}'). Update the synthesis map AND this test together."
+        )
+        path = resolve_command(command_name)
+        text = path.read_text(encoding="utf-8")
+        for field in expected_fields:
+            assert f"`{field}`" in text, (
+                f"Skill '{command_name}' (phase '{phase}') is missing the "
+                f"phase-specific anchor field '{field}' in its "
+                "'## Narrative Anchors (FLOW-11)' block"
+            )

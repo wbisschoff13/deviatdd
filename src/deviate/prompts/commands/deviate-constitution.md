@@ -213,6 +213,21 @@ If the post-script exits with `status: FAILURE`, surface the `reason` to the use
 
 After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/_product/constitution/constitution.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture). The canonical path shape `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` is preserved — the sentinel `epic_slug="_product"` and equal `<issue>`/`<phase>` tokens (both equal `<skill-name>`) make this a Product-layer emission.
 
+## Narrative Anchors (FLOW-11)
+
+When emitting the YAML manifest, populate `narrative_anchor:` with these
+phase-specific fields (canonical source: `specs/plans/deviate-content.md`
+§ Narrative anchor field):
+
+- `principle` — the governance principle the constitution entry encodes (one sentence, in user-voice)
+- `enforcement_scope` — what this principle constrains (layers, files, behaviors)
+- `exception_boundary` — the explicit conditions under which the principle does not apply
+
+The marker `narrative_anchor_fields` identifies this block. Absence of
+`narrative_anchor:` is non-fatal (synthesis falls back to `phase` +
+`status` + `files` + git-log metadata), but emitted anchors are what
+distinguish a narratable draft from a structural stub.
+
 </output_format_schemas>
 
 <context>
