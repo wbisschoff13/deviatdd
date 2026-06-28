@@ -177,6 +177,14 @@ Per-epic concerns belong in `specs/issues/`.
 - **Out of scope for v1**: auto-publish to X / blog; LLM-driven content refinement (`--refine` deferred); cross-repo aggregation; engagement metrics (per `specs/plans/deviate-content.md` § Out of scope v1, lines 199-204).
 - **Flow ref**: FLOW-12.
 
+### 3.8 Product-layer handover path convention
+
+- **Macro handover (Product layer)**: `.deviate/feat/_product/<skill-name>/<skill-name>.yaml`. The four Product-layer commands (`deviate-constitution`, `deviate-flows`, `deviate-architecture`, `deviate-release`) emit to this nested path so FLOW-12 (`deviate content`) can aggregate Product-layer output alongside Macro/Meso/Micro handovers.
+- **Sentinel invocation**: Implementation calls `handover_path("_product", "<skill-name>", "<skill-name>")` from `src/deviate/core/handover.py`. The underscore-prefixed sentinel `epic_slug="_product"` is accepted by the existing `_validate_segment()` helper because it is non-empty, stripped, and contains no whitespace or path separators. No `handover_path()` signature change is required.
+- **Underscore prefix distinction**: The leading underscore on `_product` reserves the segment for framework-internal use, distinguishing the Product-layer root from real epic slugs (`deviate-content`, `deviate-cli`, etc.). The sentinel `_product` mirrors the directory name `specs/_product/` for one-to-one traceability. Real epic slugs starting with `_` are reserved — `deviate explore` emits a warning if invoked with `epic_slug="_product"`.
+- **Path traversal guard unchanged**: The validation surface at `src/deviate/core/handover.py::_validate_segment` and the defense-in-depth check `resolved_target.relative_to(resolved_root)` (lines 85-92) continue to reject `..`, absolute paths, and whitespace. The sentinel `_product` passes the validation surface; the parameter-shape attack `handover_path("_product", "..", "constitution")` is rejected before any filesystem write.
+- **Single top-level root preserved**: `.deviate/feat/` remains the only top-level handover root (FLOW-02 governance unchanged). The new `_product/` subdirectory nests under `.deviate/feat/` and does not introduce a new top-level directory; no architectural amendment to the FLOW-02 root is required.
+
 ## 4. Integration Contracts
 
 ### 4.1 C1 → C2-C5 contract
