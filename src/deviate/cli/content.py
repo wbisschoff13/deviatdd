@@ -30,11 +30,21 @@ from deviate.core.synthesis import (
 
 
 VALID_FORMATS: tuple[str, ...] = (
+    # Original 5 formats (FLOW-12 v1).
     "blog",
     "x-thread",
     "release-notes",
     "commit-story",
     "resume-bullet",
+    # Slice B — research-backed templates per the build-in-public playbook.
+    # Each format ships as its own template file at
+    # src/deviate/prompts/content/<format>.md. The synthesis layer loads the
+    # template by format name; no Jinja2 / no per-format renderer needed.
+    "blog-saha",  # 5-section Saha 2026 reflective template (resume-grade)
+    "blog-devrel",  # 4-section DevRel Bridge tutorial template (Stripe / Cloudflare voice)
+    "blog-narrative",  # Problem → Attempt → Failure → Pivot → Insight → CTA framework essay
+    "threads",  # Meta Threads long-form narrative (distinct from X; per research)
+    "linkedin",  # LinkedIn resume-discoverability cross-post
 )
 
 content_app = typer.Typer(

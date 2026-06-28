@@ -25,6 +25,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `src/deviate/core/synthesis.py` — single source of truth for the
   per-phase anchor field map. Tests cross-reference this constant to
   prevent prompt/code drift.
+- Five new content format templates at `src/deviate/prompts/content/`,
+  wired through `VALID_FORMATS` in `src/deviate/cli/content.py` and the
+  synthesis layer's `load_template()`:
+    - `blog-saha` — 5-section Saha et al. 2026 reflective template
+      (Project → Issue → Codebase → Challenges → Solution + Takeaway).
+      Resume-grade voice; use for process retrospectives.
+    - `blog-devrel` — 4-section DevRel Bridge 2024 tutorial template
+      (Intro → Background → Main Content → Conclusion + Takeaway).
+      Stripe / Cloudflare engineering blog voice; use for capability
+      launches.
+    - `blog-narrative` — Problem → Attempt → Failure → Pivot → Insight →
+      CTA framework essay template. Use for decision-rationale essays
+      where the structural lesson matters more than the technical
+      walkthrough.
+    - `threads` — Meta Threads long-form narrative template
+      (TL;DR → What I tried → Result → Insight → Open question).
+      Distinct from X; supports inline AST-parser screenshots and
+      paragraph-form prose.
+    - `linkedin` — LinkedIn resume-discoverability cross-post template
+      (first-person, career-relevant, question-driven closer). Used to
+      cross-post resume-grade blog content for the inbound audience the
+      personal website otherwise lacks.
+- **Brand Architecture** section in `src/deviate/prompts/commands/deviate-content.md`
+  mapping each format → brand layer → voice. Per the build-in-public
+  research, brand the **builder + the framework**, not each product
+  individually. Layer 1 (builder) / Layer 2 (DeviaTDD) / Layer 3
+  (Deviate / Scribe / Tome / AST parser) collapse three products + one
+  framework into one narratable arc.
+- Three new test files under `tests/test_content/` covering the new
+  formats: `test_blog_variants.py` (3 variants × 4 tests + schema
+  tests), `test_threads_format.py` (4 tests), `test_linkedin_format.py`
+  (4 tests). 23 new test cases; total now 1168.
 - GitHub Actions CI workflow (`.github/workflows/ci.yml`) running ruff lint,
   ruff format check, and pytest on push to `main` and on pull requests.
 - Bats end-to-end smoke suite at `tests/e2e/` covering the installed `deviate`
