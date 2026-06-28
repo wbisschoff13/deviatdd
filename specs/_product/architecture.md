@@ -184,6 +184,7 @@ Per-epic concerns belong in `specs/issues/`.
 - **Underscore prefix distinction**: The leading underscore on `_product` reserves the segment for framework-internal use, distinguishing the Product-layer root from real epic slugs (`deviate-content`, `deviate-cli`, etc.). The sentinel `_product` mirrors the directory name `specs/_product/` for one-to-one traceability. Real epic slugs starting with `_` are reserved — `deviate explore` emits a warning if invoked with `epic_slug="_product"`.
 - **Path traversal guard unchanged**: The validation surface at `src/deviate/core/handover.py::_validate_segment` and the defense-in-depth check `resolved_target.relative_to(resolved_root)` (lines 85-92) continue to reject `..`, absolute paths, and whitespace. The sentinel `_product` passes the validation surface; the parameter-shape attack `handover_path("_product", "..", "constitution")` is rejected before any filesystem write.
 - **Single top-level root preserved**: `.deviate/feat/` remains the only top-level handover root (FLOW-02 governance unchanged). The new `_product/` subdirectory nests under `.deviate/feat/` and does not introduce a new top-level directory; no architectural amendment to the FLOW-02 root is required.
+- **Flow ref**: FLOW-11.
 
 ## 4. Integration Contracts
 
