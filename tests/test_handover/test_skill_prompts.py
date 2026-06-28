@@ -1,18 +1,23 @@
-"""Tests for AC-ADHOC-012-13: 15 phase skill prompts each carry a Write instruction.
+"""Tests for AC-ADHOC-012-13 + AC-ADHOC-013: 19 phase command prompts each carry a Write instruction.
 
 Scenario 012-13 from ``specs/adhoc/issues/012-deviate-content.md`` —
-each ``src/deviate/prompts/skills/<name>/SKILL.md`` for the 15 listed
-phase skills contains a one-sentence Write instruction that references
-the canonical ``handover_path()`` target.
+each ``src/deviate/prompts/commands/<name>.md`` for the 15 listed
+phase commands contains a one-sentence Write instruction that references
+the canonical ``handover_path()`` target. Extended per FR-ADHOC-013
+to cover the 4 Product-layer commands (``deviate-constitution``,
+``deviate-flows``, ``deviate-architecture``, ``deviate-release``) for a
+total of 19 entries.
 
-Canonical list per ``specs/plans/deviate-content.md:79-87``:
+Canonical list per ``specs/plans/deviate-content.md:79-87`` (extended):
 
-* Micro layer (10 skills): ``deviate-red``, ``deviate-green``,
+* Micro layer (10 commands): ``deviate-red``, ``deviate-green``,
   ``deviate-yellow``, ``deviate-judge``, ``deviate-refactor``,
   ``deviate-execute``, ``deviate-e2e``, ``deviate-hotfix``,
   ``deviate-prune``, ``deviate-review``
-* Macro layer (5 skills): ``deviate-research``, ``deviate-prd``,
+* Macro layer (5 commands): ``deviate-research``, ``deviate-prd``,
   ``deviate-shard``, ``deviate-plan``, ``deviate-tasks``
+* Product layer (4 commands, AC-ADHOC-013): ``deviate-constitution``,
+  ``deviate-flows``, ``deviate-architecture``, ``deviate-release``
 
 The instruction uses the deterministic marker ``handover_path()`` so
 the append operation is idempotent against repeated re-runs (per
@@ -20,11 +25,13 @@ the append operation is idempotent against repeated re-runs (per
 Boundaries: "Re-running the implementation against an updated 15-skill
 list: The append operation must be idempotent. ... Use a deterministic
 marker (e.g., the literal string ``handover_path()``) to detect
-presence.").
+presence."). Product-layer commands emit to the sentinel path
+``.deviate/feat/_product/<skill-name>/<skill-name>.yaml`` per
+``handover_path("_product", "<skill-name>", "<skill-name>")``.
 
 The instruction lives inside the terminal-contract section of each
-skill — either the ``## Handover Persistence (FLOW-11)`` heading inside
-the ``<output_format_schemas>`` block (14 of 15 skills) or the
+command — either the ``## Handover Persistence (FLOW-11)`` heading inside
+the ``<output_format_schemas>`` block (14 of 19 commands) or the
 ``<handover_persistence>`` XML tag (``deviate-review``).
 """
 
@@ -32,13 +39,14 @@ from __future__ import annotations
 
 import pytest
 
-from deviate.core.skills import resolve_skill
+from deviate.core.commands import resolve_command
 
 
 # Canonical list per specs/plans/deviate-content.md:79-87.
-# Total: 15 skills (10 micro + 5 macro).
-PHASE_SKILLS: list[str] = [
-    # Micro layer (10 skills)
+# Extended to 19 entries per FR-ADHOC-013 (Product-layer commands).
+# Total: 19 commands (10 micro + 5 macro + 4 product).
+PHASE_COMMANDS: list[str] = [
+    # Micro layer (10 commands)
     "deviate-red",
     "deviate-green",
     "deviate-yellow",
@@ -49,15 +57,20 @@ PHASE_SKILLS: list[str] = [
     "deviate-hotfix",
     "deviate-prune",
     "deviate-review",
-    # Macro layer (5 skills)
+    # Macro layer (5 commands)
     "deviate-research",
     "deviate-prd",
     "deviate-shard",
     "deviate-plan",
     "deviate-tasks",
+    # Product layer (4 commands)
+    "deviate-constitution",
+    "deviate-flows",
+    "deviate-architecture",
+    "deviate-release",
 ]
 
-_MICRO_SKILLS: list[str] = [
+_MICRO_COMMANDS: list[str] = [
     "deviate-red",
     "deviate-green",
     "deviate-yellow",
@@ -70,12 +83,19 @@ _MICRO_SKILLS: list[str] = [
     "deviate-review",
 ]
 
-_MACRO_SKILLS: list[str] = [
+_MACRO_COMMANDS: list[str] = [
     "deviate-research",
     "deviate-prd",
     "deviate-shard",
     "deviate-plan",
     "deviate-tasks",
+]
+
+_PRODUCT_COMMANDS: list[str] = [
+    "deviate-constitution",
+    "deviate-flows",
+    "deviate-architecture",
+    "deviate-release",
 ]
 
 
@@ -121,155 +141,182 @@ def _extract_terminal_section(text: str) -> str | None:
     return None
 
 
-class TestSkillPromptHandoverInstruction:
-    """AC-ADHOC-012-13 — all 15 listed phase skills carry the Write instruction.
+class TestCommandPromptHandoverInstruction:
+    """AC-ADHOC-012-13 + AC-ADHOC-013 — all 19 listed phase commands carry the Write instruction.
 
     The instruction must reference the canonical ``handover_path()``
     target at ``.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml``.
+    Product-layer commands target the sentinel path
+    ``.deviate/feat/_product/<skill-name>/<skill-name>.yaml``.
     """
 
-    @pytest.mark.parametrize("skill_name", PHASE_SKILLS)
-    def test_skill_has_write_instruction(self, skill_name: str) -> None:
-        """Each phase skill SKILL.md contains the Write tool reference."""
-        path = resolve_skill(skill_name)
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_has_write_instruction(self, command_name: str) -> None:
+        """Each phase command file contains the Write tool reference."""
+        path = resolve_command(command_name)
         text = path.read_text(encoding="utf-8")
         assert "Write tool" in text, (
-            f"Skill '{skill_name}' at {path} is missing the Write tool reference"
+            f"Skill '{command_name}' at {path} is missing the Write tool reference"
         )
         assert "handover_path()" in text, (
-            f"Skill '{skill_name}' at {path} is missing the deterministic "
+            f"Skill '{command_name}' at {path} is missing the deterministic "
             f"marker 'handover_path()'"
         )
 
-    @pytest.mark.parametrize("skill_name", PHASE_SKILLS)
-    def test_skill_references_canonical_handover_path(self, skill_name: str) -> None:
-        """Each phase skill references the canonical handover path format.
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_references_canonical_handover_path(
+        self, command_name: str
+    ) -> None:
+        """Each phase command references the canonical handover path format.
 
         The instruction must show the ``.deviate/feat/<epic>/<issue>/
-        [<task>/]<phase>.yaml`` shape so the skill actor can construct
+        [<task>/]<phase>.yaml`` shape so the command actor can construct
         the destination without ambiguity.
         """
-        path = resolve_skill(skill_name)
+        path = resolve_command(command_name)
         text = path.read_text(encoding="utf-8")
         assert ".deviate/feat/" in text, (
-            f"Skill '{skill_name}' does not reference the .deviate/feat/ path"
+            f"Skill '{command_name}' does not reference the .deviate/feat/ path"
         )
         for placeholder in ("<epic>", "<issue>", "<phase>"):
             assert placeholder in text, (
-                f"Skill '{skill_name}' is missing path placeholder '{placeholder}'"
+                f"Skill '{command_name}' is missing path placeholder '{placeholder}'"
             )
 
-    @pytest.mark.parametrize("skill_name", PHASE_SKILLS)
-    def test_skill_instruction_lives_in_terminal_contract_section(
-        self, skill_name: str
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_instruction_lives_in_terminal_contract_section(
+        self, command_name: str
     ) -> None:
         """The Write instruction sits inside the terminal-contract section.
 
         Two accepted shapes:
 
         * ``## Handover Persistence (FLOW-11)`` heading inside the
-          ``<output_format_schemas>`` block (most skills).
+          ``<output_format_schemas>`` block (most commands).
         * ``<handover_persistence>`` XML tag (``deviate-review``).
         """
-        path = resolve_skill(skill_name)
+        path = resolve_command(command_name)
         text = path.read_text(encoding="utf-8")
 
         section = _extract_terminal_section(text)
         assert section is not None, (
-            f"Skill '{skill_name}' is missing the terminal-contract section "
+            f"Skill '{command_name}' is missing the terminal-contract section "
             "for the handover Write instruction "
             "(expected '## Handover Persistence (FLOW-11)' heading or "
             "'<handover_persistence>' XML tag)"
         )
         assert "Write tool" in section, (
-            f"Skill '{skill_name}': Write tool reference not located inside "
+            f"Skill '{command_name}': Write tool reference not located inside "
             "the terminal-contract section"
         )
         assert "handover_path()" in section, (
-            f"Skill '{skill_name}': 'handover_path()' marker not located "
+            f"Skill '{command_name}': 'handover_path()' marker not located "
             "inside the terminal-contract section"
         )
 
-    @pytest.mark.parametrize("skill_name", PHASE_SKILLS)
-    def test_skill_instruction_is_idempotent(self, skill_name: str) -> None:
-        """The deterministic marker appears exactly once per skill.
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_instruction_is_idempotent(self, command_name: str) -> None:
+        """The deterministic marker appears exactly once per command.
 
         Re-running the append operation against an already-instrumented
-        skill must be a no-op. The contract requires ``handover_path()``
+        command must be a no-op. The contract requires ``handover_path()``
         to occur exactly once; duplicates indicate a non-idempotent
         implementation.
         """
-        path = resolve_skill(skill_name)
+        path = resolve_command(command_name)
         text = path.read_text(encoding="utf-8")
         marker_count = text.count("handover_path()")
         assert marker_count == 1, (
-            f"Skill '{skill_name}' carries 'handover_path()' {marker_count} "
+            f"Skill '{command_name}' carries 'handover_path()' {marker_count} "
             "times; expected exactly one occurrence (idempotent append "
             "contract)."
         )
 
 
-class TestSkillPromptHandoverCoverage:
-    """Sanity coverage for the canonical 15-skill list."""
+class TestCommandPromptHandoverCoverage:
+    """Sanity coverage for the canonical 19-command list."""
 
-    def test_canonical_skill_list_has_exactly_fifteen(self) -> None:
-        assert len(PHASE_SKILLS) == 15, (
-            f"Expected 15 phase skills, got {len(PHASE_SKILLS)}: {PHASE_SKILLS}"
+    def test_canonical_command_list_has_exactly_nineteen(self) -> None:
+        assert len(PHASE_COMMANDS) == 19, (
+            f"Expected 19 phase commands, got {len(PHASE_COMMANDS)}: {PHASE_COMMANDS}"
         )
 
-    def test_canonical_skill_list_has_no_duplicates(self) -> None:
-        assert len(PHASE_SKILLS) == len(set(PHASE_SKILLS)), (
-            f"Duplicate skill names in canonical list: {PHASE_SKILLS}"
+    def test_canonical_command_list_has_no_duplicates(self) -> None:
+        assert len(PHASE_COMMANDS) == len(set(PHASE_COMMANDS)), (
+            f"Duplicate command names in canonical list: {PHASE_COMMANDS}"
         )
 
-    def test_micro_layer_covers_ten_skills(self) -> None:
-        for name in _MICRO_SKILLS:
-            assert name in PHASE_SKILLS, f"Missing micro skill: {name}"
-        assert len(_MICRO_SKILLS) == 10
-        assert sum(1 for s in PHASE_SKILLS if s in set(_MICRO_SKILLS)) == 10
+    def test_micro_layer_covers_ten_commands(self) -> None:
+        for name in _MICRO_COMMANDS:
+            assert name in PHASE_COMMANDS, f"Missing micro command: {name}"
+        assert len(_MICRO_COMMANDS) == 10
+        assert sum(1 for s in PHASE_COMMANDS if s in set(_MICRO_COMMANDS)) == 10
 
-    def test_macro_layer_covers_five_skills(self) -> None:
-        for name in _MACRO_SKILLS:
-            assert name in PHASE_SKILLS, f"Missing macro skill: {name}"
-        assert len(_MACRO_SKILLS) == 5
-        assert sum(1 for s in PHASE_SKILLS if s in set(_MACRO_SKILLS)) == 5
+    def test_macro_layer_covers_five_commands(self) -> None:
+        for name in _MACRO_COMMANDS:
+            assert name in PHASE_COMMANDS, f"Missing macro command: {name}"
+        assert len(_MACRO_COMMANDS) == 5
+        assert sum(1 for s in PHASE_COMMANDS if s in set(_MACRO_COMMANDS)) == 5
 
-    @pytest.mark.parametrize("skill_name", PHASE_SKILLS)
-    def test_skill_file_resolves_and_exists(self, skill_name: str) -> None:
-        """Each canonical skill resolves to an existing SKILL.md on disk."""
-        path = resolve_skill(skill_name)
-        assert path.exists(), f"Skill file not found: {path}"
-        assert path.name == "SKILL.md"
-        assert path.parent.name == skill_name
+    def test_product_layer_covers_four_commands(self) -> None:
+        """AC-ADHOC-013-03 — the Product layer contributes exactly 4 commands.
+
+        Verifies that the canonical list extends from 15 to 19 entries
+        by appending ``deviate-constitution``, ``deviate-flows``,
+        ``deviate-architecture``, ``deviate-release``. The sentinel
+        ``handover_path("_product", ...)`` invocation pattern targets
+        ``.deviate/feat/_product/<skill-name>/<skill-name>.yaml``.
+        """
+        for name in _PRODUCT_COMMANDS:
+            assert name in PHASE_COMMANDS, f"Missing product command: {name}"
+        assert len(_PRODUCT_COMMANDS) == 4, (
+            f"Expected 4 product commands, got {len(_PRODUCT_COMMANDS)}: "
+            f"{_PRODUCT_COMMANDS}"
+        )
+        assert sum(1 for s in PHASE_COMMANDS if s in set(_PRODUCT_COMMANDS)) == 4
+        # Layer totals must sum to the canonical list size
+        assert len(_MICRO_COMMANDS) + len(_MACRO_COMMANDS) + len(
+            _PRODUCT_COMMANDS
+        ) == len(PHASE_COMMANDS)
+
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_file_resolves_and_exists(self, command_name: str) -> None:
+        """Each canonical command resolves to an existing .md file on disk."""
+        path = resolve_command(command_name)
+        assert path.exists(), f"Command file not found: {path}"
+        assert path.suffix == ".md"
+        assert path.stem == command_name
 
 
-class TestSkillPromptHandoverNonRegressions:
+class TestCommandPromptHandoverNonRegressions:
     """Append is the only allowed modification — no other content drift."""
 
-    @pytest.mark.parametrize("skill_name", PHASE_SKILLS)
-    def test_skill_keeps_frontmatter_name(self, skill_name: str) -> None:
-        """Each skill's frontmatter still declares ``name: <skill>``."""
-        path = resolve_skill(skill_name)
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_keeps_frontmatter_name(self, command_name: str) -> None:
+        """Each command's frontmatter still declares ``name: <command>``."""
+        path = resolve_command(command_name)
         text = path.read_text(encoding="utf-8")
-        assert f"name: {skill_name}" in text, (
-            f"Skill '{skill_name}' frontmatter is missing "
-            f"'name: {skill_name}' (frontmatter regression?)"
+        assert f"name: {command_name}" in text, (
+            f"Skill '{command_name}' frontmatter is missing "
+            f"'name: {command_name}' (frontmatter regression?)"
         )
 
-    @pytest.mark.parametrize("skill_name", PHASE_SKILLS)
-    def test_skill_keeps_output_format_schemas_close_tag(self, skill_name: str) -> None:
-        """For skills that wrap their terminal contract in an
+    @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
+    def test_command_keeps_output_format_schemas_close_tag(
+        self, command_name: str
+    ) -> None:
+        """For commands that wrap their terminal contract in an
         ``<output_format_schemas>`` block, the closing tag must remain
         present so the append stays inside the existing structure.
-        Skills that use ``<handover_persistence>``, plural-form
+        Commands that use ``<handover_persistence>``, plural-form
         ``<output_format_schemas_*_md>`` blocks, or no XML wrapper at
         all are unaffected.
         """
-        path = resolve_skill(skill_name)
+        path = resolve_command(command_name)
         text = path.read_text(encoding="utf-8")
         if "<output_format_schemas>" in text:
             assert "</output_format_schemas>" in text, (
-                f"Skill '{skill_name}' opened an <output_format_schemas> "
+                f"Skill '{command_name}' opened an <output_format_schemas> "
                 "block but lost its closing tag — the append must be inside "
                 "the existing block, not after it."
             )

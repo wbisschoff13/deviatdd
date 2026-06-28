@@ -48,6 +48,10 @@ Each skill's YAML terminal contract gets an optional `narrative_anchor:` block. 
 | `deviate-judge` | `invariant_protected`, `verdict_story` |
 | `deviate-refactor` | `smell_removed`, `naming_lesson` |
 | `deviate-e2e` | `acceptance_proof`, `user_facing_observation` |
+| `deviate-constitution` | `principle`, `enforcement_scope`, `exception_boundary` |
+| `deviate-flows` | `user_role`, `trigger`, `success_signal` |
+| `deviate-architecture` | `component`, `integration_contract`, `classification` |
+| `deviate-release` | `release_goal`, `included_flows`, `deferred_work` |
 
 Synthesis uses anchors as raw material; absence is non-fatal — synthesis falls back to `phase` + `status` + `files` + git-log metadata.
 
