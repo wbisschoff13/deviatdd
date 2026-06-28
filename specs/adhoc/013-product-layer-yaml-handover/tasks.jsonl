@@ -6,3 +6,4 @@
 {"id":"TSK-013-02","issue_id":"ISS-ADH-013","description":"Product-layer path-shape + sentinel traversal-guard tests","status":"GREEN","execution_mode":"TDD","created_at":"2026-06-28T11:17:07.297647Z"}
 {"id":"TSK-013-02","issue_id":"ISS-ADH-013","description":"Product-layer path-shape + sentinel traversal-guard tests","status":"JUDGE","execution_mode":"TDD","created_at":"2026-06-28T11:17:48.843592Z"}
 {"id":"TSK-013-02","issue_id":"ISS-ADH-013","description":"Product-layer path-shape + sentinel traversal-guard tests","status":"COMPLETED","execution_mode":"TDD","created_at":"2026-06-28T11:22:22.809113Z"}
+{"id":"TSK-013-03","issue_id":"ISS-ADH-013","description":"Document Product-layer path convention in §3.8 + extend FLOW-12 narrative-anchor field map (12 → 16 rows)","status":"COMPLETED","execution_mode":"IMMEDIATE","created_at":"2026-06-28T11:41:10.852264Z"}
