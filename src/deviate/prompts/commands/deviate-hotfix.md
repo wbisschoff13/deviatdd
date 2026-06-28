@@ -161,7 +161,7 @@ Return output as a raw JSON object with schema:
 
 ## Handover Persistence (FLOW-11)
 
-After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture).
 
 </output_format_schemas>
 

@@ -119,7 +119,7 @@ def _run_synthesis(*, format: str, window: str | None, slug: str) -> Path:
         raise ContentCaptureError(f"no handover records found for window={window!r}")
     context = build_context(records, slug=slug)
     rendered = render_template(load_template(format), context, format=format)
-    draft_dir = Path(".deviate") / "content-drafts" / format
+    draft_dir = Path(".deviate") / "content" / "drafts" / format
     draft_dir.mkdir(parents=True, exist_ok=True)
     target = draft_dir / f"{slug}.md"
     target.write_text(rendered, encoding="utf-8")
@@ -127,7 +127,7 @@ def _run_synthesis(*, format: str, window: str | None, slug: str) -> Path:
 
 
 def _run_archive(epic: str) -> Path:
-    base = Path.cwd() / ".deviate" / "feat" / epic
+    base = Path.cwd() / ".deviate" / "content" / "handovers" / epic
     if not base.exists() or not any(base.rglob("*.yaml")):
         raise ContentCaptureError(f"no handover YAMLs under {base}; nothing to archive")
     archive_dir = Path("specs") / "_archives"

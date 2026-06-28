@@ -117,7 +117,7 @@ Inform the user that downstream `deviate shard` invocations will now emit
 
 ## Handover Persistence (FLOW-11)
 
-After emitting the YAML manifest, call the Write tool to persist it at `.deviate/feat/_product/architecture/architecture.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture). The canonical path shape `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` is preserved — the sentinel `epic_slug="_product"` and equal `<issue>`/`<phase>` tokens (both equal `<skill-name>`) make this a Product-layer emission.
+After emitting the YAML manifest, call the Write tool to persist it at `.deviate/content/handovers/_product/architecture/architecture.yaml` via `deviate.core.handover.handover_path()` (FLOW-11 capture). The canonical path shape `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` is preserved — the sentinel `epic_slug="_product"` and equal `<issue>`/`<phase>` tokens (both equal `<skill-name>`) make this a Product-layer emission.
 
 </output_format_schemas>
 

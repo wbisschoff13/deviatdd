@@ -23,7 +23,7 @@ from deviate.core.handover import handover_path, persist_handover
 
 def _list_handover_files(epic: str, issue: str, task: str, repo: Path) -> list[Path]:
     """Return the list of YAML handovers under a (epic, issue, task) tuple."""
-    base = repo / ".deviate" / "feat" / epic / issue / task
+    base = repo / ".deviate" / "content" / "handovers" / epic / issue / task
     if not base.exists():
         return []
     return sorted(base.glob("*.yaml"))
@@ -117,7 +117,9 @@ class TestIdempotentMacroWrite:
         manifest = "phase: explore\nstatus: PASS\nfiles: []\nepic_slug: EPIC-X\n"
         persist_handover("EPIC-X", "ISS-001", "explore", manifest, repo=tmp_git_repo)
         persist_handover("EPIC-X", "ISS-001", "explore", manifest, repo=tmp_git_repo)
-        macro_dir = tmp_git_repo / ".deviate" / "feat" / "EPIC-X" / "ISS-001"
+        macro_dir = (
+            tmp_git_repo / ".deviate" / "content" / "handovers" / "EPIC-X" / "ISS-001"
+        )
         assert macro_dir.exists()
         files = sorted(macro_dir.glob("explore.yaml"))
         assert len(files) == 1

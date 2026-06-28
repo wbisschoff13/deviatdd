@@ -5,21 +5,21 @@
 **Date**: 2026-06-27
 **Source Flows**: FLOW-11 (Capture Phase Handover), FLOW-12 (Synthesize Content Digest)
 
-**Resolution Note**: Operator selected option (a) — constitution amendment. `specs/constitution.md` v0.3.0 adds an explicit Tamper Guard exception for `.deviate/feat/**/*.yaml` and `.deviate/content-drafts/**/*.md` (Content Capture runtime state, gitignored, never participating in `git diff` evaluation). The workflow remains halted at this design.md checkpoint. Operator will resume manually with `/deviate-prd` rather than re-running `/deviate-research`; the Alpha/Beta/Gamma fragments below are preserved in full as the canonical architectural analysis for the epic.
+**Resolution Note**: Operator selected option (a) — constitution amendment. `specs/constitution.md` v0.3.0 adds an explicit Tamper Guard exception for `.deviate/content/handovers/**/*.yaml` and `.deviate/content/drafts/**/*.md` (Content Capture runtime state, gitignored, never participating in `git diff` evaluation). The workflow remains halted at this design.md checkpoint. Operator will resume manually with `/deviate-prd` rather than re-running `/deviate-research`; the Alpha/Beta/Gamma fragments below are preserved in full as the canonical architectural analysis for the epic.
 
 ---
 
 ## Constitutional Violation
 
-[Trigger]: Subagent Gamma's audit of `specs/plans/deviate-content.md` § Persistence flow (lines 64-73) combined with § Modifications (lines 79-87) determined that the "manual path" for handover capture instructs micro-layer skill actors to perform Write tool calls to `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml`. The nine micro-layer skills in the 15-skill modification list (`deviate-red`, `deviate-green`, `deviate-yellow`, `deviate-judge`, `deviate-refactor`, `deviate-e2e`, `deviate-hotfix`, `deviate-prune`, `deviate-review`) would, on first execution that obeys the Write instruction, write to a path outside the Tamper Guard's allow-list and trigger immediate rollback.
+[Trigger]: Subagent Gamma's audit of `specs/plans/deviate-content.md` § Persistence flow (lines 64-73) combined with § Modifications (lines 79-87) determined that the "manual path" for handover capture instructs micro-layer skill actors to perform Write tool calls to `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml`. The nine micro-layer skills in the 15-skill modification list (`deviate-red`, `deviate-green`, `deviate-yellow`, `deviate-judge`, `deviate-refactor`, `deviate-e2e`, `deviate-hotfix`, `deviate-prune`, `deviate-review`) would, on first execution that obeys the Write instruction, write to a path outside the Tamper Guard's allow-list and trigger immediate rollback.
 
-[Violating_Decision]: The "Manual path" persistence mode for the nine micro-layer skills in the 15-skill modification list (per `specs/plans/deviate-content.md` § Persistence flow line 65: "Manual path: actor → YAML on stdout + Write tool → .deviate/feat/<epic>/<issue>/<phase>.yaml").
+[Violating_Decision]: The "Manual path" persistence mode for the nine micro-layer skills in the 15-skill modification list (per `specs/plans/deviate-content.md` § Persistence flow line 65: "Manual path: actor → YAML on stdout + Write tool → .deviate/content/handovers/<epic>/<issue>/<phase>.yaml").
 
 [Violated_Clause]: `specs/constitution.md` §1 Tamper Guard & Micro-Sandboxing, verbatim:
 
 > "Micro-layer LLM execution (Aider) is strictly sandboxed: it is granted write access **only** to files matching `src/**/*.py`. All `tests/`, `specs/`, and configuration files are strictly read-only during Micro-layer execution. Any mutation outside this allow-list triggers an immediate rollback."
 
-`.deviate/feat/**/*.yaml` matches the implementation's `_is_config_file` predicate (any path whose parts include `.deviate` is treated as a configuration file and protected during GREEN/YELLOW contexts — see `src/deviate/core/tamper.py:55-58`). Even though gitignored files may not appear in `git diff --name-only` at runtime (the Tamper Guard's actual detection mechanism), the constitution's literal text grants micro-layer actors write access only to `src/**/*.py` and treats `.deviate/**` as configuration. A Write tool call from a micro actor to `.deviate/feat/**/*.yaml` is a mutation outside the allow-list as written.
+`.deviate/content/handovers/**/*.yaml` matches the implementation's `_is_config_file` predicate (any path whose parts include `.deviate` is treated as a configuration file and protected during GREEN/YELLOW contexts — see `src/deviate/core/tamper.py:55-58`). Even though gitignored files may not appear in `git diff --name-only` at runtime (the Tamper Guard's actual detection mechanism), the constitution's literal text grants micro-layer actors write access only to `src/**/*.py` and treats `.deviate/**` as configuration. A Write tool call from a micro actor to `.deviate/content/handovers/**/*.yaml` is a mutation outside the allow-list as written.
 
 [Rejected_Alternative]: The architectural argument at `specs/_product/architecture.md` §8.1 cross-check ("Satisfied. The 15 modified skill prompts operate at the LLM-mediated prompt layer (no Python code change in their hot paths); C8 is a pure-Python helper invoked from phase post-handlers.") does NOT address the manual path because, per the plan's own Persistence flow (line 65), the post-handler on the manual path only "validates, exits (no git ops)" — it does NOT call C8. The Write tool call is made directly by the LLM, and the constitution's sandbox fires rollback (literal text; implementation nuance noted but does not amend the constitutional rule).
 
@@ -27,7 +27,7 @@
 
 | Option | Description | Reversibility | Blast Radius | Selected |
 |---|---|---|---|---|
-| **(a) Constitution Amendment** | Add an explicit exception to `specs/constitution.md` §1 Tamper Guard clause: ".deviate/feat/**/*.yaml and .deviate/content-drafts/**/*.md are gitignored runtime state owned by the skill actor's Write tool; they are NOT subject to source-tree rollback during micro-layer execution." Record with version bump 0.2.0 → 0.3.0. | Medium (constitution is append-only; amendment is permanent) | High (sets precedent for future gitignored-runtime-state in Tamper Guard) | **YES — applied 2026-06-27** |
+| **(a) Constitution Amendment** | Add an explicit exception to `specs/constitution.md` §1 Tamper Guard clause: ".deviate/content/handovers/**/*.yaml and .deviate/content/drafts/**/*.md are gitignored runtime state owned by the skill actor's Write tool; they are NOT subject to source-tree rollback during micro-layer execution." Record with version bump 0.2.0 → 0.3.0. | Medium (constitution is append-only; amendment is permanent) | High (sets precedent for future gitignored-runtime-state in Tamper Guard) | **YES — applied 2026-06-27** |
 | **(b) Plan Revision** | Split the 15-skill instruction into two per-layer forms: micro-layer skills (the 9 listed above) get CLI-path-only instruction ("After tests fail, the runner's stdout parser captures your manifest; do not use any tools."); macro-layer skills (`deviate-research`, `deviate-prd`, `deviate-shard`) and orchestration skills (`deviate-plan`, `deviate-tasks`, `deviate-execute`, `deviate-review`) retain the Write tool instruction. | High (plan edit before any code committed) | Low (skill prompts only; C8 unchanged) | No |
 | **(c) Runtime Mechanism** | C8 MUST be invoked even on the manual path. The Write tool call is intercepted by a sandbox-extension hook in `src/deviate/cli/macro.py` post-handlers that pre-creates the target directory with restricted permissions and writes the YAML via Python rather than via the actor's Write tool. This requires adding `approved_mods` entries to `TamperGuard.check()` calls in micro-layer post-handlers so the path is explicitly allowlisted at evaluation time. | Medium (new plumbing in `src/deviate/cli/macro.py`) | Medium (touches micro-layer post-handlers) | No |
 
@@ -58,7 +58,7 @@ Per the deviate-research skill's CRITICAL INVARIANT #2 (Agent-Level Constitution
 
 *Modified (16):*
 - 15 SKILL.md files: `deviate-red`, `deviate-green`, `deviate-yellow`, `deviate-judge`, `deviate-refactor`, `deviate-execute`, `deviate-e2e`, `deviate-hotfix`, `deviate-prune`, `deviate-review`, `deviate-research`, `deviate-prd`, `deviate-shard`, `deviate-plan`, `deviate-tasks` (per `specs/plans/deviate-content.md:79-87`)
-- `.deviate/.gitignore` — add `/feat/` and `/content-drafts/` (per `specs/plans/deviate-content.md:83-86`)
+- `.deviate/.gitignore` — add `.deviate/content/` (per `specs/plans/deviate-content.md:83-86`)
 
 *No modification:* `src/deviate/core/agent.py` (the existing `HandoverManifest` schema with `extra="allow"` at `src/deviate/core/agent.py:21` is already forward-compatible); `src/deviate/cli/macro.py` (post-handler integration is per-phase, not a single edit); `src/deviate/cli/__init__.py` (single `cli.add_typer(content_app, name="content")` line addition at lines 594-619 pattern).
 
@@ -68,7 +68,7 @@ Per the deviate-research skill's CRITICAL INVARIANT #2 (Agent-Level Constitution
 
 | # | Decision | Option | Complexity | Testability | Constitutional Alignment | Reversibility | Blast Radius | Verdict |
 |---|---|---|---|---|---|---|---|---|
-| 1 | Path convention encoding | (a) Slug-based `.deviate/feat/<epic_slug>/<issue_id>/[<task_id>/]<phase>.yaml` | Low | High | **Aligned** w/ `architecture.md:143` | High | Local | **Selected** |
+| 1 | Path convention encoding | (a) Slug-based `.deviate/content/handovers/<epic_slug>/<issue_id>/[<task_id>/]<phase>.yaml` | Low | High | **Aligned** w/ `architecture.md:143` | High | Local | **Selected** |
 | 1 | Path convention | (b) Literal raw string | Low | Medium | Conflict w/ `architecture.md:144` | Medium | Local | **Rejected** |
 | 1 | Path convention | (c) Hybrid literal/slugged | Medium | Medium | Conflict w/ `architecture.md:143-146` | Low | Local | **Rejected** |
 | 2 | Handover schema evolution | (a) Extend existing `HandoverManifest` (`src/deviate/core/agent.py:21`) | Low | High | Partial conflict — mixes stdout contract with on-disk YAML | Medium | Medium | **Rejected** |
@@ -94,7 +94,7 @@ Per the deviate-research skill's CRITICAL INVARIANT #2 (Agent-Level Constitution
 - **Tight `HandoverManifest` schema coupling.** Rejected per Option Matrix row 2 (a).
 - **Wrapper skill.** Rejected per `specs/plans/deviate-content.md:16-17` (actor-writes rule).
 - **Engagement with `tome-*` skills.** Rejected per `specs/plans/deviate-content.md:204`.
-- **Append-only git index for `.deviate/feat/`.** Rejected (gitignored; git log cannot capture YAML state).
+- **Append-only git index for `.deviate/content/handovers/`.** Rejected (gitignored; git log cannot capture YAML state).
 - **Hot-reload of format templates via file watcher.** Rejected as over-engineering for v1.
 
 ## Design Trade-Offs (Subagent Alpha)
@@ -107,9 +107,9 @@ Per the deviate-research skill's CRITICAL INVARIANT #2 (Agent-Level Constitution
 | 15 one-sentence skill edits vs wrapper skill vs CLI flag | 15 small edits have low per-edit risk but cross-cut prompt surface; wrapper centralizes but inverts contract; CLI flag keeps prompts clean but loses anchor richness. | "The 15 modified skill prompts... each receive a one-sentence Write instruction" (`architecture.md:281-283`). |
 | Separate read-side `HandoverRecord` vs extending `HandoverManifest` | Extending keeps single schema source-of-truth but couples two contracts. | `HandoverRecord` is read-side-only per `plans/deviate-content.md:92` and `domain-model.md` HandoverRecord. Existing `HandoverManifest` at `core/agent.py:21` uses `extra="allow"` for forward-compat. |
 | Phase-specific typed anchor fields vs free-form dict | Per-phase typed fields let synthesis reference known anchor names reliably but require 12-phase × 2-3 schema; free-form degrades `test_blog_format` quality gate. | "Synthesis uses anchors as raw material; absence is non-fatal — synthesis falls back to `phase` + `status` + `files` + git-log metadata" (`plans/deviate-content.md:68-69`). |
-| Path hierarchy inherited from FLOW-02 vs new top-level roots | Reusing `.deviate/feat/...` keeps governance centralized but constrains future epics to amend `architecture.md` first. | "FLOW-02 (Architecture) governs the path-convention decisions this flow inherits" (`flows-content-capture.md:31`). |
+| Path hierarchy inherited from FLOW-02 vs new top-level roots | Reusing `.deviate/content/handovers/...` keeps governance centralized but constrains future epics to amend `architecture.md` first. | "FLOW-02 (Architecture) governs the path-convention decisions this flow inherits" (`flows-content-capture.md:31`). |
 | C8 as pure-Python helper vs LLM-invoked skill | Python helper is deterministic but cannot author narrative anchors; LLM skill composes at write-time but adds model invocation. | "C8 — Handover Capture (Runner) — (none — internal helper)" (`architecture.md:43`). Narrative authoring is the skill actor's job. |
-| `.deviate/.gitignore` extension vs root `.gitignore` | Per-directory `/feat/` matches existing local convention; root-level would leak rule into target repos. | `plans/deviate-content.md:83-86` and `release-next.md` Acceptance Criterion 14. |
+| `.deviate/.gitignore` extension vs root `.gitignore` | Per-directory `.deviate/content/` matches existing local convention; root-level would leak rule into target repos. | `plans/deviate-content.md:83-86` and `release-next.md` Acceptance Criterion 14. |
 | Synthesis as Typer sub-app vs slash-command-only | Typer sub-app is deterministic and CI-runnable (bats E2E possible); slash-command-only couples to agent platform. | "CLI sub-app `src/deviate/cli/content.py` exposes `deviate content ...`" (`release-next.md` Acceptance Criterion 6). |
 
 ## Contrarian Viewpoints (Subagent Gamma)
@@ -137,7 +137,7 @@ Per the deviate-research skill's CRITICAL INVARIANT #2 (Agent-Level Constitution
 | R-09 | Anchor field name drift across prompts | High | High | Codify as Pydantic dict in core/handover.py (CV-7) | core/handover.py author | `plans/deviate-content.md:52-67` |
 | R-10 | Synthesis drift between two repos that copy YAMLs | Medium | Medium | Add SHA-256 to YAML body and check on `load_handover_records()` | core/handover.py author | `plans/deviate-content.md:17-19` |
 | R-11 | Coverage drops below 80% after Content Capture | Medium | Medium | Run `mise run check --cov` before GREEN; add coverage assertion to CI | Task 1 + Task 2 implementer | `constitution.md:43-48` |
-| R-12 | HITL Gate 3 doesn't review synthesis drafts (PII/secrets land in `.deviate/content-drafts/`) | Low | Medium | `validate_artifact()` secrets-detected rule; block `--archive` if secrets found | core/handover.py + cli/content.py author | `constitution.md:51-52` + `architecture.md:222` |
+| R-12 | HITL Gate 3 doesn't review synthesis drafts (PII/secrets land in `.deviate/content/drafts/`) | Low | Medium | `validate_artifact()` secrets-detected rule; block `--archive` if secrets found | core/handover.py + cli/content.py author | `constitution.md:51-52` + `architecture.md:222` |
 | R-13 | `specs/_archives/<epic>-narrative.tar.gz` is committed-by-default — secrets into git history forever | Medium | High | Require `--archive --force`; `deviate content redact --epic <X>` dry-run preview | cli/content.py author | `plans/deviate-content.md:48` + `constitution.md` Git Isolation |
 | R-14 | No machine-parseable handoff between C8 and C9; YAML schema drift invisible | Medium | High | JSON Schema at `specs/_product/schemas/handover.schema.json` + validate in `load_handover_records()` | core/handover.py author | `architecture.md:174-176` |
 | R-15 | 15 modified skill prompts each add instruction to `<output_format_schemas>` — single point of maintenance | High | Medium | Move YAML terminal contract to shared prompt-fragment file referenced by all 15 skills | Skill authors for all 15 | `plans/deviate-content.md:79-87` |
@@ -150,8 +150,8 @@ Per the deviate-research skill's CRITICAL INVARIANT #2 (Agent-Level Constitution
 |---|---|---|---|
 | §1 Three-Layer Architecture | Content Capture adds a post-handler step to every phase; C9 is a new macro-layer skill | **Aligned** | No new layer; no gate skipped. |
 | §1 Append-Only Ledger Protocol | YAMLs are "idempotent overwrite-or-skip, not append"; explicitly NOT a ledger | **Tension** | Constitution scopes protocol to `issues.jsonl`/`tasks.jsonl`. Architecture §8.1 acknowledges "satisfied with note." Trade-off documented but has real consequences (CV-1, CV-5, R-02). |
-| §1 Git Isolation Principle | `.deviate/feat/**` gitignored; no commits for handover YAMLs | **Aligned** | Gitignored runtime writes are consistent with the principle. |
-| §1 Tamper Guard & Micro-Sandboxing | Manual path requires micro-layer actor to Write to `.deviate/feat/**/*.yaml` (NOT `src/**/*.py`) | **VIOLATION** | See Constitutional Violation block at top of this document. |
+| §1 Git Isolation Principle | `.deviate/content/handovers/**` gitignored; no commits for handover YAMLs | **Aligned** | Gitignored runtime writes are consistent with the principle. |
+| §1 Tamper Guard & Micro-Sandboxing | Manual path requires micro-layer actor to Write to `.deviate/content/handovers/**/*.yaml` (NOT `src/**/*.py`) | **VIOLATION** | See Constitutional Violation block at top of this document. |
 | §1 HITL Gates | No new gate; synthesis output is human-reviewed; auto-publish out of scope v1 | **Aligned** | Gate 3 covers committed artifact (`specs/_archives/<epic>-narrative.tar.gz`); R-12 secondary concern. |
 | §1 Session Continuity | No new LLM invocations; same session continues through handover emission | **Aligned** | YAML emitted at phase boundaries by same session. |
 | §1 Model Tiering | Synthesis is template-based (no LLM invocation); C8 is pure Python | **Aligned** | No new model routing decisions. |
@@ -173,7 +173,7 @@ Per the deviate-research skill's CRITICAL INVARIANT #2 (Agent-Level Constitution
 
 | Decision ID | Question | Context | Impact | Recommended Resolution | Status |
 |---|---|---|---|---|---|
-| `HITL-001` | Which resolution option (a/b/c) should be applied to the Tamper Guard & Micro-Sandboxing Violation? | Subagent Gamma's audit found that the "Manual path" persistence mode for the 9 micro-layer skills violates `specs/constitution.md` §1 Tamper Guard. Three resolutions exist: (a) constitution amendment, (b) plan revision, (c) runtime mechanism. | If unresolved, GREEN phase will trigger immediate Tamper Guard rollback on first micro-skill execution; entire Content Capture epic derails. | Option (a) — Constitution Amendment: explicit exception added to `specs/constitution.md` v0.3.0 §1 Tamper Guard for `.deviate/feat/**/*.yaml` and `.deviate/content-drafts/**/*.md` (Content Capture gitignored runtime state). | `RESOLVED` |
+| `HITL-001` | Which resolution option (a/b/c) should be applied to the Tamper Guard & Micro-Sandboxing Violation? | Subagent Gamma's audit found that the "Manual path" persistence mode for the 9 micro-layer skills violates `specs/constitution.md` §1 Tamper Guard. Three resolutions exist: (a) constitution amendment, (b) plan revision, (c) runtime mechanism. | If unresolved, GREEN phase will trigger immediate Tamper Guard rollback on first micro-skill execution; entire Content Capture epic derails. | Option (a) — Constitution Amendment: explicit exception added to `specs/constitution.md` v0.3.0 §1 Tamper Guard for `.deviate/content/handovers/**/*.yaml` and `.deviate/content/drafts/**/*.md` (Content Capture gitignored runtime state). | `RESOLVED` |
 
 **Gate Rule**: The `deviate prd pre` command will halt on any row with Status `PENDING`. `HITL-001` is now `RESOLVED`. No further decisions block PRD generation; the operator may invoke `/deviate-prd` directly.
 
@@ -206,7 +206,7 @@ Per the deviate-research skill's CRITICAL INVARIANT #2 (Agent-Level Constitution
 | SRC-12 | Codebase_File | `src/deviate/cli/__init__.py:594-619` | 23 sub-apps registered; `cli.add_typer(...)` pattern. |
 | SRC-13 | Codebase_File | `tests/conftest.py` | `_git_env()` and `tmp_git_repo` fixture for git isolation. |
 | SRC-14 | Manifest | `pyproject.toml` | `requires-python = ">=3.13"`; `pydantic>=2.0`, `pyyaml>=6.0.3`, `typer>=0.12`, `rich>=13.0` already declared; jinja2 NOT declared. |
-| SRC-15 | Config | `.deviate/.gitignore` | Currently excludes `session.json`, `artifacts/`, `prompts.log`, `reports/`, `rollback.jsonl`, `logs/`; needs `/feat/` and `/content-drafts/` extension. |
+| SRC-15 | Config | `.deviate/.gitignore` | Currently excludes `session.json`, `artifacts/`, `prompts.log`, `reports/`, `rollback.jsonl`, `logs/`; needs `.deviate/content/` extension. |
 
 ## Status Summary
 

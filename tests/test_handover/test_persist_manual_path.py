@@ -8,7 +8,7 @@ Verifies Scenario 012-02 from ``specs/adhoc/issues/012-deviate-content.md``:
 
 Properties asserted:
 
-1. The file is created at the canonical ``.deviate/feat/...`` path.
+1. The file is created at the canonical ``.deviate/content/handovers/...`` path.
 2. The file parses as valid YAML via ``yaml.safe_load``.
 3. The file contains the expected fields (phase, status, files, etc.).
 4. The file is NOT staged in the git index (``git ls-files --error-unmatch``
@@ -144,7 +144,7 @@ class TestPersistWritesValidYaml:
 
 
 class TestPersistedFileIsGitignored:
-    """AC-ADHOC-012-15 — ``.deviate/feat/...`` MUST NOT be tracked by git."""
+    """AC-ADHOC-012-15 — ``.deviate/content/handovers/...`` MUST NOT be tracked by git."""
 
     def test_persisted_file_not_in_git_index(self, tmp_git_repo: Path):
         manifest = "phase: red\nstatus: PASS\nfiles: []\n"

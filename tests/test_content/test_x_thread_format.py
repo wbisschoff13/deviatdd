@@ -5,7 +5,7 @@ Verifies Scenario 012-11 from ``specs/adhoc/issues/012-deviate-content.md``:
 **Scenario 012-11**: X-thread format draft contains exactly 6 posts
 **Given** fixture YAMLs with anchor fields across multiple phases
 **When** ``deviate content --format x-thread --slug thread-1`` runs
-**Then** ``.deviate/content-drafts/x-thread/thread-1.md`` contains exactly
+**Then** ``.deviate/content/drafts/x-thread/thread-1.md`` contains exactly
 6 posts, each ≤ 280 characters, sliced from the anchor pool — verifying
 AC-ADHOC-012-11.
 
@@ -52,7 +52,8 @@ def _seed_anchor_pool(repo: Path) -> dict[str, str]:
         target = (
             repo
             / ".deviate"
-            / "feat"
+            / "content"
+            / "handovers"
             / "EPIC-X"
             / "ISS-001"
             / "T-001"
@@ -76,7 +77,7 @@ class TestXThreadFormatSynthesis:
 
     def test_x_thread_draft_written_to_canonical_path(self, tmp_git_repo: Path):
         """`deviate content --format x-thread --slug thread-1` writes the draft at
-        .deviate/content-drafts/x-thread/thread-1.md.
+        .deviate/content/drafts/x-thread/thread-1.md.
         """
         _seed_anchor_pool(tmp_git_repo)
 
@@ -90,7 +91,12 @@ class TestXThreadFormatSynthesis:
             f"deviate content --format x-thread exited {result.exit_code}. stdout={result.stdout}"
         )
         draft = (
-            tmp_git_repo / ".deviate" / "content-drafts" / "x-thread" / "thread-1.md"
+            tmp_git_repo
+            / ".deviate"
+            / "content"
+            / "drafts"
+            / "x-thread"
+            / "thread-1.md"
         )
         assert draft.is_file(), f"Draft not written at {draft}"
 
@@ -106,7 +112,12 @@ class TestXThreadFormatSynthesis:
 
         assert result.exit_code == 0, result.stdout
         draft = (
-            tmp_git_repo / ".deviate" / "content-drafts" / "x-thread" / "thread-six.md"
+            tmp_git_repo
+            / ".deviate"
+            / "content"
+            / "drafts"
+            / "x-thread"
+            / "thread-six.md"
         )
         body = draft.read_text(encoding="utf-8")
         posts = _split_x_thread_posts(body)
@@ -128,7 +139,12 @@ class TestXThreadFormatSynthesis:
 
         assert result.exit_code == 0, result.stdout
         draft = (
-            tmp_git_repo / ".deviate" / "content-drafts" / "x-thread" / "thread-len.md"
+            tmp_git_repo
+            / ".deviate"
+            / "content"
+            / "drafts"
+            / "x-thread"
+            / "thread-len.md"
         )
         body = draft.read_text(encoding="utf-8")
         posts = [p for p in _split_x_thread_posts(body) if p]

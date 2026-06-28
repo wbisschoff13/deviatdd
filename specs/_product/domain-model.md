@@ -68,7 +68,7 @@
 
 ### PhaseHandover
 - **Attributes**: `phase` (Phase), `status` (HandoverStatus), `files[]` (relative paths), `narrative_anchor?` (NarrativeAnchor), `epic_slug`, `issue_id`, `task_id?`, `created_at`
-- **Persistence**: YAML file at `.deviate/feat/<epic_slug>/<issue_id>/[<task_id>/]<phase>.yaml` (per `specs/plans/deviate-content.md` § Path convention, lines 45-46). Gitignored.
+- **Persistence**: YAML file at `.deviate/content/handovers/<epic_slug>/<issue_id>/[<task_id>/]<phase>.yaml` (per `specs/plans/deviate-content.md` § Path convention, lines 45-46). Gitignored.
 - **Relationships**:
   - belongs to one Epic (by `epic_slug`)
   - belongs to one Issue (by `issue_id`)
@@ -99,11 +99,11 @@
 
 ### EpicWindow (filter)
 - **Attributes**: `epic_slug?` (optional), `issue_id?` (optional)
-- **Semantics**: restricts `load_handover_records()` to a path prefix. `EpicWindow(epic_slug="X")` matches `.deviate/feat/X/**`. Empty window matches all records.
+- **Semantics**: restricts `load_handover_records()` to a path prefix. `EpicWindow(epic_slug="X")` matches `.deviate/content/handovers/X/**`. Empty window matches all records.
 
 ### ContentDraft
-- **Attributes**: `format` (FormatKind), `slug`, `path` (`.deviate/content-drafts/<format>/<slug>.md`), `epic_slug?`, `narrative_anchors_referenced[]` (field names actually used), `created_at`, `byte_count`
-- **Persistence**: markdown file under `.deviate/content-drafts/<format>/<slug>.md` (per `specs/plans/deviate-content.md` § Path convention, line 47). Gitignored.
+- **Attributes**: `format` (FormatKind), `slug`, `path` (`.deviate/content/drafts/<format>/<slug>.md`), `epic_slug?`, `narrative_anchors_referenced[]` (field names actually used), `created_at`, `byte_count`
+- **Persistence**: markdown file under `.deviate/content/drafts/<format>/<slug>.md` (per `specs/plans/deviate-content.md` § Path convention, line 47). Gitignored.
 - **Relationships**:
   - produced by C9 (Content Synthesis) from one or more `PhaseHandover` for one `EpicWindow`
   - rendered by exactly one `FormatTemplate` from C10

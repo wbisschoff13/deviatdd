@@ -39,8 +39,8 @@ Per-epic concerns belong in `specs/issues/`.
 | C5 | Tome Writer — Explanation | `tome-write-explanation` | FLOW-08 | Produce one `explanation/*.md` | yes | `apps/docs/src/content/docs/explanation/` |
 | C6 | Tome Verifier | `tome-verify-docs` | FLOW-09 | Cross-doc pass: factual accuracy, path correctness, no cross-type contamination, valid Starlight location | n/a (read-only report) | nothing |
 | C7 | Tome Setup | `tome-setup` | FLOW-10 | Idempotent bootstrap of `apps/docs/`, four quadrant dirs, `content.config.ts`, optional starter set | n/a | `apps/docs/` (in target repo) |
-| C8 | Handover Capture (Runner) | (none — internal helper) | FLOW-11 | Per-phase YAML write at `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml`; validates path, never touches git | yes | `.deviate/feat/` |
-| C9 | Content Synthesis | `deviate-content` | FLOW-12 | Aggregate handovers for a window; render draft in chosen format; optional archive tarball | n/a | `.deviate/content-drafts/`, `specs/_archives/` |
+| C8 | Handover Capture (Runner) | (none — internal helper) | FLOW-11 | Per-phase YAML write at `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml`; validates path, never touches git | yes | `.deviate/content/handovers/` |
+| C9 | Content Synthesis | `deviate-content` | FLOW-12 | Aggregate handovers for a window; render draft in chosen format; optional archive tarball | n/a | `.deviate/content/drafts/`, `specs/_archives/` |
 | C10 | Format Template Pack | (resource — 5 prompt templates) | FLOW-12 | Format-specific markdown templates consumed by C9 (blog, x-thread, release-notes, commit-story, resume-bullet) | n/a | `src/deviate/prompts/content/` |
 
 ### 3.1 C1 — Tome Classifier (FLOW-04)
@@ -135,13 +135,13 @@ Per-epic concerns belong in `specs/issues/`.
   - `load_handover_records(window: EpicWindow) -> list[HandoverRecord]` — chronological read
   - `HandoverRecord` — read-side Pydantic model (no write-side persistence model; YAML is the durable artifact per `specs/plans/deviate-content.md` lines 13-15)
 - **Path convention** (per `specs/plans/deviate-content.md` § Path convention, lines 44-49):
-  - Macro handover: `.deviate/feat/<epic_slug>/<issue_id>/<phase>.yaml`
-  - Micro handover: `.deviate/feat/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml`
+  - Macro handover: `.deviate/content/handovers/<epic_slug>/<issue_id>/<phase>.yaml`
+  - Micro handover: `.deviate/content/handovers/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml`
 - **Trigger**: end of any DeviaTDD phase post-handler — called automatically, not by the user (per `specs/_product/flows/flows-content-capture.md:8-10`).
 - **Dual input modes** (per `specs/plans/deviate-content.md` § Persistence flow, lines 64-73):
   - Manual path: skill actor emits YAML on stdout AND uses the Write tool to the canonical path; `persist_handover()` validates the file exists and exits (does not overwrite)
   - CLI path: skill actor emits YAML on stdout only; `AgentBackend` parses stdout and `persist_handover()` writes the file
-- **Git discipline**: writes to `.deviate/feat/**` which is gitignored (per `specs/plans/deviate-content.md` lines 17-19 and § File changes → Modifications, lines 83-87). No commit, no ledger append. Path traversal is rejected via `pathlib` (per `specs/plans/deviate-content.md` § Risks, lines 162-163).
+- **Git discipline**: writes to `.deviate/content/handovers/**` which is gitignored (per `specs/plans/deviate-content.md` lines 17-19 and § File changes → Modifications, lines 83-87). No commit, no ledger append. Path traversal is rejected via `pathlib` (per `specs/plans/deviate-content.md` § Risks, lines 162-163).
 - **Error surfaces** (per `specs/_product/flows/flows-content-capture.md:32-38`):
   - `HandoverArtifactMissing` — manual path: actor forgot the Write call; raised with canonical path
   - malformed YAML → `load_handover_records()` skips with warning
@@ -157,7 +157,7 @@ Per-epic concerns belong in `specs/issues/`.
   - `deviate content pre` / `deviate content post` subcommands
 - **Aggregation strategy**: `load_handover_records(window)` from C8 gathers YAMLs in chronological order; C9 extracts `narrative_anchor` keyed by phase-specific field names (per `specs/_product/flows/flows-content-capture.md:50-52` and `specs/plans/deviate-content.md` § Narrative anchor field, lines 52-67).
 - **Output paths** (per `specs/plans/deviate-content.md` § Path convention, lines 46-49):
-  - Drafts: `.deviate/content-drafts/<format>/<slug>.md` (gitignored)
+  - Drafts: `.deviate/content/drafts/<format>/<slug>.md` (gitignored)
   - Archive: `specs/_archives/<epic_slug>-narrative.tar.gz` (committed-by-default only when `--archive` invoked)
 - **Format dispatch**: C9 reads `format` flag and routes to the matching template from C10. Refusal on collision: existing draft file → CLI exits non-zero with `--force` suggestion (per `specs/_product/flows/flows-content-capture.md:60`).
 - **Anchor fallback**: when no `narrative_anchor` block is present on any record, synthesis falls back to `phase` + `status` + `files` + `git log` metadata (per `specs/plans/deviate-content.md` lines 68-69).
@@ -179,11 +179,11 @@ Per-epic concerns belong in `specs/issues/`.
 
 ### 3.8 Product-layer handover path convention
 
-- **Macro handover (Product layer)**: `.deviate/feat/_product/<skill-name>/<skill-name>.yaml`. The four Product-layer commands (`deviate-constitution`, `deviate-flows`, `deviate-architecture`, `deviate-release`) emit to this nested path so FLOW-12 (`deviate content`) can aggregate Product-layer output alongside Macro/Meso/Micro handovers.
+- **Macro handover (Product layer)**: `.deviate/content/handovers/_product/<skill-name>/<skill-name>.yaml`. The four Product-layer commands (`deviate-constitution`, `deviate-flows`, `deviate-architecture`, `deviate-release`) emit to this nested path so FLOW-12 (`deviate content`) can aggregate Product-layer output alongside Macro/Meso/Micro handovers.
 - **Sentinel invocation**: Implementation calls `handover_path("_product", "<skill-name>", "<skill-name>")` from `src/deviate/core/handover.py`. The underscore-prefixed sentinel `epic_slug="_product"` is accepted by the existing `_validate_segment()` helper because it is non-empty, stripped, and contains no whitespace or path separators. No `handover_path()` signature change is required.
 - **Underscore prefix distinction**: The leading underscore on `_product` reserves the segment for framework-internal use, distinguishing the Product-layer root from real epic slugs (`deviate-content`, `deviate-cli`, etc.). The sentinel `_product` mirrors the directory name `specs/_product/` for one-to-one traceability. Real epic slugs starting with `_` are reserved for framework-internal sentinels; a future revision may add a `[yellow]RESERVED_SENTINEL[/]` warning in `deviate explore` when invoked with `epic_slug="_product"` (out of scope for AC-ADHOC-013).
 - **Path traversal guard unchanged**: The validation surface at `src/deviate/core/handover.py::_validate_segment` and the defense-in-depth check `resolved_target.relative_to(resolved_root)` (lines 85-92) continue to reject `..`, absolute paths, and whitespace. The sentinel `_product` passes the validation surface; the parameter-shape attack `handover_path("_product", "..", "constitution")` is rejected before any filesystem write.
-- **Single top-level root preserved**: `.deviate/feat/` remains the only top-level handover root (FLOW-02 governance unchanged). The new `_product/` subdirectory nests under `.deviate/feat/` and does not introduce a new top-level directory; no architectural amendment to the FLOW-02 root is required.
+- **Single top-level root preserved**: `.deviate/content/handovers/` remains the only top-level handover root (FLOW-02 governance unchanged). The new `_product/` subdirectory nests under `.deviate/content/handovers/` and does not introduce a new top-level directory; no architectural amendment to the FLOW-02 root is required.
 - **Flow ref**: FLOW-11.
 
 ## 4. Integration Contracts
@@ -234,18 +234,18 @@ Per-epic concerns belong in `specs/issues/`.
     <phase-specific-field>: <text>   # optional; field names per deviate-content.md § Narrative anchor field
   ```
 - **Anchor field map** (per `specs/plans/deviate-content.md` § Narrative anchor field, lines 52-67) — 12 phases, each with 2-3 named anchor fields (e.g., `judge` → `invariant_protected`, `verdict_story`; `prd` → `user_promise`, `non_goal`, `success_metric`).
-- **Boundary rule**: `pathlib` everywhere; any path escaping `.deviate/feat/` is rejected (per `specs/plans/deviate-content.md` § Risks, lines 162-163).
+- **Boundary rule**: `pathlib` everywhere; any path escaping `.deviate/content/handovers/` is rejected (per `specs/plans/deviate-content.md` § Risks, lines 162-163).
 
 ### 4.5 C8 → C9 contract
 
-- **Form**: C9 reads via `load_handover_records(window)` which returns a chronological list of `HandoverRecord` Pydantic models parsed from the YAMLs in `.deviate/feat/**/*.yaml` (per `specs/_product/flows/flows-content-capture.md:50` and `specs/plans/deviate-content.md` line 95).
+- **Form**: C9 reads via `load_handover_records(window)` which returns a chronological list of `HandoverRecord` Pydantic models parsed from the YAMLs in `.deviate/content/handovers/**/*.yaml` (per `specs/_product/flows/flows-content-capture.md:50` and `specs/plans/deviate-content.md` line 95).
 - **No machine-parseable handoff file**: handovers are themselves the contract. C9 reads YAMLs; C8 writes YAMLs. There is no intermediate index or `narrative.jsonl` (per `specs/plans/deviate-content.md` § Context, lines 13-15 — the YAML manifest is the ledger).
-- **Window filter**: `--window EPIC-X` restricts records to `.deviate/feat/<epic_slug>/**`; absence of `--window` means all records (per `specs/plans/deviate-content.md` § Task 2, line 145).
+- **Window filter**: `--window EPIC-X` restricts records to `.deviate/content/handovers/<epic_slug>/**`; absence of `--window` means all records (per `specs/plans/deviate-content.md` § Task 2, line 145).
 
 ### 4.6 C9 → C10 contract
 
 - **Form**: C9 dispatches to one of the 5 templates in `src/deviate/prompts/content/` based on the `--format` flag. Unknown `--format` value → CLI lists the 5 valid formats and exits non-zero (per `specs/_product/flows/flows-content-capture.md:58-59`).
-- **Template surface**: each template is a static markdown file with `{{ epic_slug }}`, `{{ slug }}`, `{{ format }}`, and `{{ records }}` placeholders. C9 fills them and writes to `.deviate/content-drafts/<format>/<slug>.md` (per `specs/plans/deviate-content.md` § Path convention, line 47).
+- **Template surface**: each template is a static markdown file with `{{ epic_slug }}`, `{{ slug }}`, `{{ format }}`, and `{{ records }}` placeholders. C9 fills them and writes to `.deviate/content/drafts/<format>/<slug>.md` (per `specs/plans/deviate-content.md` § Path convention, line 47).
 - **Archive side-channel**: `--archive EPIC-X` writes `specs/_archives/<epic_slug>-narrative.tar.gz` containing every YAML under that epic (per `specs/plans/deviate-content.md` § Path convention, line 48 and § Task 2, line 146).
 
 ## 5. Data Ownership Boundaries
@@ -259,13 +259,13 @@ Per-epic concerns belong in `specs/issues/`.
 | C5 | `apps/docs/src/content/docs/explanation/*.md` | commit, classification report | `explanation/` |
 | C6 | Verification report (transient) | updated docs, commit, classification report | nothing |
 | C7 | `apps/docs/` (scaffold, content config, starter set) | target repo state | `apps/docs/` |
-| C8 | `.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml` | phase post-handler manifest (stdout or Write tool) | `.deviate/feat/` |
-| C9 | `.deviate/content-drafts/<format>/<slug>.md`, `specs/_archives/<epic>-narrative.tar.gz` | `.deviate/feat/**/*.yaml` via `load_handover_records()` | `.deviate/content-drafts/`, `specs/_archives/` |
+| C8 | `.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml` | phase post-handler manifest (stdout or Write tool) | `.deviate/content/handovers/` |
+| C9 | `.deviate/content/drafts/<format>/<slug>.md`, `specs/_archives/<epic>-narrative.tar.gz` | `.deviate/content/handovers/**/*.yaml` via `load_handover_records()` | `.deviate/content/drafts/`, `specs/_archives/` |
 | C10 | `src/deviate/prompts/content/<format>.md` (read-only resource) | n/a (static) | `src/deviate/prompts/content/` (initial provisioning only) |
 
 **Quadrant directory is the structural seam for Tome**: C2-C5 must not write outside their assigned quadrant. C7 is the only writer of `content.config.ts`, `index.md`, and `_meta/`. C1 and C6 are read-only.
 
-**Path hierarchy is the structural seam for Content Capture**: C8 owns `.deviate/feat/**`; C9 owns `.deviate/content-drafts/**` and `specs/_archives/**`. C10 is a static read-only resource consumed by C9. C8 and C9 never write outside their declared path roots; path traversal is rejected at the `pathlib` boundary.
+**Path hierarchy is the structural seam for Content Capture**: C8 owns `.deviate/content/handovers/**`; C9 owns `.deviate/content/drafts/**` and `specs/_archives/**`. C10 is a static read-only resource consumed by C9. C8 and C9 never write outside their declared path roots; path traversal is rejected at the `pathlib` boundary.
 
 ## 6. Dependency Graph
 
@@ -292,12 +292,12 @@ FLOW-10 (C7 Setup) ──── gates ────> FLOW-04 (C1 Classify)
 ALL 12 phase post-handlers ──> C8 (Handover Capture)
                                        │
                                        ▼ writes
-                              .deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml
+                              .deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml
                                        │
                                        ▼ reads
                                        C9 (Content Synthesis) ──reads templates──> C10 (Format Template Pack)
                                        │
-                                       ├──> .deviate/content-drafts/<format>/<slug>.md
+                                       ├──> .deviate/content/drafts/<format>/<slug>.md
                                        └──> specs/_archives/<epic>-narrative.tar.gz  (--archive only)
 ```
 
@@ -305,7 +305,7 @@ ALL 12 phase post-handlers ──> C8 (Handover Capture)
 - **C9 depends on C8's outputs only** — no direct dependency on any phase. C9 is decoupled from the phase pipeline; it is a downstream consumer.
 - **C10 is a leaf resource** — consumed by C9, no dependencies.
 - **C9's archive path is the only committed-by-default artifact** of Content Capture (per `specs/plans/deviate-content.md` § Context, lines 17-19). All handover YAMLs and drafts are gitignored runtime state.
-- **`FLOW-02` (Architecture) governs the path conventions** (`.deviate/feat/` and `.deviate/content-drafts/`) inherited by FLOW-11 and FLOW-12 (per `specs/_product/flows/flows-content-capture.md:31` and `:51`). This subgraph cannot introduce new top-level directory roots without amending this architecture document.
+- **`FLOW-02` (Architecture) governs the path conventions** (`.deviate/content/handovers/` and `.deviate/content/drafts/`) inherited by FLOW-11 and FLOW-12 (per `specs/_product/flows/flows-content-capture.md:31` and `:51`). This subgraph cannot introduce new top-level directory roots without amending this architecture document.
 
 ## 7. Flow Traceability
 
@@ -349,7 +349,7 @@ No `[red]CONSTITUTION_CONFLICT[/]`. No amendment required.
 
 - §2 Frontend (None, CLI-only) — **Satisfied**. C9's CLI surface (`deviate content`) is Typer-based; no web/GUI runtime is introduced.
 - §2 Backend (Python 3.13, Typer) — **Satisfied**. `src/deviate/core/handover.py` and `src/deviate/cli/content.py` follow the existing Python 3.13 + Typer stack.
-- §2 Database (No persistent database runtime; session state under `.deviate/`) — **Satisfied**. `.deviate/feat/` and `.deviate/content-drafts/` are session-state directories under `.deviate/`, consistent with the existing `.deviate/` convention.
+- §2 Database (No persistent database runtime; session state under `.deviate/`) — **Satisfied**. `.deviate/content/handovers/` and `.deviate/content/drafts/` are session-state directories under `.deviate/`, consistent with the existing `.deviate/` convention.
 - §2 Infrastructure (Aider micro-sandbox for `src/**/*.py`) — **Satisfied**. The 15 modified skill prompts operate at the LLM-mediated prompt layer (no Python code change in their hot paths); C8 is a pure-Python helper invoked from phase post-handlers.
 - §1 Append-Only Ledger Protocol — **Satisfied with note**. The Constitution states "All state transitions in `issues.jsonl` and `tasks.jsonl` are append-only." The Content Capture YAMLs are NOT a ledger — they are gitignored runtime state, by explicit design (per `specs/plans/deviate-content.md` § Context, lines 13-15). No append-only guarantee is offered or required for these files; `persist_handover()` is idempotent overwrite-or-skip, not append.
 - §1 Three-Layer Architecture — **Satisfied**. Content Capture adds a post-handler step to each phase but does not introduce a new layer or skip a gate.
@@ -363,4 +363,4 @@ Downstream `deviate shard` invocations will emit `flow_refs:` for any issue deri
 - **Tome Subsystem epic** — derives from FLOW-04..FLOW-10 plus the architectural seams in §4.1–§4.3 and §5.
 - **Content Capture epic** — derives from FLOW-11..FLOW-12 plus the seams in §4.4–§4.6 and §6.1. The cross-cutting touch on the 15 modified skills means the Content Capture epic's `flow_refs:` will also include `FLOW-11` on every issue derived from any other epic whose TDD task runs through those skills, since each micro-task now emits a handover YAML.
 
-The path-convention decisions (`.deviate/feat/`, `.deviate/content-drafts/`, `specs/_archives/`) made here are inherited by `FLOW-11` and `FLOW-12` per the cross-reference at `specs/_product/flows/flows-content-capture.md:31` and `:51`. Any future epic that needs a new `.deviate/` subdirectory root must amend this architecture document first.
+The path-convention decisions (`.deviate/content/handovers/`, `.deviate/content/drafts/`, `specs/_archives/`) made here are inherited by `FLOW-11` and `FLOW-12` per the cross-reference at `specs/_product/flows/flows-content-capture.md:31` and `:51`. Any future epic that needs a new `.deviate/` subdirectory root must amend this architecture document first.

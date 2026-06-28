@@ -3,11 +3,11 @@
 Verifies Scenario 012-08 from ``specs/adhoc/issues/012-deviate-content.md``:
 
 **Scenario 012-08**: ``--window EPIC-X`` filters records to that epic only
-**Given** fixture YAMLs under ``.deviate/feat/EPIC-A/**``,
-``.deviate/feat/EPIC-B/**``, and ``.deviate/feat/EPIC-X/**``
+**Given** fixture YAMLs under ``.deviate/content/handovers/EPIC-A/**``,
+``.deviate/content/handovers/EPIC-B/**``, and ``.deviate/content/handovers/EPIC-X/**``
 **When** ``load_handover_records(window="EPIC-X")`` is called
 **Then** the returned list contains only records under
-``.deviate/feat/EPIC-X/**``; absence of ``window`` returns all records
+``.deviate/content/handovers/EPIC-X/**``; absence of ``window`` returns all records
 in chronological order — verifying AC-ADHOC-012-08.
 
 Both the API layer (``load_handover_records(window=...)``) and the CLI
@@ -30,11 +30,20 @@ runner = CliRunner()
 
 
 def _seed_yaml(repo: Path, epic: str, issue: str, phase: str, anchor_text: str) -> Path:
-    """Seed a single YAML handover under .deviate/feat/<epic>/<issue>/<task>/<phase>.yaml.
+    """Seed a single YAML handover under .deviate/content/handovers/<epic>/<issue>/<task>/<phase>.yaml.
 
     Returns the written path.
     """
-    target = repo / ".deviate" / "feat" / epic / issue / "T-001" / f"{phase}.yaml"
+    target = (
+        repo
+        / ".deviate"
+        / "content"
+        / "handovers"
+        / epic
+        / issue
+        / "T-001"
+        / f"{phase}.yaml"
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
     yaml_text = (
         f"phase: {phase}\n"
@@ -98,7 +107,8 @@ class TestWindowFilterCLI:
             target = (
                 tmp_git_repo
                 / ".deviate"
-                / "feat"
+                / "content"
+                / "handovers"
                 / epic
                 / "ISS-001"
                 / "T-001"
@@ -133,7 +143,12 @@ class TestWindowFilterCLI:
             f"deviate content --window EPIC-X exited {result.exit_code}. stdout={result.stdout}"
         )
         draft = (
-            tmp_git_repo / ".deviate" / "content-drafts" / "blog" / "windowed-post.md"
+            tmp_git_repo
+            / ".deviate"
+            / "content"
+            / "drafts"
+            / "blog"
+            / "windowed-post.md"
         )
         assert draft.is_file()
         body = draft.read_text(encoding="utf-8")
@@ -160,7 +175,8 @@ class TestWindowFilterCLI:
             target = (
                 tmp_git_repo
                 / ".deviate"
-                / "feat"
+                / "content"
+                / "handovers"
                 / epic
                 / "ISS-001"
                 / "T-001"
@@ -184,7 +200,9 @@ class TestWindowFilterCLI:
             )
 
         assert result.exit_code == 0, result.stdout
-        draft = tmp_git_repo / ".deviate" / "content-drafts" / "blog" / "wide-post.md"
+        draft = (
+            tmp_git_repo / ".deviate" / "content" / "drafts" / "blog" / "wide-post.md"
+        )
         body = draft.read_text(encoding="utf-8")
         assert epic_a_anchor in body, (
             f"EPIC-A wide-window anchor missing from unfiltered draft. body[:400]={body[:400]!r}"

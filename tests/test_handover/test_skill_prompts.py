@@ -26,7 +26,7 @@ Boundaries: "Re-running the implementation against an updated 15-skill
 list: The append operation must be idempotent. ... Use a deterministic
 marker (e.g., the literal string ``handover_path()``) to detect
 presence."). Product-layer commands emit to the sentinel path
-``.deviate/feat/_product/<skill-name>/<skill-name>.yaml`` per
+``.deviate/content/handovers/_product/<skill-name>/<skill-name>.yaml`` per
 ``handover_path("_product", "<skill-name>", "<skill-name>")``.
 
 The instruction lives inside the terminal-contract section of each
@@ -145,9 +145,9 @@ class TestCommandPromptHandoverInstruction:
     """AC-ADHOC-012-13 + AC-ADHOC-013 — all 19 listed phase commands carry the Write instruction.
 
     The instruction must reference the canonical ``handover_path()``
-    target at ``.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml``.
+    target at ``.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml``.
     Product-layer commands target the sentinel path
-    ``.deviate/feat/_product/<skill-name>/<skill-name>.yaml``.
+    ``.deviate/content/handovers/_product/<skill-name>/<skill-name>.yaml``.
     """
 
     @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
@@ -169,14 +169,14 @@ class TestCommandPromptHandoverInstruction:
     ) -> None:
         """Each phase command references the canonical handover path format.
 
-        The instruction must show the ``.deviate/feat/<epic>/<issue>/
+        The instruction must show the ``.deviate/content/handovers/<epic>/<issue>/
         [<task>/]<phase>.yaml`` shape so the command actor can construct
         the destination without ambiguity.
         """
         path = resolve_command(command_name)
         text = path.read_text(encoding="utf-8")
-        assert ".deviate/feat/" in text, (
-            f"Skill '{command_name}' does not reference the .deviate/feat/ path"
+        assert ".deviate/content/handovers/" in text, (
+            f"Skill '{command_name}' does not reference the .deviate/content/handovers/ path"
         )
         for placeholder in ("<epic>", "<issue>", "<phase>"):
             assert placeholder in text, (
@@ -265,7 +265,7 @@ class TestCommandPromptHandoverCoverage:
         by appending ``deviate-constitution``, ``deviate-flows``,
         ``deviate-architecture``, ``deviate-release``. The sentinel
         ``handover_path("_product", ...)`` invocation pattern targets
-        ``.deviate/feat/_product/<skill-name>/<skill-name>.yaml``.
+        ``.deviate/content/handovers/_product/<skill-name>/<skill-name>.yaml``.
         """
         for name in _PRODUCT_COMMANDS:
             assert name in PHASE_COMMANDS, f"Missing product command: {name}"

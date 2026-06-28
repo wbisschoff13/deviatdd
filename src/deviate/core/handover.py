@@ -2,7 +2,7 @@
 
 Per ``specs/_product/architecture.md`` §3.5-§3.7 and
 ``specs/plans/deviate-content.md``: durable phase-output persistence
-under ``.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml`` plus a
+under ``.deviate/content/handovers/<epic>/<issue>/[<task>/]<phase>.yaml`` plus a
 read-side ``HandoverRecord`` model used by the synthesis layer.
 """
 
@@ -17,7 +17,7 @@ from deviate.core.yaml_repair import safe_load_yaml
 
 
 class PathTraversalError(ValueError):
-    """Raised when a handover path escapes ``.deviate/feat/``."""
+    """Raised when a handover path escapes ``.deviate/content/handovers/``."""
 
 
 class HandoverRecord(BaseModel):
@@ -39,12 +39,12 @@ class HandoverRecord(BaseModel):
     timestamp: str | None = None
 
 
-_HANDOVER_ROOT = Path(".deviate") / "feat"
+_HANDOVER_ROOT = Path(".deviate") / "content" / "handovers"
 _YAML_SUFFIX = ".yaml"
 
 
 def _validate_segment(label: str, value: str) -> str:
-    """Reject segments that could escape ``.deviate/feat/``."""
+    """Reject segments that could escape ``.deviate/content/handovers/``."""
     if not value or value != value.strip():
         raise PathTraversalError(f"{label} must be a non-empty trimmed string")
     if "/" in value or "\\" in value:
@@ -65,17 +65,17 @@ def handover_path(
 ) -> Path:
     """Return the canonical handover YAML path (FLOW-11).
 
-    Macro:         .deviate/feat/<epic_slug>/<issue_id>/<phase>.yaml
-    Micro:         .deviate/feat/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml
-    Product-layer: .deviate/feat/_product/<skill>/<skill>.yaml (sentinel)
+    Macro:         .deviate/content/handovers/<epic_slug>/<issue_id>/<phase>.yaml
+    Micro:         .deviate/content/handovers/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml
+    Product-layer: .deviate/content/handovers/_product/<skill>/<skill>.yaml (sentinel)
 
     The Product-layer path is invoked via the underscore-prefixed sentinel
     epic_slug "_product" (per AC-ADHOC-013-04). The sentinel matches the
     specs/_product/ directory name for one-to-one traceability and is
     accepted by _validate_segment() because it is non-empty, stripped, and
-    free of path separators or ".." sequences. The .deviate/feat/ root remains
-    the single top-level root (FLOW-02 governance); the underscore prefix
-    distinguishes the sentinel from real epic slugs.
+    free of path separators or ".." sequences. The .deviate/content/handovers/
+    root remains the single top-level root (FLOW-02 governance); the
+    underscore prefix distinguishes the sentinel from real epic slugs.
     """
     base = repo or Path.cwd()
     epic = _validate_segment("epic_slug", epic_slug)
@@ -87,7 +87,7 @@ def handover_path(
     parts.append(f"{phase_name}{_YAML_SUFFIX}")
     target = Path(*parts)
     # Defense in depth: resolve any pre-existing ``..``/symlinks inside base
-    # and confirm the resolved target stays under ``base/.deviate/feat/``.
+    # and confirm the resolved target stays under ``base/.deviate/content/handovers/``.
     resolved_target = target.resolve()
     resolved_root = (base / _HANDOVER_ROOT).resolve()
     try:
@@ -143,7 +143,7 @@ def load_handover_records(
     window: str | None = None,
     repo: Path | None = None,
 ) -> list[HandoverRecord]:
-    """Load handover YAMLs from ``.deviate/feat/`` in chronological order.
+    """Load handover YAMLs from ``.deviate/content/handovers/`` in chronological order.
 
     ``window`` filters by epic_slug. Handovers whose narrative anchors
     contain ``: `` are repaired heuristically (unquoted scalar wrapped in

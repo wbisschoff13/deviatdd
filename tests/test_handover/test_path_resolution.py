@@ -8,9 +8,9 @@ traversal guard) from ``specs/adhoc/issues/013-product-layer-yaml-handover.md``.
 Path convention (per ``specs/_product/architecture.md:179`` and
 ``specs/plans/deviate-content.md:44-45``):
 
-* macro:  ``.deviate/feat/<epic_slug>/<issue_id>/<phase>.yaml``
-* micro:  ``.deviate/feat/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml``
-* Product-layer (AC-ADHOC-013): ``.deviate/feat/_product/<skill>/<skill>.yaml``
+* macro:  ``.deviate/content/handovers/<epic_slug>/<issue_id>/<phase>.yaml``
+* micro:  ``.deviate/content/handovers/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml``
+* Product-layer (AC-ADHOC-013): ``.deviate/content/handovers/_product/<skill>/<skill>.yaml``
   invoked via the sentinel ``handover_path("_product", skill, skill)``.
 
 Path traversal via ``..`` segments, absolute paths, or symlink escape is
@@ -25,33 +25,58 @@ from deviate.core.handover import PathTraversalError, handover_path
 
 
 class TestMacroPathShape:
-    """AC-ADHOC-012-03 — macro path is ``.deviate/feat/<epic>/<issue>/<phase>.yaml``."""
+    """AC-ADHOC-012-03 — macro path is ``.deviate/content/handovers/<epic>/<issue>/<phase>.yaml``."""
 
     def test_macro_path_for_explore_phase(self, tmp_path):
         result = handover_path("EPIC-X", "ISS-001", "explore", repo=tmp_path)
         assert (
             result
-            == tmp_path / ".deviate" / "feat" / "EPIC-X" / "ISS-001" / "explore.yaml"
+            == tmp_path
+            / ".deviate"
+            / "content"
+            / "handovers"
+            / "EPIC-X"
+            / "ISS-001"
+            / "explore.yaml"
         )
 
     def test_macro_path_for_research_phase(self, tmp_path):
         result = handover_path("EPIC-X", "ISS-001", "research", repo=tmp_path)
         assert (
             result
-            == tmp_path / ".deviate" / "feat" / "EPIC-X" / "ISS-001" / "research.yaml"
+            == tmp_path
+            / ".deviate"
+            / "content"
+            / "handovers"
+            / "EPIC-X"
+            / "ISS-001"
+            / "research.yaml"
         )
 
     def test_macro_path_for_prd_phase(self, tmp_path):
         result = handover_path("EPIC-X", "ISS-001", "prd", repo=tmp_path)
         assert (
-            result == tmp_path / ".deviate" / "feat" / "EPIC-X" / "ISS-001" / "prd.yaml"
+            result
+            == tmp_path
+            / ".deviate"
+            / "content"
+            / "handovers"
+            / "EPIC-X"
+            / "ISS-001"
+            / "prd.yaml"
         )
 
     def test_macro_path_for_shard_phase(self, tmp_path):
         result = handover_path("EPIC-X", "ISS-001", "shard", repo=tmp_path)
         assert (
             result
-            == tmp_path / ".deviate" / "feat" / "EPIC-X" / "ISS-001" / "shard.yaml"
+            == tmp_path
+            / ".deviate"
+            / "content"
+            / "handovers"
+            / "EPIC-X"
+            / "ISS-001"
+            / "shard.yaml"
         )
 
     def test_macro_path_returns_pathlib_path(self, tmp_path):
@@ -69,7 +94,14 @@ class TestMicroPathShape:
             "EPIC-X", "ISS-001", "red", task_id="T-001", repo=tmp_path
         )
         assert result == (
-            tmp_path / ".deviate" / "feat" / "EPIC-X" / "ISS-001" / "T-001" / "red.yaml"
+            tmp_path
+            / ".deviate"
+            / "content"
+            / "handovers"
+            / "EPIC-X"
+            / "ISS-001"
+            / "T-001"
+            / "red.yaml"
         )
 
     def test_micro_path_for_green_phase(self, tmp_path):
@@ -79,7 +111,8 @@ class TestMicroPathShape:
         assert result == (
             tmp_path
             / ".deviate"
-            / "feat"
+            / "content"
+            / "handovers"
             / "EPIC-X"
             / "ISS-001"
             / "T-001"
@@ -93,7 +126,8 @@ class TestMicroPathShape:
         assert result == (
             tmp_path
             / ".deviate"
-            / "feat"
+            / "content"
+            / "handovers"
             / "EPIC-X"
             / "ISS-001"
             / "T-001"
@@ -107,7 +141,8 @@ class TestMicroPathShape:
         assert result == (
             tmp_path
             / ".deviate"
-            / "feat"
+            / "content"
+            / "handovers"
             / "EPIC-X"
             / "ISS-001"
             / "T-001"
@@ -225,7 +260,7 @@ class TestProductLayerPathShape:
 
     Per ``specs/_product/architecture.md`` §3.8 (Product-layer handover
     path convention), the four Product-layer commands target
-    ``.deviate/feat/_product/<skill-name>/<skill-name>.yaml`` via
+    ``.deviate/content/handovers/_product/<skill-name>/<skill-name>.yaml`` via
     ``handover_path("_product", "<skill-name>", "<skill-name>")``.
     The underscore-prefixed sentinel ``_product`` is accepted by the
     existing ``_validate_segment()`` surface because it is non-empty,
@@ -240,16 +275,22 @@ class TestProductLayerPathShape:
         """``handover_path("_product", skill, skill)`` returns canonical path."""
         result = handover_path("_product", skill, skill, repo=tmp_path)
         assert result == (
-            tmp_path / ".deviate" / "feat" / "_product" / skill / f"{skill}.yaml"
+            tmp_path
+            / ".deviate"
+            / "content"
+            / "handovers"
+            / "_product"
+            / skill
+            / f"{skill}.yaml"
         )
 
     def test_product_layer_paths_remain_under_handover_root(self, tmp_path):
-        """All four Product-layer paths must remain under ``.deviate/feat/`` (FLOW-02 governance)."""
+        """All four Product-layer paths must remain under ``.deviate/content/handovers/`` (FLOW-02 governance)."""
         for skill in ("constitution", "flows", "architecture", "release"):
             result = handover_path("_product", skill, skill, repo=tmp_path)
             # Defense in depth: confirm the resolved path is relative to the
             # handover root and not escaped.
-            root = (tmp_path / ".deviate" / "feat").resolve()
+            root = (tmp_path / ".deviate" / "content" / "handovers").resolve()
             assert result.resolve().is_relative_to(root), (
                 f"Product-layer path {result} escapes {root}"
             )
@@ -287,4 +328,6 @@ class TestProductLayerSentinelTraversalGuard:
         # No file should have been written anywhere
         assert list(tmp_path.rglob("*.yaml")) == []
         # Specifically no _product directory materialized
-        assert not (tmp_path / ".deviate" / "feat" / "_product").exists()
+        assert not (
+            tmp_path / ".deviate" / "content" / "handovers" / "_product"
+        ).exists()

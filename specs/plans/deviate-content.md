@@ -11,7 +11,7 @@ The user is building a new agent in the Deviate / Scribe / Tome lineage with Dev
 
 Three simplifications drove the final shape of this plan (each is a real cut, not just renaming):
 
-1. **YAML files ARE the ledger.** No `specs/narrative.jsonl`, no persistence-layer `HandoverRecord` Pydantic model, no content-hash on write. The YAML manifest under `.deviate/feat/` is the durable artifact. Re-emittable from skills if lost.
+1. **YAML files ARE the ledger.** No `specs/narrative.jsonl`, no persistence-layer `HandoverRecord` Pydantic model, no content-hash on write. The YAML manifest under `.deviate/content/handovers/` is the durable artifact. Re-emittable from skills if lost.
 2. **Skill actor writes; runner stays minimal.** One-sentence prompt addition per skill. Runner post command writes the file only if the actor didn't (CLI orchestration path).
 3. **No commit on handover YAMLs.** Gitignored runtime state. Git log already captures code/test/spec changes; the YAML is synthesis material, not project source.
 
@@ -23,12 +23,12 @@ Three simplifications drove the final shape of this plan (each is a real cut, no
 
 | Layer | Path |
 |---|---|
-| Macro handover | `.deviate/feat/<epic_slug>/<issue_id>/<phase>.yaml` |
-| Micro handover | `.deviate/feat/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml` |
-| Synthesis drafts | `.deviate/content-drafts/<format>/<slug>.md` |
+| Macro handover | `.deviate/content/handovers/<epic_slug>/<issue_id>/<phase>.yaml` |
+| Micro handover | `.deviate/content/handovers/<epic_slug>/<issue_id>/<task_id>/<phase>.yaml` |
+| Synthesis drafts | `.deviate/content/drafts/<format>/<slug>.md` |
 | Archive (opt-in, committed) | `specs/_archives/<epic_slug>-narrative.tar.gz` |
 
-All `.deviate/feat/**` and `.deviate/content-drafts/**` are gitignored. The archive path is the only committed-by-default artifact (only when `--archive` is invoked).
+All `.deviate/content/handovers/**` and `.deviate/content/drafts/**` are gitignored. The archive path is the only committed-by-default artifact (only when `--archive` is invoked).
 
 ### Narrative anchor field
 
@@ -58,13 +58,13 @@ Synthesis uses anchors as raw material; absence is non-fatal — synthesis falls
 ### Persistence flow
 
 ```
-Manual path:    actor → YAML on stdout + Write tool → .deviate/feat/<epic>/<issue>/<phase>.yaml
+Manual path:    actor → YAML on stdout + Write tool → .deviate/content/handovers/<epic>/<issue>/<phase>.yaml
                                                   → post command: validates, exits (no git ops)
 
 CLI path:       actor → YAML on stdout → AgentBackend parses → post command writes file
                                                   → post command: validates, exits (no git ops)
 
-Either path:    .deviate/feat/** is gitignored. No commit, no ledger append.
+Either path:    .deviate/content/handovers/** is gitignored. No commit, no ledger append.
 ```
 
 The runner's `persist_handover()` helper is a single function called from each phase post handler. It only writes if the file isn't already there (CLI path) and never touches git.
@@ -84,8 +84,7 @@ The runner's `persist_handover()` helper is a single function called from each p
 
 **`.deviate/.gitignore`** — add:
 ```
-/feat/
-/content-drafts/
+.deviate/content/
 ```
 
 ### New files
@@ -111,14 +110,14 @@ The runner's `persist_handover()` helper is a single function called from each p
 ### Task 1: Capture — skill Write instructions + runner helper
 
 **RED** — 4 tests:
-1. `test_path_resolution`: macro and micro cases resolve to expected `.deviate/feat/...` paths.
+1. `test_path_resolution`: macro and micro cases resolve to expected `.deviate/content/handovers/...` paths.
 2. `test_persist_manual_path`: simulate skill actor writing YAML via Write tool to canonical path; assert file present, valid YAML, NOT in git index.
 3. `test_persist_cli_path`: simulate CLI orchestration path where actor emits only to stdout; assert `persist_handover()` writes the file from the captured manifest.
 4. `test_idempotent_write`: actor writes twice with identical content; assert single file, no errors.
 
 **GREEN**:
 - Implement `src/deviate/core/handover.py` with `handover_path()`, `persist_handover()`, `load_handover_records()`, read-side `HandoverRecord` Pydantic model.
-- Update `.deviate/.gitignore` to exclude `/feat/` and `/content-drafts/`.
+- Update `.deviate/.gitignore` to exclude `.deviate/content/`.
 - Audit the 24-skill list and add the one-sentence Write instruction to the 15 listed above.
 
 **REFACTOR**:
@@ -129,7 +128,7 @@ The runner's `persist_handover()` helper is a single function called from each p
 **Acceptance**:
 - 4 tests pass.
 - Modified skills still pass skill-shape validation (no regressions in existing tests).
-- Smoke test: run `deviate explore pre ...` + simulated actor + `deviate explore post ...` → `.deviate/feat/<epic>/<issue>/explore.yaml` exists, is valid YAML, is not staged in git.
+- Smoke test: run `deviate explore pre ...` + simulated actor + `deviate explore post ...` → `.deviate/content/handovers/<epic>/<issue>/explore.yaml` exists, is valid YAML, is not staged in git.
 
 ### Task 2: Synthesis — `deviate content` skill
 
@@ -164,7 +163,7 @@ The runner's `persist_handover()` helper is a single function called from each p
 | LLM actor forgets Write call | Post command checks `handover_path.exists()`; raises `HandoverArtifactMissing` with the canonical path so the actor knows exactly what to do. |
 | LLM actor writes malformed YAML | `yaml.safe_load` in `load_handover_records()` skips with warning; CLI post path validates schema before accepting. |
 | LLM actor writes to wrong path | CLI post validates path matches expected pattern. |
-| Path traversal | `pathlib` everywhere; reject any path that escapes `.deviate/feat/`. |
+| Path traversal | `pathlib` everywhere; reject any path that escapes `.deviate/content/handovers/`. |
 | Cross-repo aggregation queries | Out of scope v1. Re-evaluate when query patterns emerge. |
 | Path collisions (same task, multiple phases) | Impossible — phase is unique within a task in DeviaTDD's existing model. |
 | Actor writes stale content from a re-run | Idempotent re-write test catches this for identical content; divergent content is a real failure surfaced by git log diff. |
@@ -174,7 +173,7 @@ The runner's `persist_handover()` helper is a single function called from each p
 ## Verification
 
 - `mise run test` — full suite, including new `test_handover/` and `test_content/`.
-- `mise run test-e2e` — bats E2E test running a 1-task pipeline and verifying `.deviate/feat/<epic>/<issue>/<task>/red.yaml` exists.
+- `mise run test-e2e` — bats E2E test running a 1-task pipeline and verifying `.deviate/content/handovers/<epic>/<issue>/<task>/red.yaml` exists.
 - Manual smoke against the resume-site epic the user is about to start.
 
 ---

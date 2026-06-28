@@ -7,7 +7,7 @@ Verifies Scenario 012-10 from ``specs/adhoc/issues/012-deviate-content.md``:
 ``narrative_anchor.verdict_story`` field
 **When** ``deviate content --format blog --slug my-post`` runs against the
 fixture window
-**Then** ``.deviate/content-drafts/blog/my-post.md`` is written, parses as
+**Then** ``.deviate/content/drafts/blog/my-post.md`` is written, parses as
 valid Markdown, and its opening paragraph contains the ``verdict_story``
 text — verifying AC-ADHOC-012-10.
 
@@ -32,7 +32,7 @@ class TestBlogFormatSynthesis:
 
     def test_blog_format_draft_written_to_canonical_path(self, tmp_git_repo: Path):
         """`deviate content --format blog --slug my-post --window EPIC-X` writes the
-        draft at .deviate/content-drafts/blog/my-post.md.
+        draft at .deviate/content/drafts/blog/my-post.md.
         """
         judge_yaml = (
             "phase: judge\n"
@@ -47,7 +47,8 @@ class TestBlogFormatSynthesis:
         target = (
             tmp_git_repo
             / ".deviate"
-            / "feat"
+            / "content"
+            / "handovers"
             / "EPIC-X"
             / "ISS-001"
             / "T-001"
@@ -73,7 +74,7 @@ class TestBlogFormatSynthesis:
         assert result.exit_code == 0, (
             f"deviate content --format blog exited {result.exit_code}. stdout={result.stdout}"
         )
-        draft = tmp_git_repo / ".deviate" / "content-drafts" / "blog" / "my-post.md"
+        draft = tmp_git_repo / ".deviate" / "content" / "drafts" / "blog" / "my-post.md"
         assert draft.is_file(), f"Draft not written at {draft}"
 
     def test_blog_format_intro_references_verdict_story(self, tmp_git_repo: Path):
@@ -90,7 +91,8 @@ class TestBlogFormatSynthesis:
         target = (
             tmp_git_repo
             / ".deviate"
-            / "feat"
+            / "content"
+            / "handovers"
             / "EPIC-X"
             / "ISS-001"
             / "T-001"
@@ -115,7 +117,12 @@ class TestBlogFormatSynthesis:
 
         assert result.exit_code == 0, result.stdout
         draft = (
-            tmp_git_repo / ".deviate" / "content-drafts" / "blog" / "verdict-post.md"
+            tmp_git_repo
+            / ".deviate"
+            / "content"
+            / "drafts"
+            / "blog"
+            / "verdict-post.md"
         )
         body = draft.read_text(encoding="utf-8")
         assert verdict_text in body, (
@@ -137,7 +144,8 @@ class TestBlogFormatSynthesis:
         target = (
             tmp_git_repo
             / ".deviate"
-            / "feat"
+            / "content"
+            / "handovers"
             / "EPIC-X"
             / "ISS-001"
             / "T-001"
@@ -161,7 +169,7 @@ class TestBlogFormatSynthesis:
             )
 
         assert result.exit_code == 0, result.stdout
-        draft = tmp_git_repo / ".deviate" / "content-drafts" / "blog" / "md-post.md"
+        draft = tmp_git_repo / ".deviate" / "content" / "drafts" / "blog" / "md-post.md"
         body = draft.read_text(encoding="utf-8")
         assert body.startswith("#"), (
             f"Blog draft does not start with a markdown heading. body[:80]={body[:80]!r}"

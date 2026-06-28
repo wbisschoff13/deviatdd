@@ -21,7 +21,14 @@ from deviate.core.handover import HandoverRecord, load_handover_records
 def _seed_handover(repo: Path, phase: str) -> Path:
     """Write a single handover YAML and return its canonical path."""
     target = (
-        repo / ".deviate" / "feat" / "EPIC-X" / "ISS-001" / "T-001" / f"{phase}.yaml"
+        repo
+        / ".deviate"
+        / "content"
+        / "handovers"
+        / "EPIC-X"
+        / "ISS-001"
+        / "T-001"
+        / f"{phase}.yaml"
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
@@ -79,7 +86,8 @@ class TestLoadHandoverRecordsChronological:
         target = (
             tmp_git_repo
             / ".deviate"
-            / "feat"
+            / "content"
+            / "handovers"
             / "EPIC-X"
             / "ISS-001"
             / "T-001"
