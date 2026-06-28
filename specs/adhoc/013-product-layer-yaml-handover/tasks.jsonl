@@ -1,0 +1,1 @@
+{"id":"TSK-013-01","issue_id":"ISS-ADH-013","description":"Append FLOW-11 Write instruction to 4 Product-layer commands + extend PHASE_COMMANDS canonical list (15 → 19)","status":"RED","execution_mode":"TDD","created_at":"2026-06-28T10:34:08.797191Z"}

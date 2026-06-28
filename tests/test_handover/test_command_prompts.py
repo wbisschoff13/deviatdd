@@ -1,18 +1,23 @@
-"""Tests for AC-ADHOC-012-13: 15 phase skill prompts each carry a Write instruction.
+"""Tests for AC-ADHOC-012-13 + AC-ADHOC-013: 19 phase command prompts each carry a Write instruction.
 
 Scenario 012-13 from ``specs/adhoc/issues/012-deviate-content.md`` —
 each ``src/deviate/prompts/commands/<name>.md`` for the 15 listed
-phase skills contains a one-sentence Write instruction that references
-the canonical ``handover_path()`` target.
+phase commands contains a one-sentence Write instruction that references
+the canonical ``handover_path()`` target. Extended per FR-ADHOC-013
+to cover the 4 Product-layer commands (``deviate-constitution``,
+``deviate-flows``, ``deviate-architecture``, ``deviate-release``) for a
+total of 19 entries.
 
-Canonical list per ``specs/plans/deviate-content.md:79-87``:
+Canonical list per ``specs/plans/deviate-content.md:79-87`` (extended):
 
-* Micro layer (10 skills): ``deviate-red``, ``deviate-green``,
+* Micro layer (10 commands): ``deviate-red``, ``deviate-green``,
   ``deviate-yellow``, ``deviate-judge``, ``deviate-refactor``,
   ``deviate-execute``, ``deviate-e2e``, ``deviate-hotfix``,
   ``deviate-prune``, ``deviate-review``
-* Macro layer (5 skills): ``deviate-research``, ``deviate-prd``,
+* Macro layer (5 commands): ``deviate-research``, ``deviate-prd``,
   ``deviate-shard``, ``deviate-plan``, ``deviate-tasks``
+* Product layer (4 commands, AC-ADHOC-013): ``deviate-constitution``,
+  ``deviate-flows``, ``deviate-architecture``, ``deviate-release``
 
 The instruction uses the deterministic marker ``handover_path()`` so
 the append operation is idempotent against repeated re-runs (per
@@ -20,11 +25,13 @@ the append operation is idempotent against repeated re-runs (per
 Boundaries: "Re-running the implementation against an updated 15-skill
 list: The append operation must be idempotent. ... Use a deterministic
 marker (e.g., the literal string ``handover_path()``) to detect
-presence.").
+presence."). Product-layer commands emit to the sentinel path
+``.deviate/feat/_product/<skill-name>/<skill-name>.yaml`` per
+``handover_path("_product", "<skill-name>", "<skill-name>")``.
 
 The instruction lives inside the terminal-contract section of each
-skill — either the ``## Handover Persistence (FLOW-11)`` heading inside
-the ``<output_format_schemas>`` block (14 of 15 skills) or the
+command — either the ``## Handover Persistence (FLOW-11)`` heading inside
+the ``<output_format_schemas>`` block (14 of 19 commands) or the
 ``<handover_persistence>`` XML tag (``deviate-review``).
 """
 
@@ -36,9 +43,10 @@ from deviate.core.commands import resolve_command
 
 
 # Canonical list per specs/plans/deviate-content.md:79-87.
-# Total: 15 skills (10 micro + 5 macro).
+# Extended to 19 entries per FR-ADHOC-013 (Product-layer commands).
+# Total: 19 commands (10 micro + 5 macro + 4 product).
 PHASE_COMMANDS: list[str] = [
-    # Micro layer (10 skills)
+    # Micro layer (10 commands)
     "deviate-red",
     "deviate-green",
     "deviate-yellow",
@@ -49,12 +57,17 @@ PHASE_COMMANDS: list[str] = [
     "deviate-hotfix",
     "deviate-prune",
     "deviate-review",
-    # Macro layer (5 skills)
+    # Macro layer (5 commands)
     "deviate-research",
     "deviate-prd",
     "deviate-shard",
     "deviate-plan",
     "deviate-tasks",
+    # Product layer (4 commands)
+    "deviate-constitution",
+    "deviate-flows",
+    "deviate-architecture",
+    "deviate-release",
 ]
 
 _MICRO_COMMANDS: list[str] = [
@@ -76,6 +89,13 @@ _MACRO_COMMANDS: list[str] = [
     "deviate-shard",
     "deviate-plan",
     "deviate-tasks",
+]
+
+_PRODUCT_COMMANDS: list[str] = [
+    "deviate-constitution",
+    "deviate-flows",
+    "deviate-architecture",
+    "deviate-release",
 ]
 
 
@@ -122,10 +142,12 @@ def _extract_terminal_section(text: str) -> str | None:
 
 
 class TestCommandPromptHandoverInstruction:
-    """AC-ADHOC-012-13 — all 15 listed phase skills carry the Write instruction.
+    """AC-ADHOC-012-13 + AC-ADHOC-013 — all 19 listed phase commands carry the Write instruction.
 
     The instruction must reference the canonical ``handover_path()``
     target at ``.deviate/feat/<epic>/<issue>/[<task>/]<phase>.yaml``.
+    Product-layer commands target the sentinel path
+    ``.deviate/feat/_product/<skill-name>/<skill-name>.yaml``.
     """
 
     @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
@@ -145,10 +167,10 @@ class TestCommandPromptHandoverInstruction:
     def test_command_references_canonical_handover_path(
         self, command_name: str
     ) -> None:
-        """Each phase skill references the canonical handover path format.
+        """Each phase command references the canonical handover path format.
 
         The instruction must show the ``.deviate/feat/<epic>/<issue>/
-        [<task>/]<phase>.yaml`` shape so the skill actor can construct
+        [<task>/]<phase>.yaml`` shape so the command actor can construct
         the destination without ambiguity.
         """
         path = resolve_command(command_name)
@@ -170,7 +192,7 @@ class TestCommandPromptHandoverInstruction:
         Two accepted shapes:
 
         * ``## Handover Persistence (FLOW-11)`` heading inside the
-          ``<output_format_schemas>`` block (most skills).
+          ``<output_format_schemas>`` block (most commands).
         * ``<handover_persistence>`` XML tag (``deviate-review``).
         """
         path = resolve_command(command_name)
@@ -194,10 +216,10 @@ class TestCommandPromptHandoverInstruction:
 
     @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
     def test_command_instruction_is_idempotent(self, command_name: str) -> None:
-        """The deterministic marker appears exactly once per skill.
+        """The deterministic marker appears exactly once per command.
 
         Re-running the append operation against an already-instrumented
-        skill must be a no-op. The contract requires ``handover_path()``
+        command must be a no-op. The contract requires ``handover_path()``
         to occur exactly once; duplicates indicate a non-idempotent
         implementation.
         """
@@ -212,29 +234,50 @@ class TestCommandPromptHandoverInstruction:
 
 
 class TestCommandPromptHandoverCoverage:
-    """Sanity coverage for the canonical 15-skill list."""
+    """Sanity coverage for the canonical 19-command list."""
 
-    def test_canonical_skill_list_has_exactly_fifteen(self) -> None:
-        assert len(PHASE_COMMANDS) == 15, (
-            f"Expected 15 phase skills, got {len(PHASE_COMMANDS)}: {PHASE_COMMANDS}"
+    def test_canonical_command_list_has_exactly_nineteen(self) -> None:
+        assert len(PHASE_COMMANDS) == 19, (
+            f"Expected 19 phase commands, got {len(PHASE_COMMANDS)}: {PHASE_COMMANDS}"
         )
 
-    def test_canonical_skill_list_has_no_duplicates(self) -> None:
+    def test_canonical_command_list_has_no_duplicates(self) -> None:
         assert len(PHASE_COMMANDS) == len(set(PHASE_COMMANDS)), (
-            f"Duplicate skill names in canonical list: {PHASE_COMMANDS}"
+            f"Duplicate command names in canonical list: {PHASE_COMMANDS}"
         )
 
-    def test_micro_layer_covers_ten_skills(self) -> None:
+    def test_micro_layer_covers_ten_commands(self) -> None:
         for name in _MICRO_COMMANDS:
-            assert name in PHASE_COMMANDS, f"Missing micro skill: {name}"
+            assert name in PHASE_COMMANDS, f"Missing micro command: {name}"
         assert len(_MICRO_COMMANDS) == 10
         assert sum(1 for s in PHASE_COMMANDS if s in set(_MICRO_COMMANDS)) == 10
 
-    def test_macro_layer_covers_five_skills(self) -> None:
+    def test_macro_layer_covers_five_commands(self) -> None:
         for name in _MACRO_COMMANDS:
-            assert name in PHASE_COMMANDS, f"Missing macro skill: {name}"
+            assert name in PHASE_COMMANDS, f"Missing macro command: {name}"
         assert len(_MACRO_COMMANDS) == 5
         assert sum(1 for s in PHASE_COMMANDS if s in set(_MACRO_COMMANDS)) == 5
+
+    def test_product_layer_covers_four_commands(self) -> None:
+        """AC-ADHOC-013-03 — the Product layer contributes exactly 4 commands.
+
+        Verifies that the canonical list extends from 15 to 19 entries
+        by appending ``deviate-constitution``, ``deviate-flows``,
+        ``deviate-architecture``, ``deviate-release``. The sentinel
+        ``handover_path("_product", ...)`` invocation pattern targets
+        ``.deviate/feat/_product/<skill-name>/<skill-name>.yaml``.
+        """
+        for name in _PRODUCT_COMMANDS:
+            assert name in PHASE_COMMANDS, f"Missing product command: {name}"
+        assert len(_PRODUCT_COMMANDS) == 4, (
+            f"Expected 4 product commands, got {len(_PRODUCT_COMMANDS)}: "
+            f"{_PRODUCT_COMMANDS}"
+        )
+        assert sum(1 for s in PHASE_COMMANDS if s in set(_PRODUCT_COMMANDS)) == 4
+        # Layer totals must sum to the canonical list size
+        assert len(_MICRO_COMMANDS) + len(_MACRO_COMMANDS) + len(
+            _PRODUCT_COMMANDS
+        ) == len(PHASE_COMMANDS)
 
     @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
     def test_command_file_resolves_and_exists(self, command_name: str) -> None:
@@ -250,7 +293,7 @@ class TestCommandPromptHandoverNonRegressions:
 
     @pytest.mark.parametrize("command_name", PHASE_COMMANDS)
     def test_command_keeps_frontmatter_name(self, command_name: str) -> None:
-        """Each skill's frontmatter still declares ``name: <skill>``."""
+        """Each command's frontmatter still declares ``name: <command>``."""
         path = resolve_command(command_name)
         text = path.read_text(encoding="utf-8")
         assert f"name: {command_name}" in text, (
@@ -262,10 +305,10 @@ class TestCommandPromptHandoverNonRegressions:
     def test_command_keeps_output_format_schemas_close_tag(
         self, command_name: str
     ) -> None:
-        """For skills that wrap their terminal contract in an
+        """For commands that wrap their terminal contract in an
         ``<output_format_schemas>`` block, the closing tag must remain
         present so the append stays inside the existing structure.
-        Skills that use ``<handover_persistence>``, plural-form
+        Commands that use ``<handover_persistence>``, plural-form
         ``<output_format_schemas_*_md>`` blocks, or no XML wrapper at
         all are unaffected.
         """
