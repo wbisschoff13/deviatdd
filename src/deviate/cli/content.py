@@ -22,6 +22,7 @@ import typer
 from deviate.cli._common import console
 from deviate.core.handover import load_handover_records
 from deviate.core.synthesis import (
+    X_THREAD_COUNT,
     build_context,
     load_template,
     render_template,
@@ -61,10 +62,23 @@ def content_post() -> None:
 @content_app.callback(invoke_without_command=True)
 def _content_main(
     ctx: typer.Context,
-    format: str | None = typer.Option(
-        None,
+    format: list[str] = typer.Option(
+        [],
         "--format",
-        help=f"Synthesis format. One of: {', '.join(VALID_FORMATS)}.",
+        help=(
+            "Synthesis format. Repeatable. One of: "
+            f"{', '.join(VALID_FORMATS)}. Pass multiple times to render "
+            "more than one format from the same window (e.g. "
+            "'--format blog --format x-thread')."
+        ),
+    ),
+    posts: int = typer.Option(
+        X_THREAD_COUNT,
+        "--posts",
+        help=(
+            f"Number of posts for x-thread format (default {X_THREAD_COUNT}, "
+            "valid range 1-50). Ignored by other formats."
+        ),
     ),
     window: str | None = typer.Option(
         None,
@@ -93,32 +107,45 @@ def _content_main(
             raise typer.Exit(code=2) from exc
         console.print(f"[green]CONTENT_ARCHIVE_WRITTEN[/] {target}")
         return
-    if format is None:
+    if not format:
         typer.echo(ctx.get_help())
         raise typer.Exit(code=0)
-    if format not in VALID_FORMATS:
+    bad = [f for f in format if f not in VALID_FORMATS]
+    if bad:
         console.print(
-            f"[red]CONTENT_HALTED[/] unknown --format {format!r}; "
+            f"[red]CONTENT_HALTED[/] unknown --format {bad!r}; "
             f"valid: {', '.join(VALID_FORMATS)}"
         )
+        raise typer.Exit(code=2)
+    if not (1 <= posts <= 50):
+        console.print(f"[red]CONTENT_HALTED[/] --posts must be in 1..50, got {posts}")
         raise typer.Exit(code=2)
     if not slug:
         console.print("[red]CONTENT_HALTED[/] --slug is required for synthesis")
         raise typer.Exit(code=2)
-    try:
-        target = _run_synthesis(format=format, window=window, slug=slug)
-    except ContentCaptureError as exc:
-        console.print(f"[red]CONTENT_HALTED[/] {exc}")
-        raise typer.Exit(code=2) from exc
-    console.print(f"[green]CONTENT_DRAFT_WRITTEN[/] {target}")
+    for fmt in format:
+        try:
+            target = _run_synthesis(format=fmt, window=window, slug=slug, posts=posts)
+        except ContentCaptureError as exc:
+            console.print(f"[red]CONTENT_HALTED[/] {exc}")
+            raise typer.Exit(code=2) from exc
+        console.print(f"[green]CONTENT_DRAFT_WRITTEN[/] {target}")
 
 
-def _run_synthesis(*, format: str, window: str | None, slug: str) -> Path:
+def _run_synthesis(
+    *,
+    format: str,
+    window: str | None,
+    slug: str,
+    posts: int = X_THREAD_COUNT,
+) -> Path:
     records = load_handover_records(window=window)
     if not records:
         raise ContentCaptureError(f"no handover records found for window={window!r}")
     context = build_context(records, slug=slug)
-    rendered = render_template(load_template(format), context, format=format)
+    rendered = render_template(
+        load_template(format), context, format=format, posts=posts
+    )
     draft_dir = Path(".deviate") / "content" / "drafts" / format
     draft_dir.mkdir(parents=True, exist_ok=True)
     target = draft_dir / f"{slug}.md"

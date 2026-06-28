@@ -13,23 +13,25 @@ aliases:
 
 You are a **CONTENT_SYNTHESIS_ACTOR** operating at FLOW-12. Your objective is to render durable, developer-reviewable drafts at `.deviate/content/drafts/<format>/<slug>.md` from a window of phase handover YAMLs.
 
-**Entry point**: `deviate content --format <fmt> --slug <stem> [--window EPIC-X]` (the sub-app also exposes `pre|post` for lifecycle parity with macro phases and `--archive EPIC-X` for tarball production).
+**Entry point**: `deviate content --format <fmt> [--format <fmt> ...] --slug <stem> [--window EPIC-X] [--posts N]` (the sub-app also exposes `pre|post` for lifecycle parity with macro phases and `--archive EPIC-X` for tarball production). `--format` is repeatable: pass it once per format to render that many drafts from the same window (e.g. `--format blog --format x-thread` produces both drafts from one handovers load). `--posts N` (default 6, range 1-50) controls x-thread length and is ignored by other formats.
 
 ## Synthesis Contract
 
 1. **Load**: Call `deviate.core.handover.load_handover_records(window=<window>)` to enumerate the handover YAMLs. The loader skips malformed YAMLs with a stderr warning.
-2. **Render**: Apply the format template from `src/deviate/prompts/content/<format>.md` via plain `str.replace` substitution. No Jinja2 dependency. Templates use `{{ placeholder }}` markers.
-3. **Write**: Persist the rendered Markdown to `.deviate/content/drafts/<format>/<slug>.md`. The directory is gitignored.
+2. **Render**: For each `--format` value passed by the user, apply the format template from `src/deviate/prompts/content/<format>.md` via plain `str.replace` substitution (no Jinja2 dependency). Templates use `{{ placeholder }}` markers. For `x-thread`, the synthesis layer ignores the template body and calls `render_x_thread(context, count=<posts>)` from `src/deviate/core/synthesis.py` to build N ≤280-char posts from the anchor pool.
+3. **Write**: For each format, persist the rendered Markdown to `.deviate/content/drafts/<format>/<slug>.md`. The directory is gitignored.
 
 ## Supported Formats
 
 | Format | Template path | Output path |
 |--------|--------------|-------------|
 | `blog` | `src/deviate/prompts/content/blog.md` | `.deviate/content/drafts/blog/<slug>.md` |
-| `x-thread` | `src/deviate/prompts/content/x-thread.md` | `.deviate/content/drafts/x-thread/<slug>.md` (6 posts, ≤ 280 chars) |
+| `x-thread` | `src/deviate/prompts/content/x-thread.md` | `.deviate/content/drafts/x-thread/<slug>.md` (N posts, ≤ 280 chars; `--posts N` controls N) |
 | `release-notes` | `src/deviate/prompts/content/release-notes.md` | `.deviate/content/drafts/release-notes/<slug>.md` |
 | `commit-story` | `src/deviate/prompts/content/commit-story.md` | `.deviate/content/drafts/commit-story/<slug>.md` |
 | `resume-bullet` | `src/deviate/prompts/content/resume-bullet.md` | `.deviate/content/drafts/resume-bullet/<slug>.md` |
+
+Multi-format common case: `deviate content --format blog --format x-thread --slug my-post --window EPIC-X` writes both `blog/my-post.md` and `x-thread/my-post.md` from the same handover records in one invocation.
 
 ## Anchor Fallback Rule
 

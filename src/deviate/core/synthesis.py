@@ -4,9 +4,10 @@ The synthesis layer turns a chronological window of ``HandoverRecord``s
 into a single rendered Markdown draft by loading the relevant format
 template from ``src/deviate/prompts/content/<format>.md`` and replacing
 its ``{{ placeholder }}`` markers. The X / Twitter format is a special
-case: the template defines six ``{{ post_N }}`` markers and the
-synthesis layer slices the anchor pool into exactly six posts of at most
-280 characters each.
+case: the template's ``{{ post_N }}`` markers are documentation only;
+the synthesis layer slices the anchor pool into ``count`` posts of at
+most 280 characters each, where ``count`` defaults to
+``X_THREAD_COUNT`` (6) and is overridable via the CLI's ``--posts`` flag.
 
 All helpers in this module are pure functions of the records + slug.
 They are kept free of filesystem or CLI surface so the public ``deviate
@@ -35,10 +36,19 @@ def load_template(format: str) -> str:
     return resource.read_text(encoding="utf-8")
 
 
-def render_template(template: str, context: dict[str, str], *, format: str) -> str:
-    """Substitute ``{{ placeholder }}`` markers; delegate x-thread to its slicer."""
+def render_template(
+    template: str,
+    context: dict[str, str],
+    *,
+    format: str,
+    posts: int = X_THREAD_COUNT,
+) -> str:
+    """Substitute ``{{ placeholder }}`` markers; delegate x-thread to its slicer.
+
+    ``posts`` only affects the ``x-thread`` format; other formats ignore it.
+    """
     if format == "x-thread":
-        return render_x_thread(context)
+        return render_x_thread(context, count=posts)
     rendered = template
     for key, value in context.items():
         rendered = rendered.replace("{{" + key + "}}", value)
@@ -111,14 +121,25 @@ def summarise_phases(records: list[HandoverRecord]) -> str:
     return " → ".join(seen_sorted)
 
 
-def render_x_thread(context: dict[str, str]) -> str:
-    """Build exactly 6 posts, each ≤ 280 chars, sliced from the anchor pool."""
-    return "\n\n---\n\n".join(slice_x_thread_posts(context)) + "\n"
+def render_x_thread(context: dict[str, str], *, count: int = X_THREAD_COUNT) -> str:
+    """Build exactly ``count`` posts, each ≤ 280 chars, sliced from the anchor pool."""
+    return "\n\n---\n\n".join(slice_x_thread_posts(context, count=count)) + "\n"
 
 
-def slice_x_thread_posts(context: dict[str, str]) -> list[str]:
-    """Produce exactly 6 ≤280-char posts derived from the anchor pool."""
-    raw_pool = [
+def slice_x_thread_posts(
+    context: dict[str, str],
+    *,
+    count: int = X_THREAD_COUNT,
+) -> list[str]:
+    """Produce exactly ``count`` ≤280-char posts derived from the anchor pool.
+
+    The standard pool has six entries (verdict_story, phase trace, invariant,
+    title, two static lines). For ``count > 6`` the pool is augmented with
+    per-record story lines split from the ``verdict_story`` concatenation so
+    longer threads draw from the underlying handover narrative rather than
+    collapsing into pure filler.
+    """
+    raw_pool: list[str] = [
         context.get("verdict_story", ""),
         f"Phase trace: {context.get('phase_summary', '')}",
         f"Invariant protected: {context.get('invariant_protected', '')}",
@@ -126,20 +147,25 @@ def slice_x_thread_posts(context: dict[str, str]) -> list[str]:
         "Each step verified by the DeviaTDD micro-cycle.",
         "Drafts only — review, edit, publish manually.",
     ]
+    if count > len(raw_pool):
+        for line in context.get("verdict_story", "").split("\n"):
+            stripped = line.strip()
+            if stripped and stripped not in raw_pool:
+                raw_pool.append(stripped)
     posts: list[str] = []
     for entry in raw_pool:
+        if len(posts) >= count:
+            break
         if not entry:
             continue
         truncated = truncate_post(entry)
         if truncated and truncated not in posts:
             posts.append(truncated)
-        if len(posts) == X_THREAD_COUNT:
-            break
     filler_index = 0
-    while len(posts) < X_THREAD_COUNT:
+    while len(posts) < count:
         posts.append(truncate_post(f"Continued thread update {filler_index + 1}."))
         filler_index += 1
-    return posts
+    return posts[:count]
 
 
 def truncate_post(text: str) -> str:
