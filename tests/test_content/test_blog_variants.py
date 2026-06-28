@@ -1,18 +1,26 @@
-"""Tests for FLOW-12 blog-variant synthesis (Slice B).
+"""Tests for FLOW-12 blog-variant synthesis (Slice B, post-consolidation).
 
-Verifies the three research-backed blog format variants shipped under
-``src/deviate/prompts/content/``:
+After consolidation (commit `91ec079` → cleanup), the blog variant set
+is::
 
-* ``blog-saha`` — 5-section Saha et al. 2026 reflective template
-  (Project → Issue → Codebase → Challenges → Solution + Takeaway).
-  Resume-grade voice. Use for process retrospectives.
-* ``blog-devrel`` — 4-section DevRel Bridge 2024 tutorial template
-  (Intro → Background → Main Content → Conclusion + Takeaway).
-  Stripe / Cloudflare engineering blog voice. Use for capability launches.
-* ``blog-narrative`` — Problem → Attempt → Failure → Pivot → Insight → CTA
-  framework-essay template. Use for decision-rationale essays.
+    blog               — engineering-blog voice (Hook → TL;DR → Context →
+                         Approach → What Changed → Takeaway)
+    blog-devrel        — 4-section DevRel Bridge tutorial template
+    blog-reflective    — 6-section merged template covering BOTH
+                         (a) Saha et al. 2026 process retrospective
+                             (Project → Issue → Codebase → Challenges →
+                             Solution + Takeaway) AND
+                         (b) Problem → Attempt → Failure → Pivot → Insight
+                             decision-essay arc
 
-All three variants share the same placeholder contract as ``blog.md``:
+The previous ``blog-saha`` and ``blog-narrative`` variants were merged
+into ``blog-reflective`` because they were too close in voice (both
+reflective, both resume-grade) to justify separate templates — the
+decision burden was on the writer at the wrong moment. See the
+"Choosing a blog variant" decision tree in
+``src/deviate/prompts/commands/deviate-content.md`` for guidance.
+
+All variants share the same placeholder contract as ``blog.md``:
 ``{{title}}``, ``{{verdict_story}}``, ``{{phase_summary}}``,
 ``{{invariant_protected}}``. The synthesis layer substitutes them via
 ``str.replace`` (``src/deviate/core/synthesis.py::render_template``).
@@ -36,27 +44,29 @@ from deviate.cli import cli
 runner = CliRunner()
 
 
+# (format_name, signature_headings) — the consolidated set is one
+# `blog-reflective` template whose 6 sections adapt to either
+# retrospective or decision-essay shapes. The signature headings cover
+# both intents so a test that finds all of them confirms the merged
+# template is in place.
 _BLOG_VARIANT_FORMATS: list[tuple[str, tuple[str, ...]]] = [
-    (
-        "blog-saha",
-        # Saha 2026 5-section template headings.
-        (
-            "About the project",
-            "The issue",
-            "Codebase overview",
-            "Challenges",
-            "Solution",
-        ),
-    ),
     (
         "blog-devrel",
         # DevRel Bridge 2024 4-section template headings.
         ("Introduction", "Background", "Main Content", "Conclusion"),
     ),
     (
-        "blog-narrative",
-        # Narrative arc: Problem → Attempt → Failure → Pivot → Insight → CTA.
-        ("Problem", "Attempt", "Failure", "Pivot", "Insight", "CTA"),
+        "blog-reflective",
+        # Merged 6-section reflective template — headings cover both
+        # retrospective (Saha) and decision-essay (narrative) shapes.
+        (
+            "About the project",
+            "The decision / issue",
+            "Codebase / system",
+            "What I tried",
+            "Solution",
+            "Takeaway",
+        ),
     ),
 ]
 
@@ -131,7 +141,7 @@ class TestBlogVariantSynthesis:
         self, tmp_git_repo: Path, format_name: str, expected_headings: tuple[str, ...]
     ) -> None:
         """The variant draft contains the seeded ``verdict_story`` text."""
-        verdict = f"Saha-meets-DevRel: {format_name} surfaces the lead anchor verbatim."
+        verdict = f"blog-variant test: {format_name} surfaces the lead anchor verbatim."
         _seed_judge_handover(tmp_git_repo, verdict_text=verdict)
 
         with chdir(tmp_git_repo):

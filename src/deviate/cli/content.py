@@ -40,9 +40,12 @@ VALID_FORMATS: tuple[str, ...] = (
     # Each format ships as its own template file at
     # src/deviate/prompts/content/<format>.md. The synthesis layer loads the
     # template by format name; no Jinja2 / no per-format renderer needed.
-    "blog-saha",  # 5-section Saha 2026 reflective template (resume-grade)
-    "blog-devrel",  # 4-section DevRel Bridge tutorial template (Stripe / Cloudflare voice)
-    "blog-narrative",  # Problem → Attempt → Failure → Pivot → Insight → CTA framework essay
+    # Consolidates 4 blog variants down to 2 specialized blog voices:
+    # `blog-devrel` (tutorial) and `blog-reflective` (merged Saha +
+    # narrative reflective essay) — see the "Choosing a blog variant"
+    # decision tree in src/deviate/prompts/commands/deviate-content.md.
+    "blog-devrel",  # 4-section DevRel Bridge 2024 tutorial template (Stripe / Cloudflare voice)
+    "blog-reflective",  # 6-section reflective essay (Saha retrospective + narrative decision essay merged)
     "threads",  # Meta Threads long-form narrative (distinct from X; per research)
     "linkedin",  # LinkedIn resume-discoverability cross-post
 )

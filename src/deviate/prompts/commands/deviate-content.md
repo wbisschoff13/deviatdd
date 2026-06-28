@@ -1,6 +1,6 @@
 ---
 name: deviate-content
-description: FLOW-12 synthesis — render durable content drafts (blog, blog-saha, blog-devrel, blog-narrative, x-thread, threads, linkedin, release-notes, commit-story, resume-bullet) from .deviate/content/handovers/*.yaml.
+description: FLOW-12 synthesis — render durable content drafts (blog, blog-devrel, blog-reflective, x-thread, threads, linkedin, release-notes, commit-story, resume-bullet) from .deviate/content/handovers/*.yaml.
 category: deviatdd-macro-layer
 version: 1.0.0
 aliases:
@@ -25,18 +25,40 @@ You are a **CONTENT_SYNTHESIS_ACTOR** operating at FLOW-12. Your objective is to
 
 | Format | Template path | Output path | Voice / Use |
 |--------|--------------|-------------|-------------|
-| `blog` | `src/deviate/prompts/content/blog.md` | `.deviate/content/drafts/blog/<slug>.md` | Engineering-blog voice (Hook → TL;DR → Context → Approach → What Changed → Takeaway) |
-| `blog-saha` | `src/deviate/prompts/content/blog-saha.md` | `.deviate/content/drafts/blog-saha/<slug>.md` | 5-section Saha 2026 reflective template (resume-grade, project retrospective) |
-| `blog-devrel` | `src/deviate/prompts/content/blog-devrel.md` | `.deviate/content/drafts/blog-devrel/<slug>.md` | 4-section DevRel Bridge 2024 tutorial template (Stripe / Cloudflare voice) |
-| `blog-narrative` | `src/deviate/prompts/content/blog-narrative.md` | `.deviate/content/drafts/blog-narrative/<slug>.md` | Problem → Attempt → Failure → Pivot → Insight → CTA framework essay |
-| `x-thread` | `src/deviate/prompts/content/x-thread.md` | `.deviate/content/drafts/x-thread/<slug>.md` (N posts, ≤ 280 chars; `--posts N` controls N) | X / Twitter native voice |
-| `threads` | `src/deviate/prompts/content/threads.md` | `.deviate/content/drafts/threads/<slug>.md` | Meta Threads long-form narrative (5-section: TL;DR / What I tried / Result / Insight / Open question) |
-| `linkedin` | `src/deviate/prompts/content/linkedin.md` | `.deviate/content/drafts/linkedin/<slug>.md` | LinkedIn resume-discoverability cross-post (first-person, career-relevant) |
-| `release-notes` | `src/deviate/prompts/content/release-notes.md` | `.deviate/content/drafts/release-notes/<slug>.md` | Release-notes changelog voice |
-| `commit-story` | `src/deviate/prompts/content/commit-story.md` | `.deviate/content/drafts/commit-story/<slug>.md` | Short commit-message story |
-| `resume-bullet` | `src/deviate/prompts/content/resume-bullet.md` | `.deviate/content/drafts/resume-bullet/<slug>.md` | One-line resume-grade bullet |
+| `blog` | `src/deviate/prompts/content/blog.md` | `.deviate/content/drafts/blog/<slug>.md` | Engineering-blog voice (Hook → TL;DR → Context → Approach → What Changed → Takeaway). For "what I shipped" technical walkthroughs. |
+| `blog-devrel` | `src/deviate/prompts/content/blog-devrel.md` | `.deviate/content/drafts/blog-devrel/<slug>.md` | 4-section DevRel Bridge 2024 tutorial template (Intro → Background → Main Content → Conclusion + Takeaway). Stripe / Cloudflare engineering blog voice. For capability launches and tutorials. |
+| `blog-reflective` | `src/deviate/prompts/content/blog-reflective.md` | `.deviate/content/drafts/blog-reflective/<slug>.md` | 6-section merged reflective essay (About → Decision/Issue → Codebase → What I tried → Solution → Takeaway). For resume-grade retrospectives AND decision-rationale essays. Ship 1/month. |
+| `x-thread` | `src/deviate/prompts/content/x-thread.md` | `.deviate/content/drafts/x-thread/<slug>.md` (N posts, ≤ 280 chars; `--posts N` controls N) | X / Twitter native voice. For quick wins, single-tweet observations, demo threads. |
+| `threads` | `src/deviate/prompts/content/threads.md` | `.deviate/content/drafts/threads/<slug>.md` | Meta Threads long-form narrative (TL;DR / What I tried / Result / Insight / Open question). Distinct from X. Supports AST-parser screenshots. |
+| `linkedin` | `src/deviate/prompts/content/linkedin.md` | `.deviate/content/drafts/linkedin/<slug>.md` | LinkedIn resume-discoverability cross-post (first-person, career-relevant, question-driven closer). |
+| `release-notes` | `src/deviate/prompts/content/release-notes.md` | `.deviate/content/drafts/release-notes/<slug>.md` | Release-notes changelog voice. |
+| `commit-story` | `src/deviate/prompts/content/commit-story.md` | `.deviate/content/drafts/commit-story/<slug>.md` | Short commit-message story. |
+| `resume-bullet` | `src/deviate/prompts/content/resume-bullet.md` | `.deviate/content/drafts/resume-bullet/<slug>.md` | One-line resume-grade bullet. |
 
-Multi-format common case: `deviate content --format blog --format x-thread --slug my-post --window EPIC-X` writes both `blog/my-post.md` and `x-thread/my-post.md` from the same handover records in one invocation. The same pattern works for the new variants: `--format blog-saha --format threads --format linkedin` produces a 1-month content bundle from one window load.
+Multi-format common case: `deviate content --format blog --format x-thread --slug my-post --window EPIC-X` writes both `blog/my-post.md` and `x-thread/my-post.md` from the same handover records in one invocation. The same pattern works across blog variants: `--format blog-reflective --format threads --format linkedin` produces a 1-month content bundle from one window load.
+
+## Choosing a blog variant
+
+Three blog variants cover distinct purposes. Pick by answering one question:
+
+```
+  Is the post's primary value teaching the reader HOW to do something?
+    ├── Yes  →  blog-devrel       (tutorial; capability launch)
+    └── No
+         |
+         Is the post primarily about a single feature or fix
+         you shipped (the technical change)?
+           ├── Yes  →  blog       (engineering walkthrough; "what changed")
+           └── No
+                |
+                You want a resume-grade reflective essay
+                (process retrospective OR decision-rationale)?
+                  └── Yes  →  blog-reflective
+```
+
+**Common case**: 90% of blog posts should pick `blog` (default engineering walkthrough) or `blog-reflective` (default reflective). `blog-devrel` is reserved for capability launches where the audience is "show me how to use X."
+
+**Anti-pattern**: naming individual products in posts that are actually about the framework. Collapse upward to `blog` or `blog-reflective`, name the framework, describe the sub-product as part of the framework.
 
 ## Anchor Fallback Rule
 
@@ -50,14 +72,13 @@ When editing each draft, identify which layer the post belongs to and write the 
 
 | Brand layer | Voice | Format mapping |
 |-------------|-------|----------------|
-| **Layer 1 — The builder** (your name; the career signal) | First-person reflective; resume-grade; "I shipped X, here's what I learned"; career-relevant framing | `blog-saha` (process retrospective), `linkedin` (resume-discoverability cross-post), `resume-bullet`, `threads` (weekly retro cadence) |
-| **Layer 2 — The framework** (DeviaTDD; the methodology) | Framework-as-protagonist; "Why I added a HITL gate"; methodology essay; third-person where natural | `blog-narrative` (framework essay), `blog` (engineering-blog voice), `threads` (decision rationale), `release-notes` |
+| **Layer 1 — The builder** (your name; the career signal) | First-person reflective; resume-grade; "I shipped X, here's what I learned"; career-relevant framing | `blog-reflective` (process retrospective + decision essay), `linkedin` (resume-discoverability cross-post), `resume-bullet`, `threads` (weekly retro cadence) |
+| **Layer 2 — The framework** (DeviaTDD; the methodology) | Framework-as-protagonist; "Why I added a HITL gate"; methodology essay; third-person where natural | `blog-reflective` (framework essay shape), `blog` (engineering-blog voice), `threads` (decision rationale), `release-notes` |
 | **Layer 3 — The agents / products** (Deviate, Scribe, Tome, AST parser) | Capability launch; tutorial; technical walkthrough; "the AST parser detects library hallucinations like this"; visualizable demo | `blog-devrel` (tutorial), `x-thread` (quick wins + demos), `threads` (agent capability demo), `commit-story` |
 
-**Selection heuristic**: if the post's primary value is *teaching a reader how to do X*, use Layer 3 (product voice). If the primary value is *explaining why the framework exists or what it decided*, use Layer 2 (framework voice). If the primary value is *showing how the work shaped the builder*, use Layer 1 (builder voice). Most weeks will produce one post per layer at most; resist the temptation to default to product posts.
+**Selection heuristic**: if the post's primary value is *teaching a reader how to do X*, use Layer 3 (product voice). If the primary value is *explaining why the framework exists or what it decided*, use Layer 2 (framework voice). If the primary value is *showing how the work shaped the builder*, use Layer 1 (builder voice). Most weeks will produce one post per layer at most; resist the temptation to default to product posts. Note that `blog-reflective` spans Layers 1 and 2 — pick the voice inside the post; the template handles either.
 
 **Avoid**: fragmenting the brand by naming individual products in posts that are actually about the framework ("DeviaTDD shipped v0.1, here's what's in Deviate"). Collapse upward — name the framework, describe the sub-product as part of the framework.
-
 ## Archive Production
 
 `deviate content --archive EPIC-X` produces `specs/_archives/EPIC-X-narrative.tar.gz` — the sole committed-by-default artifact of the Content Capture subsystem.

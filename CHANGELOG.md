@@ -28,17 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five new content format templates at `src/deviate/prompts/content/`,
   wired through `VALID_FORMATS` in `src/deviate/cli/content.py` and the
   synthesis layer's `load_template()`:
-    - `blog-saha` — 5-section Saha et al. 2026 reflective template
-      (Project → Issue → Codebase → Challenges → Solution + Takeaway).
-      Resume-grade voice; use for process retrospectives.
     - `blog-devrel` — 4-section DevRel Bridge 2024 tutorial template
       (Intro → Background → Main Content → Conclusion + Takeaway).
       Stripe / Cloudflare engineering blog voice; use for capability
       launches.
-    - `blog-narrative` — Problem → Attempt → Failure → Pivot → Insight →
-      CTA framework essay template. Use for decision-rationale essays
-      where the structural lesson matters more than the technical
-      walkthrough.
+    - `blog-reflective` — 6-section merged reflective essay template
+      (About → Decision/Issue → Codebase → What I tried → Solution →
+      Takeaway). Covers BOTH Saha et al. 2026 process retrospectives
+      AND Problem → Attempt → Failure → Pivot → Insight decision
+      essays. Resume-grade voice; ship 1/month.
     - `threads` — Meta Threads long-form narrative template
       (TL;DR → What I tried → Result → Insight → Open question).
       Distinct from X; supports inline AST-parser screenshots and
@@ -54,9 +52,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Deviate / Scribe / Tome / AST parser) collapse three products + one
   framework into one narratable arc.
 - Three new test files under `tests/test_content/` covering the new
-  formats: `test_blog_variants.py` (3 variants × 4 tests + schema
-  tests), `test_threads_format.py` (4 tests), `test_linkedin_format.py`
-  (4 tests). 23 new test cases; total now 1168.
+  formats: `test_blog_variants.py` (consolidated to `blog-devrel` +
+  `blog-reflective` after Slice B cleanup), `test_threads_format.py`
+  (4 tests), `test_linkedin_format.py` (4 tests). 23 new test cases.
+
+### Changed
+- **Consolidated blog variants** from 4 (`blog`, `blog-saha`,
+  `blog-devrel`, `blog-narrative`) to 3 (`blog`, `blog-devrel`,
+  `blog-reflective`). The previous `blog-saha` and `blog-narrative`
+  templates were too close in voice to justify separate files — both
+  were reflective, resume-grade, and the writer was forced to make the
+  choice at the wrong moment. `blog-reflective` is a single 6-section
+  template whose sections adapt to either retrospective OR
+  decision-essay posts. A "Choosing a blog variant" decision tree is
+  now part of the `deviate-content` skill body to make the remaining
+  3-way choice obvious. Net: -1 blog format, -10 parametrized tests
+  (consolidated into 5), zero behavior change for end users who were
+  not already invoking `blog-saha` or `blog-narrative` directly.
 - GitHub Actions CI workflow (`.github/workflows/ci.yml`) running ruff lint,
   ruff format check, and pytest on push to `main` and on pull requests.
 - Bats end-to-end smoke suite at `tests/e2e/` covering the installed `deviate`
