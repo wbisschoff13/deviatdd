@@ -22,7 +22,7 @@ Per-epic concerns belong in `specs/issues/`.
 
 ## 2. Out of Scope (Cross-Cutting)
 
-- **Tome is prompt-only in v1**. Each Tome skill lives as a static `SKILL.md` text file under `src/deviate/prompts/skills/tome-*/`. No Python runtime is added in this iteration. DeviaTDD's own tech stack (Python 3.13 + Typer) is unchanged.
+- **Tome is prompt-only in v1**. Each Tome slash command lives as a static `*.md` prompt file under `src/deviate/prompts/commands/tome-*.md`. No Python runtime is added in this iteration. DeviaTDD's own tech stack (Python 3.13 + Typer) is unchanged.
 - **Tome output is decoupled from DeviaTDD's runtime stack**. Skill outputs (Starlight sites, `apps/docs/`, `content.config.ts`, `.astro` files) live in *target repos* that consume the skills, not in DeviaTDD's repo.
 - **No shared contracts module**. Each skill inlines the schemas it needs. There is no `tome/contracts.py` or equivalent.
 - **No JUDGE pattern**. The verifier (FLOW-09) emits a human-readable report. There is no `<judge_feedback>` auto-routing, no machine-parseable feedback, and no automated re-run of writers.
@@ -45,7 +45,7 @@ Per-epic concerns belong in `specs/issues/`.
 
 ### 3.1 C1 — Tome Classifier (FLOW-04)
 
-- **Skill path**: `src/deviate/prompts/skills/tome-classify/SKILL.md`
+- **Command path**: `src/deviate/prompts/commands/tome-classify.md`
 - **Input modes**:
   - default (no args) → HEAD~1 (previous commit)
   - `/tome-classify <sha>` → specific commit
@@ -67,11 +67,11 @@ Per-epic concerns belong in `specs/issues/`.
 
 ### 3.2 C2-C5 — Tome Writers (FLOW-05..FLOW-08)
 
-- **Skill paths**:
-  - C2: `src/deviate/prompts/skills/tome-write-tutorial/SKILL.md`
-  - C3: `src/deviate/prompts/skills/tome-write-how-to/SKILL.md`
-  - C4: `src/deviate/prompts/skills/tome-write-reference/SKILL.md`
-  - C5: `src/deviate/prompts/skills/tome-write-explanation/SKILL.md`
+- **Command paths**:
+  - C2: `src/deviate/prompts/commands/tome-write-tutorial.md`
+  - C3: `src/deviate/prompts/commands/tome-write-how-to.md`
+  - C4: `src/deviate/prompts/commands/tome-write-reference.md`
+  - C5: `src/deviate/prompts/commands/tome-write-explanation.md`
 - **Strict quadrant rule**: Each writer is confined to its own Diátaxis quadrant directory. C2 → `tutorials/`, C3 → `how-to/`, C4 → `reference/`, C5 → `explanation/`. A writer that needs to touch a different quadrant must flag back to C1 for re-classification.
 - **Per-writer self-verify** (built into each prompt, not a separate output):
   - target file path is in the writer's quadrant
@@ -96,7 +96,7 @@ Per-epic concerns belong in `specs/issues/`.
 
 ### 3.3 C6 — Tome Verifier (FLOW-09)
 
-- **Skill path**: `src/deviate/prompts/skills/tome-verify-docs/SKILL.md`
+- **Command path**: `src/deviate/prompts/commands/tome-verify-docs.md`
 - **Trigger**: Developer runs `/tome-verify-docs` after at least one writer (C2-C5) has produced an updated file.
 - **Cross-doc checks** (system-level, not single-doc):
   - Factual consistency: each updated doc's claims match the commit diff, changed tests, and `specs/` artifacts.
@@ -114,7 +114,7 @@ Per-epic concerns belong in `specs/issues/`.
 
 ### 3.4 C7 — Tome Setup (FLOW-10)
 
-- **Skill path**: `src/deviate/prompts/skills/tome-setup/SKILL.md`
+- **Command path**: `src/deviate/prompts/commands/tome-setup.md`
 - **Trigger**: Developer runs `/tome-setup` once per repo; subsequent runs are idempotent.
 - **Inputs**: confirmation that the repo accepts a Starlight app under `apps/docs/` (or developer confirms override).
 - **Scaffold**:
@@ -150,7 +150,7 @@ Per-epic concerns belong in `specs/issues/`.
 
 ### 3.6 C9 — Content Synthesis (FLOW-12)
 
-- **Skill path**: `src/deviate/prompts/skills/deviate-content/SKILL.md` (macro layer)
+- **Command path**: `src/deviate/prompts/commands/deviate-content.md` (macro layer)
 - **CLI sub-app**: `src/deviate/cli/content.py` (per `specs/plans/deviate-content.md` § File changes → New files, line 94)
 - **CLI surface** (per `specs/_product/flows/flows-content-capture.md:43-46` and `specs/plans/deviate-content.md` § File changes → New files, line 94):
   - `deviate content --format <blog|x-thread|release-notes|commit-story|resume-bullet> [--window EPIC-X] [--slug S] [--archive]`
@@ -338,7 +338,7 @@ No orphans. Every flow maps to at least one component; every component maps to a
 
 ## 8. Constitution Cross-Check
 
-- §2 Frontend (None, CLI-only) — **Satisfied**. Tome skills are markdown prompts in `src/deviate/prompts/skills/`. No web/GUI runtime is added to DeviaTDD itself.
+- §2 Frontend (None, CLI-only) — **Satisfied**. Tome slash commands are markdown prompts in `src/deviate/prompts/commands/`. No web/GUI runtime is added to DeviaTDD itself.
 - §2 Backend (Python 3.13, Typer) — **Satisfied**. No new Python modules or runtime code.
 - §2 Tech stack standards — **Satisfied**. No `package.json`, `astro.config.mjs`, or Node toolchain is added to DeviaTDD's repo. Skill *output* may include these files in target repos; that is out of scope for this constitution.
 - §1 Architectural principles — **Satisfied**. Tome operates purely at the prompt layer, layered on top of DeviaTDD's three-layer architecture without modifying it.
