@@ -3,10 +3,18 @@
 Implements the ``deviate content`` Typer sub-app with the ``pre|post``
 dual pattern established by ``deviate.cli.macro``. The sub-app exposes:
 
-* ``--format <blog|x-thread|release-notes|commit-story|resume-bullet>``
+* ``--format <fmt>`` (repeatable; defaults to the build-in-public bundle)
 * ``--window EPIC-X`` (epic-scoped record filtering)
 * ``--slug S`` (draft filename stem)
 * ``--archive EPIC-X`` (tarball ``specs/_archives/<epic>-narrative.tar.gz``)
+
+**Default bundle**: ``--format`` is pre-populated with
+``("blog", "x-thread", "threads")`` so a bare
+``deviate content --slug S --window EPIC-X`` produces a blog draft, an
+X-thread, and a Meta Threads post from the same handover window in one
+call. Explicit ``--format <fmt>`` values REPLACE the default set — they
+do not extend it. See ``src/deviate/prompts/commands/deviate-content.md``
+§ Default Bundle.
 
 All synthesis logic lives in ``deviate.core.synthesis``; this module is
 the thin Typer shell that wires CLI flags to the helpers.
@@ -50,6 +58,20 @@ VALID_FORMATS: tuple[str, ...] = (
     "linkedin",  # LinkedIn resume-discoverability cross-post
 )
 
+# Build-in-public default bundle applied when ``--format`` is omitted.
+# ``/deviate-content`` is invoked by the developer after a phase or epic
+# closes; the default bundle gives them a blog draft, an X-thread, and a
+# Meta Threads post in one call without having to remember which
+# ``--format`` value triggers which template. Power users override
+# per-invocation by passing ``--format <fmt>`` (repeatable) — explicit
+# values REPLACE the default set, they do not extend it. See
+# ``src/deviate/prompts/commands/deviate-content.md`` § Default Bundle.
+DEFAULT_FORMATS: tuple[str, ...] = (
+    "blog",
+    "x-thread",
+    "threads",
+)
+
 content_app = typer.Typer(
     no_args_is_help=True,
     help="Content Capture commands (FLOW-11 / FLOW-12)",
@@ -76,13 +98,15 @@ def content_post() -> None:
 def _content_main(
     ctx: typer.Context,
     format: list[str] = typer.Option(
-        [],
+        list(DEFAULT_FORMATS),
         "--format",
         help=(
             "Synthesis format. Repeatable. One of: "
             f"{', '.join(VALID_FORMATS)}. Pass multiple times to render "
             "more than one format from the same window (e.g. "
-            "'--format blog --format x-thread')."
+            "'--format blog --format x-thread'). Omit entirely to render "
+            "the default build-in-public bundle: "
+            f"{', '.join(DEFAULT_FORMATS)}."
         ),
     ),
     posts: int = typer.Option(
@@ -120,9 +144,11 @@ def _content_main(
             raise typer.Exit(code=2) from exc
         console.print(f"[green]CONTENT_ARCHIVE_WRITTEN[/] {target}")
         return
-    if not format:
-        typer.echo(ctx.get_help())
-        raise typer.Exit(code=0)
+    # ``--format`` has a non-empty default (DEFAULT_FORMATS), so the
+    # bare-invocation help path is handled by Typer's
+    # ``no_args_is_help=True`` on the sub-app above — no in-body check
+    # needed. The validation below still fires when a user passes
+    # ``--format`` with an unknown value.
     bad = [f for f in format if f not in VALID_FORMATS]
     if bad:
         console.print(
@@ -179,4 +205,4 @@ def _run_archive(epic: str) -> Path:
     return archive_path
 
 
-__all__ = ["content_app", "VALID_FORMATS"]
+__all__ = ["content_app", "VALID_FORMATS", "DEFAULT_FORMATS"]

@@ -55,8 +55,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   formats: `test_blog_variants.py` (consolidated to `blog-devrel` +
   `blog-reflective` after Slice B cleanup), `test_threads_format.py`
   (4 tests), `test_linkedin_format.py` (4 tests). 23 new test cases.
+- `## Publication Quality Bar` and `## Anti-patterns to Rewrite Away`
+  sections in `src/deviate/prompts/commands/deviate-content.md`. The
+  prompt now makes the LLM's primacy explicit — the actor generates the
+  publication-quality drafts, the `deviate content` CLI is a scaffold
+  helper, never the finish line. Quality bar is a 4-point gate (reader
+  lead, one concrete number, one audience sentence, CTA in the closing
+  slot); anti-patterns table maps each format's failure modes to their
+  rewrite target. Anchor Fallback Rule updated to reflect that the actor
+  is the refiner.
 
 ### Changed
+- **`deviate content` default bundle**: omitting `--format` now renders the
+  build-in-public default bundle — `blog`, `x-thread`, and `threads` drafts
+  in one invocation from the same handovers load. Previously a bare
+  `deviate content` printed help and exited. Explicit `--format <fmt>`
+  values still REPLACE the default (they do not extend it). New
+  `DEFAULT_FORMATS` constant exported from `src/deviate/cli/content.py`;
+  slash-command prompt at `src/deviate/prompts/commands/deviate-content.md`
+  gained a `## Default Bundle` section. Covered by five new tests in
+  `tests/test_content/test_default_bundle.py`.
 - **Consolidated blog variants** from 4 (`blog`, `blog-saha`,
   `blog-devrel`, `blog-narrative`) to 3 (`blog`, `blog-devrel`,
   `blog-reflective`). The previous `blog-saha` and `blog-narrative`
