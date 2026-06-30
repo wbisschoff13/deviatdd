@@ -30,6 +30,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   coordinated-disclosure window, and explicit in-scope / out-of-scope
   threat model).
 - `/tome-classify --codebase` mode for whole-codebase ingest (cold-start / retroactive docs). Walks manifests, source tree, CLI definitions, config schemas, and public API surface; emits an exhaustive capability table; pre-marks existing valid docs as `update`. Documented in `specs/_product/architecture.md` §3.1 and `specs/_product/domain-model.md` `ClassificationReport.mode`; verifier (C6) handles the new evidence source by reading source files directly.
+- **Documentation site scaffold at `apps/docs/`** (Astro 7 + `@astrojs/starlight`
+  0.41). The 56 markdown pages previously committed under
+  `apps/docs/src/content/docs/{tutorials,how-to,reference,explanation}/` now
+  render as a static site served from `apps/docs/dist/`. The `docs` content
+  collection is schema-validated against `apps/docs/src/content.config.ts`,
+  which declares Diátaxis `doc_type`, `status`, and provenance fields
+  (`last_verified_at`, `verified_sha`, `related_issues`); `docsLoader()` from
+  `@astrojs/starlight/loaders` is wired for the Astro Content Layer. Root
+  `mise.toml` exposes four aggregator tasks — `docs` (dev server),
+  `docs:install`, `docs:build`, `docs:preview` — that delegate to the
+  per-directory `apps/docs/mise.toml`. Verified locally: 56 pages built,
+  Pagefind search index generated, sitemap emitted. The `/deviate-*/tome-*`
+  slash commands remain unaffected; this is renderer-only and orthogonal to
+  the CLI surface documented in Part 1 of `specs/DeviaTDD-api.md`.
+- **Docs audit pass: 19 broken internal links rewritten and the deprecated
+  `apps/docs/src/content/docs/how-to/specify.md` page removed.** Each broken
+  cross-link (typo `/how-to/ad-hoc` → `/how-to/adhoc` ×3, plus redirects
+  to the closest existing page where no clean substitute existed for
+  `/explanation/hitl-gate-{1,2,3}` → `/explanation/hitl-gates`,
+  `/reference/deviate-*-cli` → `/reference/cli`,
+  `/explanation/{complexity-gate,vertical-slice-mandate}` →
+  `/explanation/three-layer-architecture`, and plain-text strips where no
+  good substitute existed) lands as a meaningful navigation surface for
+  the reader. `specify.md` was removed because the SPECIFY phase was
+  deprecated in v2.0 (absorbed into `/deviate-shard`); its two reverse
+  links in `how-to/adhoc.md` and `how-to/intro.md` were rewritten to
+  `/how-to/plan` with an inline pointer to the v2.0 CHANGELOG note.
+  Verified by re-running `astro build`: 56 HTML pages emit, zero
+  link-internal-broken warnings.
 
 ### Changed
 - Removed all references to flows (FLOW-04..FLOW-10, `specs/_product/flows/flows-tome.md`) from the seven Tome subsystem prompt bodies under `src/deviate/prompts/commands/tome-*.md`. Flows remain as documentation artifacts under `specs/_product/flows/`; the prompts now reference `/tome-classify`, `/tome-write-tutorial`, `/tome-write-how-to`, `/tome-write-reference`, `/tome-write-explanation`, `/tome-verify-docs`, and `/tome-setup` directly, and read source-of-truth inputs only from `specs/_product/architecture.md` and `specs/_product/domain-model.md`.
