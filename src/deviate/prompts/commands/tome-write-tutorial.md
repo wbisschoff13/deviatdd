@@ -263,9 +263,8 @@ If any check fails, halt and emit a one-line failure describing the failing chec
 
 <output_format>
 
-Present the final response as a single fenced markdown block:
+Present the final response as the raw markdown page (no surrounding fenced code block):
 
-````markdown
 ---
 title: "..."
 description: "..."
@@ -311,9 +310,8 @@ Expected result:
 - [Next tutorial](/tutorials/related-learning)
 - [How to follow-up task](/how-to/related-task)
 - [Quadrant intro](/tutorials/index)
-````
 
-No content outside this fenced block. No prose preamble ("Here is your tutorial:"). No postamble ("Let me know if you need…").
+No content outside the page. No prose preamble ("Here is your tutorial:"). No postamble ("Let me know if you need…").
 
 </output_format>
 

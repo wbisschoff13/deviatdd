@@ -145,7 +145,6 @@ For every updated file, verify the file's line count stays within the per-writer
 
 The verification report is a single markdown block with exactly these sections in this order:
 
-```markdown
 # Verification Report — <sha-or-mode>
 
 **Status**: <PASS-ONLY | FAIL | HUMAN-REVIEW>
@@ -178,7 +177,6 @@ The verification report is a single markdown block with exactly these sections i
 - <file-1>
 - <file-2>
 - ...
-```
 
 **Status line rules**:
 

@@ -162,7 +162,6 @@ The action enum drives three distinct downstream gates:
 
 The report is a single markdown block with exactly three sections in this order, prefixed by an overall `Status` line:
 
-```markdown
 # Classification Report — <sha-or-mode>
 
 **Status**: <no-change | human-review | setup-required | mixed>
@@ -177,7 +176,6 @@ The report is a single markdown block with exactly three sections in this order,
 
 ## No-Touch List
 - <files that must not be modified; existing valid content to preserve>
-```
 
 **Column semantics**:
 - `capability` — User-facing capability exposed or modified.

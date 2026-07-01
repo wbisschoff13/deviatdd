@@ -270,9 +270,8 @@ If any check fails, halt and emit a one-line failure describing the failing chec
 
 <output_format>
 
-Present the final response as a single fenced markdown block:
+Present the final response as the raw markdown page (no surrounding fenced code block):
 
-````markdown
 ---
 title: "..."
 description: "..."
@@ -312,9 +311,8 @@ Example:
 - [Tutorial](/tutorials/related-learning-path)
 - [How-To](/how-to/related-task)
 - [Explanation](/explanation/related-concept)
-````
 
-No content outside this fenced block. No prose preamble ("Here is your reference:"). No postamble ("Let me know if you need…").
+No content outside the page. No prose preamble ("Here is your reference:"). No postamble ("Let me know if you need…").
 
 </output_format>
 
