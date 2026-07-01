@@ -1,0 +1,8 @@
+label: "Reference"
+pages:
+  - index.md
+  - cli
+  - slash-commands
+  - config
+  - state-and-ledger
+  - tome

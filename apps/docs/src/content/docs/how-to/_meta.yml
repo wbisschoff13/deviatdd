@@ -1,0 +1,8 @@
+label: "How-To"
+pages:
+  - index.md
+  - getting-started
+  - feature-lifecycle
+  - issue-execution
+  - tdd-micro-cycle
+  - recovery
